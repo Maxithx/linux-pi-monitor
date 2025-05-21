@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Systemovervågning{% endblock %}
+
+{% block page_title %}Live System Monitor{% endblock %}
+
+{% block content %}
+<p style="margin-bottom: 10px;">
+    Herunder kan du se realtidsovervågning via <strong>Glances</strong>.  
+    Glances giver overblik over CPU, RAM, netværk, diske og meget mere.
+</p>
+
+<iframe 
+    src="http://{{ settings.pi_host }}:61208/" 
+    width="100%" 
+    height="600px" 
+    style="border: 2px solid #333; border-radius: 6px;"
+    title="Glances Systemmonitor">
+</iframe>
+
+<p style="margin-top: 15px;">
+    ← <a href="{{ url_for('settings.settings') }}">Tilbage til Indstillinger</a>
+</p>
+{% endblock %}

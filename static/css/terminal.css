@@ -1,0 +1,93 @@
+#terminal {
+  width: 100%;
+  height: 400px;
+  background-color: black;
+  box-sizing: border-box;
+  margin-bottom: 15px;
+  border: 1px solid #222;
+  border-radius: 4px;
+}
+
+/* Beskyt xterm mod globale styles */
+#terminal .xterm {
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+/* Kommando-visning (valgfrit) */
+.prompt {
+  color: #c0c0c0;
+  margin-bottom: 5px;
+}
+
+.prompt .user {
+  color: #00ffae;
+}
+
+.prompt .host {
+  color: #3ea6ff;
+}
+
+.prompt .path {
+  color: #ffff88;
+}
+
+.result {
+  white-space: pre-wrap;
+  color: #bbb;
+  margin-bottom: 15px;
+}
+
+.home-section h1 {
+  margin-bottom: 20px;
+}
+
+.terminal-title {
+  margin-bottom: 20px;
+}
+
+.terminal-hint {
+  margin-top: 10px;
+  color: #888;
+}
+
+#command-section {
+  margin-top: 30px;
+  padding-left: 5px;
+  max-width: 800px;
+}
+
+#search-box {
+  margin-bottom: 15px;
+  padding: 5px;
+  width: 100%;
+  max-width: 400px;
+}
+
+#command-list {
+  margin-bottom: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #444;
+  padding: 10px;
+  border-radius: 5px;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+#add-command-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+
+#add-command-form button {
+  width: 100px;
+}
+
+
+
+

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Logs{% endblock %}
+{% block page_title %}Logs{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 20px;">Systemlog (Flask-server)</h1>
+
+<!-- Links til CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
+
+<div class="container">
+    <!-- Knapper øverst -->
+    <div class="logs-header" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <a href="{{ url_for('dashboard_bp.dashboard') }}" class="button-link">← Tilbage til Dashboard</a>
+        <form onsubmit="openLogFile(); return false;">
+            <button type="submit" class="button-link">📄 Åbn hele logfilen i Notesblok</button>
+        </form>
+    </div>
+
+    <!-- Logs visning -->
+    <div class="logs-container">
+        <ul id="logs-list">
+            {% for log in logs %}
+                <li>{{ log }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Statusbesked -->
+    <p id="log-status" style="margin-top: 20px; color: #0f0;"></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openLogFile() {
+    fetch("/open-log", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+            const msg = document.getElementById("log-status");
+            if (data.success) {
+                msg.textContent = "Logfilen blev åbnet.";
+                msg.style.color = "#0f0";
+            } else {
+                msg.textContent = "Fejl ved åbning: " + data.error;
+                msg.style.color = "red";
+            }
+        })
+        .catch(() => {
+            const msg = document.getElementById("log-status");
+            msg.textContent = "Netværksfejl – kunne ikke kontakte serveren.";
+            msg.style.color = "red";
+        });
+}
+</script>
+{% endblock %}

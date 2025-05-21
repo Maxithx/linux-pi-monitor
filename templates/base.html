@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <script>
+  (function () {
+    const savedState = localStorage.getItem("sidebarState") || "open";
+    document.documentElement.classList.add(`sidebar-${savedState}`);
+  })();
+</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Linux Monitor{% endblock %}</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet">
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
+</head>
+<body class="sidebar-{{ sidebar_state }}">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo-details">
+      <div class="logo_name">Linux/Pi Monitor</div>
+      <i class='bx bx-menu' id="btn"></i>
+    </div>
+    <ul class="nav-list">
+      <li>
+        <a href="{{ url_for('dashboard_bp.dashboard') }}">
+          <i class='bx bx-grid-alt'></i>
+          <span class="links_name">Dashboard</span>
+        </a>
+        <span class="tooltip">Dashboard</span>
+      </li>
+      <li>
+        <a href="{{ url_for('settings.settings') }}">
+          <i class='bx bx-cog'></i>
+          <span class="links_name">Settings</span>
+        </a>
+        <span class="tooltip">Settings</span>
+      </li>
+      <li>
+        <a href="{{ url_for('logs.logs') }}">
+          <i class='bx bx-chat'></i>
+          <span class="links_name">Logs</span>
+        </a>
+        <span class="tooltip">Logs</span>
+      </li>
+      <li>
+        <a href="{{ url_for('settings.htop_monitor') }}">
+          <i class='bx bx-pie-chart-alt-2'></i>
+          <span class="links_name">Live System (HTOP)</span>
+        </a>
+        <span class="tooltip">Live HTOP</span>
+      </li>
+      <li>
+        <a href="{{ url_for('terminal.terminal') }}">
+          <i class='bx bx-terminal'></i>
+          <span class="links_name">Terminal</span>
+        </a>
+        <span class="tooltip">Terminal</span>
+      </li>
+      <li class="profile">
+        <div class="profile-details">
+          <img src="{{ url_for('static', filename='images/profile.png') }}" alt="profileImg">
+          <div class="name_job">
+            <div class="name">THXMAN</div>
+            <div class="job">Developer</div>
+          </div>
+        </div>
+        <i class='bx bx-log-out' id="log_out"></i>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Content -->
+  <section class="home-section">
+    {% block content %}{% endblock %}
+  </section>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

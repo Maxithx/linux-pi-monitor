@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Indstillinger{% endblock %}
+{% block page_title %}Raspberry Pi Indstillinger{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 20px;">Settings</h1>
+
+<!-- === STILARK === -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+
+<div class="container">
+
+    <!-- === FORBINDELSESSTATUS TIL PI === -->
+    <div id="connection-status">
+        <div id="status-message" style="margin-top: 10px;"></div>
+        {% if connection_status == 'connected' %}
+            <div class="status-indicator"><span class="dot dot-green"></span>Forbundet til Linux</div>
+        {% elif connection_status == 'disconnected' %}
+            <div class="status-indicator"><span class="dot dot-red"></span>Ingen forbindelse til Linux</div>
+        {% endif %}
+    </div>
+
+    <!-- === BRUGERFEEDBACK VED GEM/NULSTIL/STATUS === -->
+    {% if request.args.get('saved') == 'true' %}
+        <div class="alert alert-success" id="saved-alert">✔️ Indstillinger blev gemt</div>
+    {% elif request.args.get('reset') == 'true' %}
+        <div class="alert alert-info" id="reset-alert">🔄 Indstillinger blev nulstillet</div>
+    {% endif %}
+
+    {% if request.args.get('status') == 'success' %}
+        <div class="alert alert-success" id="status-alert">✅ Forbindelse til Linux er godkendt!</div>
+    {% elif request.args.get('status') == 'fail' %}
+        <div class="alert alert-danger" id="status-alert">❌ Forbindelse mislykkedes. Tjek indstillingerne igen.</div>
+    {% elif request.args.get('status') == 'already' %}
+        <div class="alert alert-info" id="status-alert">ℹ️ Du er allerede forbundet.</div>
+    {% endif %}
+
+    <!-- === INDSTILLINGER TIL PI-FORBINDELSE === -->
+    <form id="save-form">
+        <label for="pi_host">Pi Host</label>
+        <input type="text" name="pi_host" id="pi_host" value="{{ settings.pi_host }}">
+
+        <label for="pi_user">Pi Bruger</label>
+        <input type="text" name="pi_user" id="pi_user" value="{{ settings.pi_user }}">
+
+        <label for="auth_method">Godkendelsesmetode</label>
+        <select name="auth_method" id="auth_method" onchange="toggleAuthFields()">
+            <option value="key" {% if settings.auth_method == 'key' %}selected{% endif %}>SSH-nøgle</option>
+            <option value="password" {% if settings.auth_method == 'password' %}selected{% endif %}>Password</option>
+        </select>
+
+    <div id="key_fields">
+        <label for="ssh_key_path">Sti til SSH-nøgle</label>
+        <input type="text" name="ssh_key_path" id="ssh_key_path" value="{{ settings.ssh_key_path }}">
+    </div>
+
+    <div id="password_field" class="hidden">
+        <label for="password">Password</label>
+        <input type="password" name="password" id="password" value="{{ settings.password or '' }}">
+    </div>
+
+        <button type="submit">Gem</button>
+    </form>
+
+    <!-- === RYD-KNAP TIL AT TØMME FELTERNE === -->
+    <button id="clear-settings-btn" style="margin-top: 10px;">Ryd indstillinger</button>
+
+    <hr>
+
+    <!-- === GLANCES SYSTEMMONITOR-SEKTION === -->
+    <div style="margin-top: 40px;">
+        <h2>Glances Systemmonitor</h2>
+
+        <p style="color: #ccc; margin-bottom: 10px;">
+            <strong>Hvad er Glances?</strong> Glances er et avanceret systemovervågningsværktøj, som giver live data om CPU, RAM, disk og netværk på din Raspberry Pi.  
+            Det er nødvendigt for at <strong>Live System (HTOP)</strong>-siden virker korrekt.
+        </p>
+
+        <!-- STATUS FOR GLANCES -->
+    <div id="glances-status-box" style="margin-bottom: 10px;">
+            <span id="glances-status-text" style="color: yellow;">Henter status...</span>
+    </div>
+
+    <!-- KNAPPER TIL INSTALLATION, START, LOG, AFINSTALLATION -->
+    <div id="installing-text" style="color: lightgreen; display: none; margin-top: 10px;">
+        Installerer Glances... dette kan tage op til 1 minut før loggen starter.
+        <span class="spinner"></span>
+    </div>
+        <button id="install-glances-btn">Installer Glances</button>
+
+        <button id="start-glances-service-btn" style="margin-left: 10px;">Start Glances-tjeneste</button>
+        <button id="view-glances-log-btn" style="margin-left: 10px;">Se Glances log</button>
+
+        <p style="margin-top: 20px; color: orange; font-size: 14px;">
+            Hvis du afinstallerer Glances og tilhørende softwarepakker, vil <strong>Live System (HTOP)</strong>-siden ikke længere virke.
+        </p>
+
+        <button id="uninstall-glances" class="uninstall-button">Afinstaller Glances</button>
+
+    <!-- === VIS STATUS VED AFINSTALLATION === -->
+    <div id="uninstalling-text" style="color: orange; display: none; margin-top: 10px;">
+        Afinstallerer Glances... dette kan tage op til 1 minut før loggen starter.
+        <span class="spinner"></span>
+    </div>
+
+    <!-- OUTPUT-BOKSE MED TERMINALFØLELSE -->
+        <pre id="glances-output" style="background-color: #000; color: #0f0; padding: 10px; display: none; margin-top: 10px;"></pre>
+        <pre id="glances-service-output" style="background-color: #000; color: #0f0; padding: 10px; display: none; margin-top: 10px;"></pre>
+        <pre id="glances-log-output" style="background-color: #111; color: #0f0; padding: 10px; display: none; margin-top: 10px;"></pre>
+    </div>
+
+    <!-- === GENSTART LINUX-KNAP === -->
+    <div id="reboot-section" style="margin-top: 30px;">
+        <button onclick="rebootLinux()">🔁 Genstart Linux</button>
+        <div id="reboot-feedback">
+            <div id="reboot-connection-status"></div>
+            <p id="reboot-status" style="margin-top: 10px; color: #0af;"></p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- === JS-FIL TIL ALLE KNAPPER OG HENTNINGER === -->
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}

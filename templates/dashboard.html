@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Linux Monitor{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 20px;">Dashboard Linux Monitor</h1>
+<!-- Home Section -->
+<section class="home-section">
+    <!-- Øverste række: System info -->
+    <div class="dashboard-grid">
+        <div class="box" id="uptimeInfo">
+            <div class="title"><i class="fas fa-clock"></i> System Uptime:</div>
+            <div class="value">--</div>
+        </div>
+        <div class="box" id="tempInfo">
+            <div class="title"><i class="fas fa-thermometer-half"></i> CPU Temp:</div>
+            <div class="value">-- °C</div>
+        </div>
+    </div>
+
+    <!-- Anden række: CPU, RAM, Disk, Netværk -->
+    <div class="dashboard-grid">
+        <div class="box" id="cpuInfo">
+            <div class="title"><i class="fas fa-microchip"></i> CPU:</div>
+            <div class="value">--%</div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="cpuBar"></div>
+            </div>
+        </div>
+        <div class="box" id="ramInfo">
+            <div class="title"><i class="fas fa-memory"></i> RAM:</div>
+            <div class="value">--%</div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="ramBar"></div>
+            </div>
+        </div>
+        <div class="box" id="diskInfo">
+            <div class="title"><i class="fas fa-hdd"></i> Disk:</div>
+            <div class="value">--%</div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="diskBar"></div>
+            </div>
+        </div>
+        <div class="box" id="netInfo">
+            <div class="title"><i class="fas fa-network-wired"></i> Netværk:</div>
+            <div class="value">-- KB/s</div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="netBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafer -->
+    <div class="chart-grid">
+        <div class="chart-box">
+            <h3><i class="fas fa-microchip"></i> CPU</h3>
+            <canvas id="cpuChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3><i class="fas fa-memory"></i> RAM</h3>
+            <canvas id="ramChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3><i class="fas fa-hdd"></i> Disk</h3>
+            <canvas id="diskChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3><i class="fas fa-network-wired"></i> Netværk</h3>
+            <canvas id="netChart"></canvas>
+        </div>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/chart-setup.js') }}"></script>
+{% endblock %}

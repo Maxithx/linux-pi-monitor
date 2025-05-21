@@ -1,0 +1,129 @@
+/* === GENERELT === */
+/* Grundlæggende layout og farver */
+body {
+  background-color: #111;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  padding: 0;
+}
+
+/* === CONTAINER === */
+/* Centrering og margin/padding for hele indholdsområdet */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* === FORM ELEMENTER === */
+/* Standard styling for formularfelter og labels */
+label {
+  display: block;
+  margin-top: 10px;
+}
+
+input, select {
+  width: 100%;
+  padding: 8px;
+  margin: 10px 0;
+  border-radius: 6px;
+  background-color: #222;
+  border: 1px solid #444;
+  color: #fff;
+}
+
+/* === KNAPPER === */
+/* Primær styling for knapper inkl. hover-effekt */
+button {
+  background-color: #2196F3;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #0d8ae3;
+}
+
+/* === LINKS === */
+a {
+  color: #2196F3;
+  text-decoration: none;
+}
+
+/* === SKJUL ELEMENTER === */
+.hidden {
+  display: none;
+}
+
+/* === BESKEDER (ALERTS) === */
+/* Farvede beskeder med baggrund efter status */
+.alert {
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.alert-success {
+  background-color: #2e7d32;
+  color: white;
+}
+
+.alert-danger {
+  background-color: #c62828;
+  color: white;
+}
+
+.alert-info {
+  background-color: #1976d2;
+  color: white;
+}
+
+/* === STATUS-INDIKATOR === */
+/* Statussektion for forbindelser med farvede prikker */
+.status-indicator {
+  font-weight: bold;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-indicator .dot {
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-green {
+  background-color: #4CAF50;
+}
+
+.dot-red {
+  background-color: #F44336;
+}
+
+/* === SPINNER ANIMATION === */
+/* Grøn roterende spinner bruges ved installation */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #0f0;
+  border-radius: 50%;
+  border-top: 3px solid transparent;
+  animation: spin 0.8s linear infinite;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
