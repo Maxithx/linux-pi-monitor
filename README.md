@@ -160,7 +160,7 @@ Perfect for quick admin tasks without leaving the browser.
 
 🧩 Extra Tools
 
-On the Settings page you can install/remove optional terminal tools:
+On the Settings page you can install/remove optional software:
 
 Neofetch
 
