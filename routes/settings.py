@@ -224,10 +224,10 @@ def check_ssh():
 # ---------------------------------------------------------------------------
 # HTOP view (uændret – bruger kun host til at bygge siden)
 # ---------------------------------------------------------------------------
-@settings_bp.route("/htop-monitor")
-def htop_monitor():
+@settings_bp.route("/glances")
+def glances():
     s = _get_active_ssh_settings()
-    return render_template("htop-monitor.html", settings={"pi_host": s.get("pi_host", "")})
+    return render_template("glances.html", settings={"pi_host": s.get("pi_host", "")})
 
 # ---------------------------------------------------------------------------
 # Reboot – brug aktiv profil/legacy med korte timeouts
