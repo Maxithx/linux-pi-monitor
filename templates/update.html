@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Updates{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 22px 24px; color: #eaeaea;">
+    <h1 style="margin:0 0 14px;">Software Updates</h1>
+
+    <!-- Status + Shortcuts -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:16px;">
+        <div class="card" style="background:#121421; border-radius:10px; padding:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div style="font-weight:600;">Status</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button id="btn-refresh" class="btn small" title="Refresh">⟳</button>
+                </div>
+            </div>
+            <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span id="badge-conn"
+                    style="display:inline-block; padding:4px 10px; border-radius:999px; font-size:.9rem; background:#2b2f45;">
+                    {{ 'Connected' if connection_status=='connected' else 'Disconnected' }}
+                </span>
+                <span id="badge-reboot"
+                    style="display:none; padding:4px 10px; border-radius:999px; font-size:.9rem; background:#452b2b;">
+                    Reboot required
+                </span>
+                <button id="btn-reboot" class="btn warn small" title="Reboot the remote machine" disabled>Reboot
+                    now</button>
+            </div>
+            <div style="margin-top:8px; opacity:.8; font-size:.95rem;">Run the checks below to see available updates.
+            </div>
+        </div>
+
+        <div class="card" style="background:#121421; border-radius:10px; padding:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div style="font-weight:600;">Shortcuts</div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                <a href="{{ url_for('settings.settings') }}" class="btn small">Edit SSH/Profile</a>
+                <a href="{{ url_for('settings.glances') }}" class="btn small">Open Glances</a>
+                <a href="{{ url_for('terminal.terminal') }}" class="btn small">Open Terminal</a>
+            </div>
+            <div style="margin-top:8px; opacity:.8; font-size:.95rem;">Updates run over SSH using your selected profile.
+            </div>
+        </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="card" style="background:#121421; border-radius:10px; padding:14px; margin-bottom:14px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <!-- CHECK -->
+            <button class="btn" data-action="apt_update">APT: Update index</button>
+            <button class="btn" data-action="apt_list">APT: List upgradable</button>
+            <button class="btn" data-action="apt_dry_full">APT: Dry-run full-upgrade</button>
+
+            <!-- APPLY -->
+            <button class="btn success" data-action="apt_upgrade">Apply (safe upgrade)</button>
+            <button class="btn warn" data-action="apt_full_upgrade">Apply (full upgrade)</button>
+
+            <!-- ONE-CLICK FULL -->
+            <button class="btn success" data-action="full_noob_update"
+                title="apt full-upgrade + cleanup + Flatpak/Snap + reboot check">
+                Full Update (Recommended)
+            </button>
+
+            <!-- FLATPAK -->
+            <button class="btn" data-action="flatpak_dry">Flatpak: Dry-run</button>
+            <button class="btn" data-action="flatpak_apply">Flatpak: Update</button>
+
+            <!-- SNAP -->
+            <button class="btn" data-action="snap_list">Snap: List</button>
+            <button class="btn" data-action="snap_refresh">Snap: Refresh</button>
+
+            <!-- DOCKER -->
+            <button class="btn" data-action="docker_ps">Docker: Running</button>
+        </div>
+    </div>
+
+    <!-- Available updates (table) -->
+    <div class="card" style="background:#121421; border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
+        <div
+            style="padding:12px 14px; border-bottom:1px solid #22263a; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-weight:600;">Available updates</div>
+            <div style="display:flex; gap:8px;">
+                <button id="btn-install-security" class="btn small"
+                    title="Install only updates from the security pocket">Install security updates</button>
+                <button id="btn-install-all" class="btn small" title="Run full update (recommended)">Install all
+                    updates</button>
+            </div>
+        </div>
+        <div id="updates-empty" style="padding:14px; display:none; opacity:.85;">No updates found.</div>
+        <div id="updates-table" style="max-height:360px; overflow:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:.95rem;">
+                <thead>
+                    <tr style="background:#0f111b;">
+                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Name</th>
+                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Version</th>
+                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Severity</th>
+                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Details</th>
+                    </tr>
+                </thead>
+                <tbody id="updates-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Output -->
+    <div class="card" style="background:#0f111b; border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
+        <div style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600;">Output</div>
+        <pre id="out"
+            style="margin:0; padding:14px; max-height:420px; overflow:auto; background:#0b0d15; color:#cfe3ff; font-family:'Fira Mono', monospace; font-size:13px; white-space:pre-wrap;"></pre>
+    </div>
+
+    <!-- Help -->
+    <div class="card" style="background:#121421; border-radius:10px; padding:0; overflow:hidden;">
+        <details>
+            <summary
+                style="list-style:none; cursor:pointer; padding:14px; font-weight:600; border-bottom:1px solid #22263a;">
+                What do these buttons do?
+            </summary>
+            <div style="padding:14px; font-size:.95rem; line-height:1.45;">
+                <ul style="margin:0; padding-left:18px;">
+                    <li><strong>APT: Update index</strong> — Fetch the latest package lists (run this before upgrading).
+                    </li>
+                    <li><strong>APT: List upgradable</strong> — Show packages that <em>can</em> be upgraded (no
+                        changes).</li>
+                    <li><strong>APT: Dry-run full-upgrade</strong> — Simulate a full upgrade and show what would change.
+                    </li>
+                    <li><strong>Apply (safe upgrade)</strong> — <code>apt upgrade</code>: Upgrade without removing
+                        existing packages.</li>
+                    <li><strong>Apply (full upgrade)</strong> — <code>apt full-upgrade</code>: May install/remove
+                        packages to resolve dependencies.</li>
+                    <li><strong>Full Update (Recommended)</strong> — One-click full update + cleanup + Flatpak/Snap +
+                        reboot check.</li>
+                    <li><strong>Flatpak</strong> — Dry-run or apply Flatpak updates.</li>
+                    <li><strong>Snap</strong> — List or refresh snaps now (snaps also auto-update).</li>
+                    <li><strong>Docker: Running</strong> — Show running containers via <code>docker ps</code>.</li>
+                </ul>
+                <div style="opacity:.8; margin-top:10px;">
+                    The <strong>Reboot required</strong> badge appears when the system requests a reboot after updates.
+                </div>
+            </div>
+        </details>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const out = document.getElementById('out');
+    const badgeReboot = document.getElementById('badge-reboot');
+    const btnReboot = document.getElementById('btn-reboot');
+    const bodyEl = document.getElementById('updates-body');
+    const emptyEl = document.getElementById('updates-empty');
+
+    function append(text) {
+        out.textContent = text;
+        out.scrollTop = out.scrollHeight;
+    }
+
+    async function run(action) {
+        append('Running: ' + action + ' ...');
+        try {
+            const r = await fetch('/updates/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            const j = await r.json();
+            if (!j.ok) {
+                append('Error: ' + (j.error || 'unknown'));
+                return;
+            }
+            const stdout = (j.stdout || '').trim();
+            const stderr = (j.stderr || '').trim();
+            let text = '';
+            if (stdout) text += stdout + '\n';
+            if (stderr) text += '\n[stderr]\n' + stderr + '\n';
+            text += `\n[exit ${j.rc}]`;
+            append(text);
+
+            if (action === 'apt_full_upgrade' || action === 'apt_upgrade' || action === 'full_noob_update'
+                || action.startsWith('flatpak') || action === 'snap_refresh') {
+                checkReboot();
+                fetchUpdates();
+            }
+        } catch (e) {
+            append('Network error: ' + e);
+        }
+    }
+
+    async function rebootNow() {
+        if (!confirm('This will reboot the remote machine and temporarily disconnect your session. Continue?')) return;
+        try {
+            btnReboot.disabled = true;
+            append('Rebooting…');
+            const r = await fetch('/reboot-linux', { method: 'POST' });
+            const j = await r.json();
+            if (j && j.success) {
+                append('Reboot command sent. Connection may drop shortly (expected).');
+            } else {
+                append('Reboot failed: ' + (j && (j.error || j.message) || 'unknown error'));
+            }
+        } catch (e) {
+            append('Network error while rebooting: ' + e);
+        }
+    }
+
+    async function checkReboot() {
+        try {
+            const r = await fetch('/updates/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'reboot_required' })
+            });
+            const j = await r.json();
+            const need = (j.ok && (j.stdout || '').includes('REBOOT_REQUIRED'));
+            badgeReboot.style.display = need ? 'inline-block' : 'none';
+            btnReboot.disabled = !need;
+            btnReboot.title = need ? 'Reboot the remote machine' : 'No reboot required';
+        } catch {
+            // keep current state
+        }
+    }
+
+    function sevBadge(security) {
+        return security
+            ? '<span style="background:#332018;border:1px solid #6d3d2b;color:#ffcfb8;padding:3px 8px;border-radius:999px;font-size:.82rem;">Security</span>'
+            : '<span style="background:#1a2237;border:1px solid #2a3050;color:#cfd6ff;padding:3px 8px;border-radius:999px;font-size:.82rem;">Normal</span>';
+    }
+
+    function rowDetail(pkg) {
+        const cves = (pkg.cves || []).map(c => `<a href="https://ubuntu.com/security/${c}" target="_blank" rel="noopener">${c}</a>`).join(', ');
+        const cl = pkg.links?.changelog ? `<a href="${pkg.links.changelog}" target="_blank" rel="noopener">Changelog</a>` : '';
+        return `
+          <tr class="detail">
+            <td colspan="4" style="background:#0f111b; border-top:1px solid #22263a; padding:10px 12px;">
+              <div style="display:flex; gap:18px; flex-wrap:wrap;">
+                <div><strong>Repo:</strong> ${pkg.repo || '-'}</div>
+                <div><strong>Current → Candidate:</strong> ${pkg.current || '-'} → ${pkg.candidate || '-'}</div>
+                <div><strong>CVE:</strong> ${cves || '-'}</div>
+                <div><strong>Links:</strong> ${cl || '-'}</div>
+              </div>
+              ${pkg.summary ? `<div style="margin-top:8px; opacity:.9;">${pkg.summary}</div>` : ''}
+            </td>
+          </tr>`;
+    }
+
+    function pkgRow(pkg, idx) {
+        const version = `${pkg.candidate || '-'}`;
+        const sev = sevBadge(!!pkg.security);
+        const summaryShort = (pkg.summary || '').replace(/</g, '&lt;').slice(0, 140) + (pkg.summary && pkg.summary.length > 140 ? '…' : '');
+        return `
+          <tr class="pkg" data-idx="${idx}" style="cursor:pointer;">
+            <td style="padding:10px 12px; border-bottom:1px solid #22263a;">${pkg.name}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #22263a;">${version}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #22263a;">${sev}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #22263a;" title="${(pkg.summary || '').replace(/"/g, '&quot;')}">
+              ${summaryShort || '-'}
+            </td>
+          </tr>`;
+    }
+
+    async function fetchUpdates() {
+        try {
+            bodyEl.innerHTML = '<tr><td colspan="4" style="padding:12px; opacity:.8;">Loading…</td></tr>';
+            const r = await fetch('/updates/list');
+            const j = await r.json();
+            if (!j.ok) {
+                bodyEl.innerHTML = `<tr><td colspan="4" style="padding:12px; color:#ffb3b3;">Error: ${j.error || 'unknown'}</td></tr>`;
+                emptyEl.style.display = 'none';
+                return;
+            }
+            const data = j.updates || [];
+            if (!data.length) {
+                bodyEl.innerHTML = '';
+                emptyEl.style.display = 'block';
+                return;
+            }
+            emptyEl.style.display = 'none';
+            let html = '';
+            data.forEach((pkg, i) => {
+                html += pkgRow(pkg, i);
+                html += rowDetail(pkg);
+            });
+            bodyEl.innerHTML = html;
+
+            // toggle details on row click (collapsed by default)
+            const rows = Array.from(document.querySelectorAll('tr.pkg'));
+            rows.forEach((row) => {
+                const detail = row.nextElementSibling;
+                if (detail && detail.classList.contains('detail')) detail.style.display = 'none';
+                row.addEventListener('click', () => {
+                    const d = row.nextElementSibling;
+                    if (d && d.classList.contains('detail')) {
+                        d.style.display = d.style.display === 'none' ? '' : 'none';
+                    }
+                });
+            });
+        } catch (e) {
+            bodyEl.innerHTML = `<tr><td colspan="4" style="padding:12px; color:#ffb3b3;">Network error: ${e}</td></tr>`;
+            emptyEl.style.display = 'none';
+        }
+    }
+
+    // Buttons
+    document.querySelectorAll('.btn[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => run(btn.dataset.action));
+    });
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+        run('apt_list'); checkReboot(); fetchUpdates();
+    });
+    document.getElementById('btn-install-all').addEventListener('click', () => run('full_noob_update'));
+    document.getElementById('btn-install-security').addEventListener('click', async () => {
+        append('Running: security updates (filtered)…');
+        await run('apt_update');
+        await run('apt_full_upgrade');
+    });
+    btnReboot.addEventListener('click', rebootNow);
+
+    // Initial load
+    checkReboot();
+    fetchUpdates();
+</script>
+
+<style>
+    .btn {
+        background: #1b2035;
+        border: 1px solid #2a3050;
+        color: #e7ecff;
+        padding: 9px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .btn.small {
+        padding: 6px 10px;
+        font-size: .9rem;
+    }
+
+    .btn:hover {
+        filter: brightness(1.12);
+    }
+
+    .btn.success {
+        background: #19351f;
+        border-color: #285b31;
+    }
+
+    .btn.warn {
+        background: #352319;
+        border-color: #5b3d28;
+    }
+
+    .card {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+    }
+
+    details[open] summary {
+        border-bottom: 1px solid #22263a;
+    }
+
+    summary::-webkit-details-marker {
+        display: none;
+    }
+
+    table th,
+    table td {
+        vertical-align: top;
+    }
+</style>
+{% endblock %}

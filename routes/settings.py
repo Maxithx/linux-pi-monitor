@@ -1,9 +1,13 @@
 # routes/settings.py
 import os
 import json
+import re
+import shlex
 import socket
 import paramiko
 from flask import Blueprint, render_template, request, jsonify, current_app
+from .ssh_utils import ssh_connect, ssh_exec
+
 
 # === Blueprint for Settings routes ===
 settings_bp = Blueprint("settings", __name__)
@@ -60,6 +64,22 @@ def _is_configured(s: dict) -> bool:
     if auth == "key":
         return bool(keyp)
     return bool(pw)
+
+def _with_sudo_password(cmd: str, settings: dict) -> str:
+    """
+    Hvis profilen har sudo-password, konverter alle 'sudo' tokens til:
+      printf "%s\n" "<pw>" | sudo -S -p "" ...
+    Ellers returneres cmd uændret.
+    """
+    pw = (settings.get("password") or "").strip()
+    if not pw or "sudo" not in cmd:
+        return cmd
+    quoted_pw = shlex.quote(pw)
+    return re.sub(
+        r'(?<![A-Za-z0-9_-])sudo(?![A-Za-z0-9_-])',
+        f'printf "%s\\n" {quoted_pw} | sudo -S -p ""',
+        cmd
+    )
 
 def _quick_port_check(host: str, port: int = 22, timeout: float = 0.7) -> bool:
     try:
@@ -144,14 +164,12 @@ def settings():
     """
     Viser settings-siden. Felterne udfyldes fra aktive SSH settings (profil) eller legacy.
     """
-    # Brug aktive settings (profil) for at udfylde formularen
     active = _get_active_ssh_settings()
     connection_status = "connected" if test_ssh_connection() else "disconnected"
     return render_template("settings.html", settings=active, connection_status=connection_status)
 
 # ---------------------------------------------------------------------------
 # Legacy "save-settings" (backwards compat). UI bruger nu "Save profile".
-# Beholder denne route for ikke at bryde andre dele – men den testes stadig.
 # ---------------------------------------------------------------------------
 @settings_bp.route("/save-settings", methods=["POST"])
 def save_settings():
@@ -195,9 +213,6 @@ def save_settings():
 
 # ---------------------------------------------------------------------------
 # Status endpoints (bruges af JS-indikatorer)
-#  - /check-ssh-status : bruges i eksisterende JS
-#  - /check-ssh        : simplere alias
-# Begge svarer hurtigt 'not_configured' når felter mangler (ingen Paramiko)
 # ---------------------------------------------------------------------------
 def _status_payload():
     s = _get_active_ssh_settings()
@@ -222,7 +237,7 @@ def check_ssh():
     return jsonify(_status_payload())
 
 # ---------------------------------------------------------------------------
-# HTOP view (uændret – bruger kun host til at bygge siden)
+# HTOP/Glances view (bruger kun host til at bygge siden)
 # ---------------------------------------------------------------------------
 @settings_bp.route("/glances")
 def glances():
@@ -248,8 +263,207 @@ def reboot_linux():
         else:
             ssh.connect(s["pi_host"], username=s["pi_user"], password=s.get("password",""), timeout=4)
 
-        ssh.exec_command("sudo reboot")
+        # Brug samme sudo-password teknik
+        cmd = _with_sudo_password("sudo reboot", s)
+        ssh.exec_command(cmd)
         ssh.close()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+# ---------------------------------------------------------------------------
+# Updates UI
+# ---------------------------------------------------------------------------
+@settings_bp.route("/updates", endpoint="updates")
+def updates():
+    """
+    'Windows Update'-agtig side for Linux (APT/Flatpak/Snap/Docker).
+    Viser også connection-status badge.
+    """
+    connection_status = "connected" if test_ssh_connection() else "disconnected"
+    return render_template("update.html", connection_status=connection_status)
+
+# ---------------------------------------------------------------------------
+# Run update actions via SSH (JSON POST)
+# Body: {"action": "<one-of>"}
+# ---------------------------------------------------------------------------
+def _active_ssh():
+    s = _get_active_ssh_settings()
+    if not _is_configured(s):
+        raise RuntimeError("SSH not configured")
+    return s
+
+_ACTIONS = {
+    # --- APT (Ubuntu/Mint) ---
+    "apt_update":        "sudo apt update",
+    "apt_list":          "apt list --upgradable",
+    "apt_dry_full":      "sudo apt-get -s dist-upgrade",
+    "apt_upgrade":       "sudo apt upgrade -y",
+    "apt_full_upgrade":  "sudo apt full-upgrade -y",
+    "reboot_required":   'if [ -f /run/reboot-required ]; then echo "REBOOT_REQUIRED"; else echo "NO_REBOOT"; fi',
+
+    # --- Flatpak ---
+    "flatpak_dry":       "flatpak update --appstream && flatpak update --assumeyes --dry-run",
+    "flatpak_apply":     "flatpak update -y",
+
+    # --- Snap ---
+    "snap_list":         "sudo snap refresh --list",
+    "snap_refresh":      "sudo snap refresh",
+
+    # --- Docker (info) ---
+    "docker_ps":         'docker ps --format "{{.Names}}\\t{{.Image}}\\t{{.Status}}" || true',
+
+    # --- One-click full update (apt + cleanup + flatpak/snap + reboot-check) ---
+    "full_noob_update": (
+        "sudo DEBIAN_FRONTEND=noninteractive apt update && "
+        "sudo DEBIAN_FRONTEND=noninteractive apt full-upgrade -y && "
+        "sudo apt autoremove --purge -y && "
+        "sudo apt autoclean && "
+        "( command -v flatpak >/dev/null 2>&1 && flatpak update -y || true ) && "
+        "( command -v snap >/dev/null 2>&1 && sudo snap refresh || true ) && "
+        '( test -f /run/reboot-required && echo "REBOOT_REQUIRED" || echo "NO_REBOOT" )'
+    ),
+}
+
+@settings_bp.post("/updates/run")
+def updates_run():
+    try:
+        data = request.get_json(force=True) or {}
+        action = (data.get("action") or "").strip()
+        cmd = _ACTIONS.get(action)
+        if not cmd:
+            return jsonify({"ok": False, "error": f"Unknown action: {action}"}), 400
+
+        s = _active_ssh()
+        cmd = _with_sudo_password(cmd, s)  # <-- feed sudo password when needed
+
+        ssh = ssh_connect(
+            host=s["pi_host"],
+            user=s["pi_user"],
+            auth=s.get("auth_method", "key"),
+            key_path=s.get("ssh_key_path",""),
+            password=s.get("password",""),
+            timeout=20
+        )
+        rc, out, err = ssh_exec(ssh, cmd, timeout=180)
+        try:
+            ssh.close()
+        except Exception:
+            pass
+
+        return jsonify({
+            "ok": True,
+            "rc": rc,
+            "stdout": out,
+            "stderr": err
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+# ---------------------------------------------------------------------------
+# List available updates (structured JSON for UI table)
+# ---------------------------------------------------------------------------
+@settings_bp.get("/updates/list")
+def updates_list():
+    """
+    Return a structured list of available APT updates:
+    name, current -> candidate, repo/pocket, security flag, short changelog, CVEs.
+    """
+    try:
+        s = _active_ssh()
+        ssh = ssh_connect(
+            host=s["pi_host"],
+            user=s["pi_user"],
+            auth=s.get("auth_method", "key"),
+            key_path=s.get("ssh_key_path",""),
+            password=s.get("password",""),
+            timeout=20
+        )
+
+        # 1) Ensure fresh package lists (use sudo password if needed)
+        ssh_exec(ssh, _with_sudo_password("sudo apt update", s), timeout=180)
+
+        # 2) Raw upgradable list (skip first header line)
+        rc, out, err = ssh_exec(ssh, "apt list --upgradable 2>/dev/null | tail -n +2", timeout=120)
+        if rc != 0:
+            try: ssh.close()
+            except: pass
+            return jsonify({"ok": False, "error": err or "apt list failed"}), 500
+
+        pkgs = []
+        for line in (out or "").splitlines():
+            line = line.strip()
+            if not line or "/" not in line:
+                continue
+            # Example:
+            # pkg/noble-updates 1.2.3 amd64 [upgradable from: 1.2.2]
+            # (localized bracket text supported)
+            name = line.split("/", 1)[0]
+
+            # Candidate version heuristic from tokens
+            parts = line.split()
+            candidate = None
+            for p in parts:
+                if any(ch.isdigit() for ch in p) and not p.endswith(",now"):
+                    candidate = p
+                    break
+
+            # Current (from bracket)
+            m = re.search(r"\[(?:.*?:|.*?fra:)\s*([^\]]+)\]", line)
+            current = m.group(1).strip() if m else ""
+
+            # 3) apt-cache policy for repo/pocket + real installed/candidate
+            rc2, pol, _ = ssh_exec(ssh, f"apt-cache policy {name}", timeout=60)
+            repo = ""
+            if rc2 == 0 and pol:
+                mcand = re.search(r"Candidate:\s*([^\s]+)", pol)
+                if mcand:
+                    candidate = mcand.group(1).strip()
+                mcurr = re.search(r"Installed:\s*([^\s]+)", pol)
+                if mcurr and (not current or current == "(none)"):
+                    current = mcurr.group(1).strip()
+                # suite/pocket from 'http ... noble-security ...'
+                msuite = re.search(r"\s[a-z0-9-]+://[^\s]+\s+([a-z0-9-]+)\s", pol, re.I)
+                if msuite:
+                    repo = msuite.group(1).strip()
+
+            security = repo.endswith("-security") if repo else False
+
+            # 4) Short changelog + link + CVEs
+            summary = ""
+            cl_link = ""
+            rc3, chlog, _ = ssh_exec(ssh, f"apt-get changelog -qq {name}", timeout=90)
+            if rc3 == 0 and chlog:
+                for l in chlog.splitlines():
+                    t = l.strip()
+                    if t and not t.startswith("---"):
+                        summary = t
+                        break
+                murl = re.search(r"(https?://\S+)", chlog)
+                if murl:
+                    cl_link = murl.group(1)
+            cves = re.findall(r"(CVE-\d{4}-\d+)", chlog or "")
+            cve_links = [f"https://ubuntu.com/security/{cve}" for cve in cves]
+
+            pkgs.append({
+                "name": name,
+                "current": current,
+                "candidate": candidate or "",
+                "repo": repo,
+                "security": bool(security),
+                "summary": summary,
+                "cves": cves[:6],
+                "links": {
+                    "changelog": cl_link,
+                    "cves": cve_links[:6]
+                }
+            })
+
+        try:
+            ssh.close()
+        except Exception:
+            pass
+
+        return jsonify({"ok": True, "updates": pkgs})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
