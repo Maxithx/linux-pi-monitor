@@ -233,8 +233,8 @@ Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page her
 [![Logs](docs/screenshots/image-3.png)](docs/screenshots/image-3.png)
 
 ### Settings
-[![Glances Monitor](docs/screenshots/image-2.png)](docs/screenshots/image-4.png)
+[![Glances Monitor](docs/screenshots/image-4.png)](docs/screenshots/image-4.png)
 
 ### Logs
-[![Terminal](docs/screenshots/image-3.png)](docs/screenshots/image-5.png)
+[![Terminal](docs/screenshots/image-5.png)](docs/screenshots/image-5.png)
 
