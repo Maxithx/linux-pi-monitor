@@ -212,3 +212,11 @@ Custom alerts (CPU temp, disk space)
 Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page here.
 
 ![Dashboard](image-1.png)
+
+![Settings](image-2.png)
+
+![Logs](image-3.png)
+
+![Glances Monitor](image-4.png)
+
+![Terminal](image-5.png)
