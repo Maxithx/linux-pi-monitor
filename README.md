@@ -6,7 +6,7 @@
 - [Dashboard](#dashboard)
 - [Settings (SSH/Glances)](#settings)
 - [Terminal](#terminal)
-- [Live System (Glances)](#live-system-glances)
+- [Live System Monitor(Glances)](#live-system-glances)
 - [Logs](#logs)
 
 # Linux Pi Monitor
@@ -232,8 +232,8 @@ Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page her
 ### Logs
 [![Logs](docs/screenshots/image-3.png)](docs/screenshots/image-3.png)
 
-### Glances Monitor
-[![Glances Monitor](docs/screenshots/image-4.png)](docs/screenshots/image-4.png)
+### live-system-glances
+[![Live System Monitor(Glances)](docs/screenshots/image-4.png)](docs/screenshots/image-4.png)
 
 ### Terminal
 [![Terminal](docs/screenshots/image-5.png)](docs/screenshots/image-5.png)
