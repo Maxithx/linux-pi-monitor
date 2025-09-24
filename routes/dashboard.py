@@ -1,68 +1,123 @@
+# === IMPORTS ===
 import json
 import os
-import time
 from flask import Blueprint, render_template, jsonify, current_app, redirect
 from utils import (
     parse_net_speed, parse_cpu_info, parse_cpu_usage,
     parse_mem, parse_disk, get_uptime, get_cpu_temp,
-    ssh_run
+    ssh_run, get_disk_hardware_info
 )
 
+# === FLASK BLUEPRINT ===
 dashboard_bp = Blueprint("dashboard_bp", __name__)
 
-# Cache for metrics
+# === CACHING FOR METRICS ===
 latest_metrics = {}
 first_cached_metrics = {}
 first_sent = False
 
-# === DASHBOARD SIDE ===
+
+def _load_active_profile():
+    """
+    Indlæs aktiv profil direkte fra profiles.json (PROFILES_PATH).
+    Returnerer et dict med felter: pi_host, pi_user, auth_method, ssh_key_path, password
+    eller {} hvis ikke fundet.
+    """
+    try:
+        prof_path = current_app.config.get("PROFILES_PATH")
+        if not prof_path or not os.path.exists(prof_path):
+            return {}
+        with open(prof_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        active_id = data.get("active_profile_id")
+        if not active_id:
+            return {}
+        for p in data.get("profiles", []):
+            if p.get("id") == active_id:
+                return {
+                    "pi_host": (p.get("pi_host") or "").strip(),
+                    "pi_user": (p.get("pi_user") or "").strip(),
+                    "auth_method": (p.get("auth_method") or "key").strip(),
+                    "ssh_key_path": (p.get("ssh_key_path") or "").strip(),
+                    "password": p.get("password") or ""
+                }
+    except Exception:
+        pass
+    return {}
+
+
+def _sync_active_into_legacy_cfg(active):
+    """
+    Sørg for at utils/ssh_run (legacy) kan læse målhosten fra app.config["SSH_SETTINGS"].
+    Kaldes på hvert /metrics-kald for at undgå stale cache.
+    """
+    if not isinstance(active, dict) or not active:
+        current_app.config["SSH_SETTINGS"] = {}
+        return
+    current_app.config["SSH_SETTINGS"] = {
+        "pi_host": active.get("pi_host", ""),
+        "pi_user": active.get("pi_user", ""),
+        "auth_method": active.get("auth_method", "key"),
+        "ssh_key_path": active.get("ssh_key_path", ""),
+        "password": active.get("password", "")
+    }
+
+
+# === ROUTE: Dashboard page (main UI) ===
 @dashboard_bp.route("/dashboard", endpoint="dashboard")
 def dashboard():
-    settings_path = current_app.config["SETTINGS_PATH"]
-    if not os.path.exists(settings_path):
+    """
+    Åbn dashboardet. Vi tjekker blot at den aktive profil har de nødvendige felter.
+    """
+    active = _load_active_profile()
+    if not active.get("pi_host") or not active.get("pi_user"):
+        return redirect("/settings")
+    if active.get("auth_method", "key") == "key" and not active.get("ssh_key_path"):
+        return redirect("/settings")
+    if active.get("auth_method", "key") == "password" and not active.get("password"):
         return redirect("/settings")
 
-    with open(settings_path, "r") as f:
-        settings = json.load(f)
+    return render_template("dashboard.html", settings=active)
 
-    if not settings.get("pi_host") or not settings.get("pi_user"):
-        return redirect("/settings")
 
-    try:
-        # Brug direkte sti til Glances installeret i ~/.local/bin
-        result = ssh_run("test -f ~/.local/bin/glances && echo 'ok'")
-        if not result.strip() == "ok":
-            return redirect("/settings")
-    except Exception:
-        return redirect("/settings")
-
-    return render_template("dashboard.html")
-
-# === API: SYSTEMMETRICS ===
+# === ROUTE: API endpoint for real-time system metrics ===
 @dashboard_bp.route("/metrics")
 def metrics():
+    """
+    Hent live-metrics via SSH mod den AKTIVE profil.
+    Fejl håndteres blødt: returner tomt objekt på fejl.
+    Første kald kan få cachede værdier for hurtigere “first paint”.
+    """
     global latest_metrics, first_cached_metrics, first_sent
 
     if not first_sent and first_cached_metrics:
         first_sent = True
-        current_app.logger.info("Bruger cached metrics til første kald.")
+        current_app.logger.info("Using cached metrics for first call.")
         return jsonify(first_cached_metrics)
 
     try:
-        cpu_raw = ssh_run("top -bn1 | grep 'Cpu(s)'")
-        mem_raw = ssh_run("free -m")
+        # 1) Sync aktiv profil
+        active = _load_active_profile()
+        _sync_active_into_legacy_cfg(active)
+
+        # 2) Command outputs
+        cpu_raw  = ssh_run("top -bn1 | grep 'Cpu(s)'")
+        mem_raw  = ssh_run("free -m")
         disk_raw = ssh_run("df -h /")
-        net_raw = ssh_run("cat /proc/net/dev")
+        net_raw  = ssh_run("cat /proc/net/dev")
 
+        # 3) Parse core metrics
         cpu_name, cpu_cores, cpu_freq = parse_cpu_info()
-        cpu_usage = parse_cpu_usage(cpu_raw)
-        ram_usage, ram_total, ram_free = parse_mem(mem_raw)
-        disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw)
-        net_total, net_rx, net_tx, net_iface = parse_net_speed(net_raw)
-        uptime = get_uptime()
+        cpu_usage = parse_cpu_usage(cpu_raw or "")
+        ram_usage, ram_total, ram_free = parse_mem(mem_raw or "")
+        disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw or "")
+        net_total, net_rx, net_tx, net_iface = parse_net_speed(net_raw or "")
+        uptime   = get_uptime()
         cpu_temp = get_cpu_temp()
+        disk_model, disk_device, disk_temp = get_disk_hardware_info()
 
-        metrics = {
+        # 4) Payload
+        payload = {
             "cpu": cpu_usage,
             "cpu_name": cpu_name,
             "cpu_cores": cpu_cores,
@@ -75,6 +130,9 @@ def metrics():
             "disk_total": disk_total,
             "disk_used": disk_used,
             "disk_free": disk_free,
+            "disk_model": disk_model,
+            "disk_device": disk_device,
+            "disk_temp": disk_temp,
             "network": net_total,
             "net_rx": net_rx,
             "net_tx": net_tx,
@@ -82,11 +140,10 @@ def metrics():
             "uptime": uptime
         }
 
-        latest_metrics = metrics
-        first_cached_metrics = metrics
-
-        return jsonify(metrics)
+        latest_metrics = payload
+        first_cached_metrics = payload
+        return jsonify(payload)
 
     except Exception as e:
-        current_app.logger.warning(f"Fejl i metrics: {e}")
+        current_app.logger.warning(f"Error in metrics: {e}")
         return jsonify({})

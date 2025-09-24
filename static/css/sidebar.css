@@ -1,4 +1,5 @@
-/* === NYT: Brug kun html-klasser til sidebar og home-section === */
+/* === HTML CLASS TOGGLE FOR SIDEBAR WIDTH === */
+/* Control sidebar width using class on <html> */
 html.sidebar-open .sidebar {
     width: 250px;
 }
@@ -13,10 +14,10 @@ html.sidebar-closed .sidebar ~ .home-section {
     margin-left: 78px;
 }
 
-/* === FJERN gammel sidebar.open klasse fra .sidebar og home-section === */
-/* Dette gør vi i JS og HTML med class på <html> nu */
+/* === REMOVE OLD CLASSES FROM .sidebar and .home-section === */
+/* Controlled via <html> class now instead of sidebar.open */
 
-/* === GENERELT === */
+/* === GLOBAL RESETS === */
 * {
     margin: 0;
     padding: 0;
@@ -30,14 +31,14 @@ body {
     overflow-x: hidden;
 }
 
-/* === CONTAINER === */
+/* === MAIN CONTAINER === */
 .container {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
 }
 
-/* === HOME SECTION === */
+/* === HOME SECTION STYLING === */
 .home-section {
     position: relative;
     background: #1d1b31;
@@ -55,7 +56,7 @@ body {
     margin: 22px;
 }
 
-/* === GRID LAYOUT === */
+/* === DASHBOARD & CHART GRID === */
 .dashboard-grid,
 .chart-grid {
     display: grid;
@@ -131,7 +132,7 @@ body {
     }
 }
 
-/* === SIDEBAREN === */
+/* === SIDEBAR STYLING === */
 .sidebar {
     position: fixed;
     left: 0;
@@ -141,7 +142,7 @@ body {
     padding: 6px 14px;
     z-index: 1;
     transition: all 0.5s ease;
-    width: 78px; /* Default bredde */
+    width: 78px;
 }
 
 .sidebar .logo-details {
@@ -237,6 +238,7 @@ html.sidebar-open .sidebar li a .links_name {
     color: #11101D;
 }
 
+/* === TOOLTIP FOR CLOSED SIDEBAR === */
 .sidebar li .tooltip {
     position: absolute;
     top: 50%;
@@ -263,6 +265,7 @@ html.sidebar-open .sidebar li .tooltip {
     display: none;
 }
 
+/* === PROFILE SECTION AT BOTTOM === */
 .sidebar li.profile {
     position: fixed;
     height: 60px;
@@ -305,6 +308,7 @@ html.sidebar-open .sidebar li.profile {
     font-size: 12px;
 }
 
+/* === LOGOUT BUTTON STYLING === */
 .sidebar .profile #log_out {
     position: absolute;
     top: 50%;
@@ -322,7 +326,7 @@ html.sidebar-open .profile #log_out {
     background: none;
 }
 
-/* === FOKUS === */
+/* === FOCUS STATE FIX === */
 .sidebar li a:focus {
     transition: none;
 }

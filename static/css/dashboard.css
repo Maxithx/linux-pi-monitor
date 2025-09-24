@@ -1,4 +1,4 @@
-/* === GENERELT === */
+/* === GENERAL STYLES === */
 * {
     margin: 0;
     padding: 0;
@@ -11,14 +11,14 @@ body {
     color: #fff;
 }
 
-/* === CONTAINER === */
+/* === MAIN CONTAINER === */
 .container {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 20px;
 }
 
-/* === HOME SECTION === */
+/* === MAIN CONTENT AREA (RIGHT OF SIDEBAR) === */
 .home-section {
     position: relative;
     background: #1d1b31;
@@ -30,11 +30,13 @@ body {
     width: calc(100% - 78px);
 }
 
+/* === Sidebar open adjustment === */
 .sidebar.open ~ .home-section {
     margin-left: 250px;
     width: calc(100% - 250px);
 }
 
+/* === TOP TITLE TEXT === */
 .home-section .text {
     display: inline-block;
     color: #fff;
@@ -43,7 +45,7 @@ body {
     margin: 22px;
 }
 
-/* === GRID LAYOUT === */
+/* === GRID LAYOUT FOR BOXES AND CHARTS === */
 .dashboard-grid,
 .chart-grid {
     display: grid;
@@ -55,6 +57,7 @@ body {
     width: calc(100% - 100px);
 }
 
+/* === STATS BOXES AND CHART STYLING === */
 .box,
 .chart-box {
     background-color: #1e1e1e;
@@ -66,12 +69,13 @@ body {
     justify-content: space-between;
 }
 
+/* === CHART CANVAS HEIGHT FIX === */
 .chart-box canvas {
     width: 100% !important;
     height: 200px !important;
 }
 
-/* === RESPONSIVE BREAKPOINTS === */
+/* === RESPONSIVE DESIGN === */
 @media (max-width: 1200px) {
     .dashboard-grid,
     .chart-grid {
@@ -101,12 +105,13 @@ body {
     }
 }
 
-/* === FIX MOD SORT STREG VED SIDEBAR === */
+/* === FIX: Dark background line gap at bottom of sidebar === */
 html, body {
     height: 100%;
     background-color: #1d1b31;
 }
 
+/* === Ensures correct background and layout depending on sidebar state === */
 .sidebar ~ .home-section {
     margin-left: 78px;
     width: calc(100% - 78px);

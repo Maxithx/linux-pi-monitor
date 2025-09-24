@@ -1,30 +1,34 @@
 <!DOCTYPE html>
 <html lang="da">
+
 <head>
+  <!-- === Remember sidebar state before page fully loads === -->
   <script>
-  (function () {
-    const savedState = localStorage.getItem("sidebarState") || "open";
-    document.documentElement.classList.add(`sidebar-${savedState}`);
-  })();
-</script>
+    (function () {
+      const savedState = localStorage.getItem("sidebarState") || "open";
+      document.documentElement.classList.add(`sidebar-${savedState}`);
+    })();
+  </script>
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Linux Monitor{% endblock %}</title>
 
-  <!-- Stylesheets -->
+  <!-- === Stylesheets === -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
-  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet">
 
-  <!-- Scripts -->
+  <!-- === Scripts === -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
 </head>
+
 <body class="sidebar-{{ sidebar_state }}">
-  <!-- Sidebar -->
+  <!-- === Sidebar Navigation === -->
   <div class="sidebar">
     <div class="logo-details">
       <div class="logo_name">Linux/Pi Monitor</div>
@@ -55,7 +59,7 @@
       <li>
         <a href="{{ url_for('settings.htop_monitor') }}">
           <i class='bx bx-pie-chart-alt-2'></i>
-          <span class="links_name">Live System (HTOP)</span>
+          <span class="links_name">Live System (Glances)</span>
         </a>
         <span class="tooltip">Live HTOP</span>
       </li>
@@ -66,6 +70,8 @@
         </a>
         <span class="tooltip">Terminal</span>
       </li>
+
+      <!-- === Sidebar Profile Area === -->
       <li class="profile">
         <div class="profile-details">
           <img src="{{ url_for('static', filename='images/profile.png') }}" alt="profileImg">
@@ -79,10 +85,13 @@
     </ul>
   </div>
 
-  <!-- Content -->
+  <!-- === Main Content Section === -->
   <section class="home-section">
     {% block content %}{% endblock %}
   </section>
+
+  <!-- === Optional Scripts for Each Page === -->
   {% block scripts %}{% endblock %}
 </body>
+
 </html>

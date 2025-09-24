@@ -3,9 +3,59 @@
 
 {% block content %}
 <h1 style="margin-bottom: 20px;">Dashboard Linux Monitor</h1>
-<!-- Home Section -->
+
 <section class="home-section">
-    <!-- Øverste række: System info -->
+
+    <style>
+        /* Skjul en metalinje helt, hvis dens span er tomt */
+        .meta-line:has(> span:empty) {
+            display: none;
+        }
+
+        /* Connection pill (samme stil som på Settings) */
+        .dash-status-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0 18px;
+        }
+
+        .dash-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .dash-dot.green {
+            background: #39d98a;
+            margin-left: 14px;
+        }
+
+        .dash-dot.red {
+            background: #ff6b6b;
+            margin-left: 14px;
+        }
+
+        .dash-dot.yellow {
+            background: #f5cd4f;
+            margin-left: 14px;
+        }
+
+        .dash-muted {
+            opacity: .8;
+            font-size: .9em;
+        }
+    </style>
+
+    <!-- Connection status (fyldes af dashboard.connection.js) -->
+    <div id="dash-conn" class="dash-status-line" aria-live="polite">
+        <span id="dash-conn-dot" class="dash-dot red" aria-hidden="true"></span>
+        <span id="dash-conn-text">No connection</span>
+        <span id="dash-conn-hint" class="dash-muted"></span>
+    </div>
+
     <div class="dashboard-grid">
         <div class="box" id="uptimeInfo">
             <div class="title"><i class="fas fa-clock"></i> System Uptime:</div>
@@ -17,15 +67,24 @@
         </div>
     </div>
 
-    <!-- Anden række: CPU, RAM, Disk, Netværk -->
     <div class="dashboard-grid">
         <div class="box" id="cpuInfo">
             <div class="title"><i class="fas fa-microchip"></i> CPU:</div>
             <div class="value">--%</div>
-            <div class="progress-bar">
+
+            <!-- Detaljer udfyldes af JS -->
+            <div class="details" style="margin-top:6px; line-height:1.3;">
+                <div id="cpuName">Unknown CPU</div>
+                <!-- Hver info på sin egen linje; skjules automatisk hvis tom -->
+                <div id="cpuCoresWrap" class="meta-line"><span id="cpuCores"></span> kerner</div>
+                <div id="cpuFreqWrap" class="meta-line"><span id="cpuFreq"></span></div>
+            </div>
+
+            <div class="progress-bar" style="margin-top:8px;">
                 <div class="progress-bar-fill" id="cpuBar"></div>
             </div>
         </div>
+
         <div class="box" id="ramInfo">
             <div class="title"><i class="fas fa-memory"></i> RAM:</div>
             <div class="value">--%</div>
@@ -33,23 +92,34 @@
                 <div class="progress-bar-fill" id="ramBar"></div>
             </div>
         </div>
+
         <div class="box" id="diskInfo">
             <div class="title"><i class="fas fa-hdd"></i> Disk:</div>
             <div class="value">--%</div>
-            <div class="progress-bar">
+            <!-- JS udfylder også model/device/temp-linjer -->
+            <div class="details" style="margin-top:6px; line-height:1.3;">
+                <div>Model: <span id="diskModel">?</span></div>
+                <div>Dev: <span id="diskDevice">?</span></div>
+                <div>Temp: <span id="diskTemp">?</span> °C</div>
+            </div>
+            <div class="progress-bar" style="margin-top:8px;">
                 <div class="progress-bar-fill" id="diskBar"></div>
             </div>
         </div>
+
         <div class="box" id="netInfo">
-            <div class="title"><i class="fas fa-network-wired"></i> Netværk:</div>
+            <div class="title"><i class="fas fa-network-wired"></i> Network:</div>
             <div class="value">-- KB/s</div>
-            <div class="progress-bar">
+            <div class="details" style="margin-top:6px; line-height:1.3;">
+                <div>↓ <span id="netRx">0</span> KB/s, ↑ <span id="netTx">0</span> KB/s</div>
+                <div>Interface: <span id="netIface">?</span></div>
+            </div>
+            <div class="progress-bar" style="margin-top:8px;">
                 <div class="progress-bar-fill" id="netBar"></div>
             </div>
         </div>
     </div>
 
-    <!-- Grafer -->
     <div class="chart-grid">
         <div class="chart-box">
             <h3><i class="fas fa-microchip"></i> CPU</h3>
@@ -64,11 +134,15 @@
             <canvas id="diskChart"></canvas>
         </div>
         <div class="chart-box">
-            <h3><i class="fas fa-network-wired"></i> Netværk</h3>
+            <h3><i class="fas fa-network-wired"></i> Network</h3>
             <canvas id="netChart"></canvas>
         </div>
     </div>
 </section>
 
+<!-- Connection status logic for dashboard -->
+<script src="{{ url_for('static', filename='js/dashboard.connection.js') }}?v=1"></script>
+
+<!-- Charts -->
 <script src="{{ url_for('static', filename='js/chart-setup.js') }}"></script>
 {% endblock %}

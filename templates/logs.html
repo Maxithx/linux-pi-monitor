@@ -3,22 +3,22 @@
 {% block page_title %}Logs{% endblock %}
 
 {% block content %}
-<h1 style="margin-bottom: 20px;">Systemlog (Flask-server)</h1>
+<h1 style="margin-bottom: 20px;">System Log (Flask Server)</h1>
 
-<!-- Links til CSS -->
+<!-- CSS links -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
 
 <div class="container">
-    <!-- Knapper øverst -->
+    <!-- Top buttons -->
     <div class="logs-header" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-        <a href="{{ url_for('dashboard_bp.dashboard') }}" class="button-link">← Tilbage til Dashboard</a>
+        <a href="{{ url_for('dashboard_bp.dashboard') }}" class="button-link">← Back to Dashboard</a>
         <form onsubmit="openLogFile(); return false;">
-            <button type="submit" class="button-link">📄 Åbn hele logfilen i Notesblok</button>
+            <button type="submit" class="button-link">📄 Open full log file in Notepad</button>
         </form>
     </div>
 
-    <!-- Logs visning -->
+    <!-- Log content -->
     <div class="logs-container">
         <ul id="logs-list">
             {% for log in logs %}
@@ -27,7 +27,7 @@
         </ul>
     </div>
 
-    <!-- Statusbesked -->
+    <!-- Status message -->
     <p id="log-status" style="margin-top: 20px; color: #0f0;"></p>
 </div>
 {% endblock %}
@@ -40,16 +40,16 @@ function openLogFile() {
         .then(data => {
             const msg = document.getElementById("log-status");
             if (data.success) {
-                msg.textContent = "Logfilen blev åbnet.";
+                msg.textContent = "Log file opened.";
                 msg.style.color = "#0f0";
             } else {
-                msg.textContent = "Fejl ved åbning: " + data.error;
+                msg.textContent = "Error opening file: " + data.error;
                 msg.style.color = "red";
             }
         })
         .catch(() => {
             const msg = document.getElementById("log-status");
-            msg.textContent = "Netværksfejl – kunne ikke kontakte serveren.";
+            msg.textContent = "Network error – could not contact server.";
             msg.style.color = "red";
         });
 }

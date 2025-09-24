@@ -1,24 +1,78 @@
 {% extends "base.html" %}
 
-{% block title %}Systemovervågning{% endblock %}
-
+{% block title %}System Monitoring{% endblock %}
 {% block page_title %}Live System Monitor{% endblock %}
 
 {% block content %}
+
 <p style="margin-bottom: 10px;">
-    Herunder kan du se realtidsovervågning via <strong>Glances</strong>.  
-    Glances giver overblik over CPU, RAM, netværk, diske og meget mere.
+    Below is the <strong>Glances</strong> real-time system monitor. Glances provides live stats for CPU, RAM, network,
+    disks, and more.
 </p>
 
-<iframe 
-    src="http://{{ settings.pi_host }}:61208/" 
-    width="100%" 
-    height="600px" 
-    style="border: 2px solid #333; border-radius: 6px;"
-    title="Glances Systemmonitor">
+<!-- Embedded Glances Web UI (via reverse proxy).
+     src sættes/fornyes via glances.common.js så den følger aktiv profil -->
+<iframe src="/glances/" width="100%" height="600" style="border:2px solid #333;border-radius:6px;background:#111"
+    title="Glances System Monitor" referrerpolicy="no-referrer" loading="eager">
 </iframe>
 
-<p style="margin-top: 15px;">
-    ← <a href="{{ url_for('settings.settings') }}">Tilbage til Indstillinger</a>
-</p>
+<!-- Key bindings / help -->
+<div style="margin-top:16px; border:1px solid #2b2b2b; border-radius:8px; background:#121212;">
+    <div style="padding:12px 14px; border-bottom:1px solid #2b2b2b;">
+        <strong>Glances key bindings</strong>
+        <span style="opacity:.8;">(click inside the monitor first to focus)</span>
+    </div>
+
+    <div
+        style="display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding:12px 14px;">
+        <!-- Views / layout -->
+        <div>
+            <div style="opacity:.8; margin-bottom:6px;">Views &amp; layout</div>
+            <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                <li><code>1</code> <span style="opacity:.85;">Toggle per-CPU bars</span></li>
+                <li><code>2</code> <span style="opacity:.85;">Toggle left sidebar</span></li>
+                <li><code>3</code>/<code>4</code>/<code>5</code> <span style="opacity:.85;">Cycle CPU/mem graphs
+                        detail</span></li>
+                <li><code>d</code> <span style="opacity:.85;">Toggle Disk I/O</span>, <code>f</code> <span
+                        style="opacity:.85;">Filesystems</span>, <code>n</code> <span
+                        style="opacity:.85;">Network</span>, <code>s</code> <span style="opacity:.85;">Sensors</span>
+                </li>
+                <li><code>D</code> <span style="opacity:.85;">Docker stats (if available)</span></li>
+                <li><code>h</code> / <code>?</code> <span style="opacity:.85;">Toggle built-in help</span></li>
+            </ul>
+        </div>
+
+        <!-- Process sorting -->
+        <div>
+            <div style="opacity:.8; margin-bottom:6px;">Process sorting</div>
+            <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                <li><code>a</code> <span style="opacity:.85;">Auto (by most used resource)</span></li>
+                <li><code>c</code> <span style="opacity:.85;">By CPU%</span>, <code>m</code> <span
+                        style="opacity:.85;">By MEM%</span></li>
+                <li><code>p</code> <span style="opacity:.85;">By process name</span>, <code>u</code> <span
+                        style="opacity:.85;">By user</span></li>
+                <li><code>i</code> <span style="opacity:.85;">By I/O rate</span>, <code>t</code> <span
+                        style="opacity:.85;">By TIME+</span></li>
+            </ul>
+        </div>
+
+        <!-- Alerts / misc -->
+        <div>
+            <div style="opacity:.8; margin-bottom:6px;">Alerts &amp; misc</div>
+            <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                <li><code>l</code> <span style="opacity:.85;">Toggle alert log</span></li>
+                <li><code>w</code> <span style="opacity:.85;">Clear warnings</span>, <code>x</code> <span
+                        style="opacity:.85;">Clear all alerts</span></li>
+                <li><code>q</code> / <code>Esc</code> <span style="opacity:.85;">Quit (for TUI; close tab for Web
+                        UI)</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <div style="padding:10px 14px; border-top:1px solid #2b2b2b; font-size:.95rem; opacity:.85;">
+        Tip: Keyboard shortcuts also work in the Web UI—just make sure the black monitor area has focus (click it once).
+        For the full list, press <code>h</code> inside Glances.
+    </div>
+</div>
+
 {% endblock %}

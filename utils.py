@@ -1,163 +1,372 @@
-# === SSH Parsing og Hjælpefunktioner ===
-# Her ligger alle funktioner til at hente og analysere systemdata via SSH.
-# Disse bruges af dashboard og baggrundsopdatering.
-
-import re
-import time
-import json
+# utils.py — robust CPU usage via /proc/stat (awk), SMART via /usr/sbin/smartctl
 import os
+import re
+import json
+import time
+import socket
+import threading
 import paramiko
 
-def get_ssh_settings():
-    settings_path = os.path.join(os.getenv("APPDATA"), "raspberry_pi_monitor", "settings.json")
+# --------- active profile loading ---------
+def _profiles_path_from_env() -> str | None:
+    return os.environ.get("RPI_MONITOR_PROFILES_PATH")
+
+def _load_active_profile() -> dict:
+    path = _profiles_path_from_env()
+    if not path or not os.path.isfile(path):
+        return {}
     try:
-        with open(settings_path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        pid = data.get("active_profile_id")
+        prof = next((p for p in data.get("profiles", []) if p.get("id") == pid), None)
+        if not prof:
+            return {}
         return {
-            "host": data.get("pi_host", ""),
-            "user": data.get("pi_user", ""),
-            "key_path": data.get("ssh_key_path", ""),
-            "password": data.get("password", ""),
-            "auth_method": data.get("auth_method", "key")
+            "host": (prof.get("pi_host") or "").strip(),
+            "user": (prof.get("pi_user") or "").strip(),
+            "auth_method": (prof.get("auth_method") or "key").strip(),
+            "key_path": (prof.get("ssh_key_path") or "").strip(),
+            "password": prof.get("password") or "",
         }
-    except Exception as e:
-        print("[get_ssh_settings] Fejl:", e)
+    except Exception:
         return {}
 
+# --------- SSH manager ---------
+class SSHManager:
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._client: paramiko.SSHClient | None = None
+        self._fp = None
+        self.connect_timeout = 6
+        self.auth_timeout = 6
+        self.banner_timeout = 6
+        self.read_timeout = 6
+        self.keepalive_secs = 10
 
-# Bruges til at holde styr på tidligere netværksdata (for beregning af hastighed)
-last_stats = {"rx": None, "tx": None, "time": None}
+    def _finger(self, s): return (s.get("host"), s.get("user"), s.get("auth_method"), s.get("key_path"))
+    def _need_reconnect(self, s): return (self._client is None) or (self._fp != self._finger(s))
+    def _close(self):
+        if self._client:
+            try: self._client.close()
+            except: pass
+        self._client = None
 
-# === SSH-Kommando ===
-def ssh_run(command):
-    """Kører en SSH-kommando og returnerer output som tekst."""
-    try:
-        s = get_ssh_settings()
+    def _connect(self, s):
+        self._close()
         if not s.get("host") or not s.get("user"):
-            return ""
-
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        if s["auth_method"] == "key" and s["key_path"]:
-            key = paramiko.RSAKey.from_private_key_file(s["key_path"])
-            ssh.connect(s["host"], username=s["user"], pkey=key)
-        elif s["auth_method"] == "password" and s["password"]:
-            ssh.connect(s["host"], username=s["user"], password=s["password"])
+            raise RuntimeError("SSH settings incomplete")
+        cli = paramiko.SSHClient()
+        cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        kw = dict(
+            hostname=s["host"], username=s["user"],
+            timeout=self.connect_timeout, auth_timeout=self.auth_timeout,
+            banner_timeout=self.banner_timeout, look_for_keys=False, allow_agent=False,
+        )
+        if s.get("auth_method") == "password":
+            if not s.get("password"): raise RuntimeError("Password auth selected but no password set")
+            cli.connect(password=s["password"], **kw)
         else:
-            return ""
+            kp = s.get("key_path")
+            if not kp or not os.path.isfile(kp): raise RuntimeError(f"SSH key not found: {kp!r}")
+            key = None
+            for loader in (paramiko.RSAKey, getattr(paramiko,"Ed25519Key",None), paramiko.ECDSAKey):
+                if loader is None: continue
+                try:
+                    key = loader.from_private_key_file(kp); break
+                except: pass
+            if key is None: raise RuntimeError("Unsupported/invalid SSH private key")
+            cli.connect(pkey=key, **kw)
+        try:
+            tr = cli.get_transport()
+            if tr: tr.set_keepalive(self.keepalive_secs)
+        except: pass
+        self._client = cli
+        self._fp = self._finger(s)
 
-        stdin, stdout, stderr = ssh.exec_command(command)
-        output = stdout.read().decode().strip()
-        ssh.close()
-        return output
-    except Exception as e:
-        print("[ssh_run] Fejl:", e)
+    def exec(self, command: str) -> str:
+        with self._lock:
+            s = _load_active_profile()
+            if not s: return ""
+            try:
+                if self._need_reconnect(s): self._connect(s)
+                _, out, _ = self._client.exec_command(command, timeout=self.read_timeout)
+                try: out.channel.settimeout(self.read_timeout)
+                except: pass
+                return out.read().decode(errors="replace").strip()
+            except (socket.timeout, paramiko.ssh_exception.SSHException):
+                try:
+                    self._connect(s)
+                    _, out, _ = self._client.exec_command(command, timeout=self.read_timeout)
+                    try: out.channel.settimeout(self.read_timeout)
+                    except: pass
+                    return out.read().decode(errors="replace").strip()
+                except: return ""
+            except: return ""
+
+_ssh = SSHManager()
+def ssh_run(cmd: str) -> str: return _ssh.exec(cmd)
+
+# --------- CPU model / freq ---------
+def _clean_cpu_name(raw: str) -> str:
+    if not raw: return ""
+    name = re.sub(r'\s*@\s*[\d\.]+\s*([GM]Hz)?\s*$', '', raw.strip())
+    return re.sub(r'\s+', ' ', name).strip()
+
+def _to_ghz(val: str) -> str:
+    try:
+        v = float(str(val).strip())
+        return str(round(v/1000.0, 2))
+    except Exception:
         return ""
 
-# === CPU Info ===
+def _fmt_freq(cur_mhz: str, min_mhz: str, max_mhz: str) -> str:
+    # Prefer min/max if they exist and differ; otherwise show max; otherwise show current.
+    ghz_min = _to_ghz(min_mhz)
+    ghz_max = _to_ghz(max_mhz)
+    ghz_cur = _to_ghz(cur_mhz)
+    if ghz_min and ghz_max and ghz_min != ghz_max:
+        return f"{ghz_min} / {ghz_max} GHz"
+    if ghz_max:
+        return f"{ghz_max} GHz"
+    if ghz_cur:
+        return f"{ghz_cur} GHz"
+    return ""  # <- no question marks
+
 def parse_cpu_info():
-    """Henter model, antal kerner og frekvens via SSH."""
-    name = ssh_run("lscpu | grep 'Model name' | awk -F: '{print $2}'").strip() or "Unknown CPU"
-    cores = ssh_run("nproc").strip() or "Unknown"
-    freq_line = ssh_run("lscpu | grep MHz | tail -1").strip()
-    freq_match = re.search(r'(\d+\.?\d*)', freq_line)
-    freq_ghz = f"{round(float(freq_match.group(1)) / 1000, 2)}" if freq_match else "?"
-    max_freq_line = ssh_run("lscpu | grep 'CPU max MHz'").strip()
-    max_match = re.search(r'(\d+\.?\d*)', max_freq_line)
-    max_ghz = f"{round(float(max_match.group(1)) / 1000, 2)}" if max_match else "?"
-    return name, cores, f"{freq_ghz} / {max_ghz} GHz"
+    # Try lscpu JSON first (fast, structured)
+    js = ssh_run("LC_ALL=C lscpu -J 2>/dev/null")
+    try:
+        if js:
+            obj = json.loads(js)
+            fields = {e.get("field","").strip(): e.get("data","").strip() for e in obj.get("lscpu",[])}
+            name = _clean_cpu_name(fields.get("Model name:") or fields.get("Model name") or "")
+            cores = (fields.get("CPU(s):") or "").strip()
+            cur_mhz = (fields.get("CPU MHz:") or "").strip()
+            max_mhz = (fields.get("CPU max MHz:") or fields.get("CPU max MHz") or "").strip()
+            min_mhz = (fields.get("CPU min MHz:") or fields.get("CPU min MHz") or "").strip()
+            freq = _fmt_freq(cur_mhz, min_mhz, max_mhz)
+            return (name or "Unknown CPU", cores, freq)
+    except Exception:
+        pass
 
-# === CPU-Forbrug ===
-def parse_cpu_usage(output):
-    """Parser CPU-idle værdi og beregner forbrug."""
-    match = re.search(r'(\d+\.\d+)\s+id', output)
-    return round(100 - float(match.group(1)), 1) if match else 0
+    # Fallbacks (plain lscpu/grep)
+    name = ssh_run("LC_ALL=C lscpu | sed -nr '/Model name/ s/.*:\\s*(.*) @ .*/\\1/p'").strip() \
+        or ssh_run("LC_ALL=C lscpu | grep -m1 'Model name' | cut -d: -f2- | awk '{$1=$1}1'").strip()
+    name = _clean_cpu_name(name) or \
+           _clean_cpu_name(ssh_run("grep -m1 'model name' /proc/cpuinfo | awk -F: '{print $2}'").strip())
+    cores = ssh_run("nproc").strip()
 
-# === RAM-brug ===
-def parse_mem(output):
-    """Parser RAM-forbrug og returnerer brugt %, total og fri."""
-    for line in output.splitlines():
+    cur_mhz = ssh_run("LC_ALL=C lscpu | grep -m1 'CPU MHz' | awk -F: '{print $2}'").strip()
+    max_mhz = ssh_run("LC_ALL=C lscpu | grep -m1 'CPU max MHz' | awk -F: '{print $2}'").strip()
+    min_mhz = ssh_run("LC_ALL=C lscpu | grep -m1 'CPU min MHz' | awk -F: '{print $2}'").strip()
+    freq = _fmt_freq(cur_mhz, min_mhz, max_mhz)
+
+    return (name or "Unknown CPU", cores, freq)
+
+# --------- CPU usage: /proc/stat (awk) → mpstat → top ---------
+def _cpu_usage_via_procstat() -> float | None:
+    """Compute CPU usage on remote host purely in awk with ~200ms interval."""
+    cmd = (
+        "awk 'BEGIN{"
+        "getline l1 < \"/proc/stat\";"
+        "split(l1,a); t0=0; for(i=2;i<=NF;i++) t0+=a[i]; i0=a[5]+a[6];"
+        "system(\"sleep 0.2\");"
+        "getline l2 < \"/proc/stat\";"
+        "split(l2,b); t1=0; for(i=2;i<=NF;i++) t1+=b[i]; i1=b[5]+b[6];"
+        "u = (1- (i1-i0)/(t1-t0))*100;"
+        "if(u<0)u=0; if(u>100)u=100; printf(\"%.1f\\n\", u);"
+        "}'"
+    )
+    out = ssh_run(cmd)
+    try:
+        return round(float(out.replace(",", ".")), 1)
+    except Exception:
+        return None
+
+def _cpu_usage_via_mpstat() -> float | None:
+    txt = ssh_run("LC_ALL=C mpstat 1 1 2>/dev/null")
+    if not txt: return None
+    avg = None
+    for line in txt.splitlines():
+        if line.strip().startswith("Average:"): avg = line
+    if not avg: return None
+    parts = avg.split()
+    try:
+        idle = float(parts[-1].replace(",", "."))
+        return round(max(0.0, min(100.0, 100.0 - idle)), 1)
+    except Exception:
+        return None
+
+def _cpu_usage_via_top() -> float | None:
+    line = ssh_run("LC_ALL=C top -bn1 | grep -m1 'Cpu(s)'")
+    if not line: return None
+    m = re.search(r'(\d+(?:[.,]\d+)?)\s*%?\s*id', line)
+    if not m: return None
+    try:
+        idle = float(m.group(1).replace(",", "."))
+        return round(max(0.0, min(100.0, 100.0 - idle)), 1)
+    except Exception:
+        return None
+
+def get_cpu_usage() -> float:
+    for fn in (_cpu_usage_via_procstat, _cpu_usage_via_mpstat, _cpu_usage_via_top):
+        v = fn()
+        if v is not None:
+            return v
+    return 0.0
+
+# ---- Backward compatibility: old callers importing parse_cpu_usage ----
+def parse_cpu_usage(top_line: str = "") -> float:
+    """
+    Legacy shim. If a top(1) line is provided, parse it; otherwise use get_cpu_usage().
+    """
+    if top_line:
+        m = re.search(r'(\d+(?:[.,]\d+)?)\s*%?\s*id', top_line or "")
+        if m:
+            try:
+                idle = float(m.group(1).replace(",", "."))
+                return round(max(0.0, min(100.0, 100.0 - idle)), 1)
+            except Exception:
+                pass
+    return get_cpu_usage()
+
+# --------- Memory / Disk / Network ---------
+def parse_mem(free_txt: str):
+    for line in free_txt.splitlines():
         if line.lower().startswith("mem:"):
-            parts = line.split()
-            if len(parts) >= 7:
-                total = int(parts[1])
-                used = int(parts[2])
-                free = int(parts[6])
-                return round(used / total * 100, 1), total, free
-    return 0, 0, 0
+            p = line.split()
+            if len(p) >= 7:
+                total, used, free = int(p[1]), int(p[2]), int(p[6])
+                return round(used/total*100,1), total, free
+    return 0.0, 0, 0
 
-# === Disk-brug ===
-def parse_disk(output):
-    """Parser diskplads og returnerer brugt %, total, brugt, fri."""
-    for line in output.splitlines():
+def parse_disk(df_txt: str):
+    for line in df_txt.splitlines():
         if "/" in line and "%" in line:
             parts = line.split()
             if len(parts) >= 5:
-                used = int(parts[4].replace('%', ''))
-                return used, parts[1], parts[2], parts[3]
+                used_pct = int(parts[4].rstrip('%'))
+                return used_pct, parts[1], parts[2], parts[3]
     return 0, "?", "?", "?"
 
-# === Netværkshastighed ===
-def parse_net_speed(output):
-    """Parser netværkshastighed og estimerer RX + TX (kB/s)."""
+_last_net = {"rx": None, "tx": None, "t": None}
+def parse_net_speed(dev_txt: str):
     try:
-        best_iface = None
-        best_total = 0
-        rx, tx = 0, 0
-        for line in output.strip().split("\n"):
-            if ":" in line:
-                iface, data = line.split(":", 1)
-                fields = data.split()
-                curr_rx = int(fields[0])
-                curr_tx = int(fields[8])
-                total = curr_rx + curr_tx
-                if total > best_total:
-                    best_iface, rx, tx, best_total = iface.strip(), curr_rx, curr_tx, total
+        best_iface, rx, tx, best_total = None, 0, 0, 0
+        for line in dev_txt.strip().splitlines():
+            if ":" not in line: continue
+            iface, rest = line.split(":", 1)
+            f = rest.split()
+            curr_rx, curr_tx = int(f[0]), int(f[8])
+            tot = curr_rx + curr_tx
+            if tot > best_total:
+                best_total, best_iface, rx, tx = tot, iface.strip(), curr_rx, curr_tx
         now = time.time()
-        if last_stats["rx"] is None:
-            last_stats.update({"rx": rx, "tx": tx, "time": now})
-            return 0, 0, 0, best_iface
-        delta_time = now - last_stats["time"]
-        delta_rx = (rx - last_stats["rx"]) / delta_time if delta_time > 0 else 0
-        delta_tx = (tx - last_stats["tx"]) / delta_time if delta_time > 0 else 0
-        last_stats.update({"rx": rx, "tx": tx, "time": now})
-        return round((delta_rx + delta_tx) / 1024, 1), round(delta_rx / 1024, 1), round(delta_tx / 1024, 1), best_iface or "?"
+        if _last_net["rx"] is None:
+            _last_net.update({"rx": rx, "tx": tx, "t": now})
+            return 0.0, 0.0, 0.0, best_iface or "?"
+        dt = max(now - _last_net["t"], 1e-6)
+        drx = (rx - _last_net["rx"]) / dt
+        dtx = (tx - _last_net["tx"]) / dt
+        _last_net.update({"rx": rx, "tx": tx, "t": now})
+        return round((drx + dtx)/1024,1), round(drx/1024,1), round(dtx/1024,1), best_iface or "?"
     except Exception as e:
-        print(f"[parse_net_speed] Fejl: {e}")
-        print(f"[parse_net_speed] Output:\n{output}")
-        return 0, 0, 0, ""
+        print("[parse_net_speed] Error:", e)
+        return 0.0, 0.0, 0.0, "?"
 
-# === Uptime og Temperatur ===
 def get_uptime():
-    """Returnerer uptime-format t:m:s fra /proc/uptime."""
     try:
-        total_seconds = int(float(ssh_run("cat /proc/uptime").split()[0]))
-        return f"{total_seconds // 3600}t {(total_seconds % 3600) // 60}m {total_seconds % 60}s"
-    except:
+        secs = int(ssh_run("cut -d. -f1 /proc/uptime") or "0")
+        return f"{secs//3600}h {(secs%3600)//60}m {secs%60}s"
+    except Exception:
+        return "?"
+
+# --------- Temps ---------
+def _cpu_temp_from_sensors():
+    out = ssh_run("sensors -j 2>/dev/null")
+    if not out: return "?"
+    try:
+        obj = json.loads(out); best = None
+        for chip,data in obj.items():
+            if not isinstance(data, dict): continue
+            for k,v in data.items():
+                if not isinstance(v, dict): continue
+                for kk,vv in v.items():
+                    if not kk.endswith("_input"): continue
+                    tag = f"{chip} {k}".lower()
+                    if any(t in tag for t in ("core","package","cpu","tdie","tctl")):
+                        try:
+                            val = float(vv); best = max(best,val) if best is not None else val
+                        except: pass
+        return round(best,1) if best is not None else "?"
+    except Exception:
         return "?"
 
 def get_cpu_temp():
-    """Returnerer CPU-temperatur i grader celsius."""
-    try:
-        return round(int(ssh_run("cat /sys/class/thermal/thermal_zone0/temp")) / 1000, 1)
-    except:
-        return "?"
+    s = _cpu_temp_from_sensors()
+    if s != "?": return s
+    try: return round(int(ssh_run("cat /sys/class/thermal/thermal_zone0/temp"))/1000,1)
+    except: return "?"
 
-# === Samlet målefunktion ===
+# --------- Disk hardware + SMART temp ---------
+SMART = "/usr/sbin/smartctl"  # match sudoers path
+
+def _root_block_device():
+    src = ssh_run("findmnt -no SOURCE /").strip()
+    if not src: return "", ""
+    pkname = ssh_run(f"lsblk -no PKNAME {src} 2>/dev/null").strip()
+    if pkname: return src, pkname
+    base = os.path.basename(src)
+    if base.startswith("nvme") and "p" in base: base = base.split("p")[0]
+    else: base = re.sub(r'\d+$','', base)
+    return src, base
+
+def _disk_model_for(dev: str) -> str:
+    if not dev: return "?"
+    model = ssh_run(f"lsblk -dno MODEL /dev/{dev} 2>/dev/null").strip()
+    return model or "?"
+
+def _smartctl_available() -> bool:
+    return ssh_run(f"test -x {SMART} && echo yes || echo no").strip() == "yes"
+
+def _parse_ata_temp(raw: str) -> str:
+    for attr in ("Temperature_Celsius","Temp","Temperature_Internal","Airflow_Temperature_Cel"):
+        m = re.search(rf"^\s*\d+\s+{attr}\b.*?(\d+)\s*(?:\(|$)", raw, re.MULTILINE)
+        if m: return m.group(1)
+    m = re.search(r'(?:Temperature|Composite).*?:\s*([0-9]+)\s*C', raw)
+    return m.group(1) if m else "?"
+
+def _disk_temp_via_smartctl(dev: str) -> str:
+    if not dev or not _smartctl_available(): return "?"
+    if dev.startswith("nvme"):
+        out = ssh_run(f"sudo -n {SMART} -A /dev/{dev} 2>/dev/null || {SMART} -A /dev/{dev} 2>/dev/null")
+        m = re.search(r'(?:Temperature|Composite):\s*([0-9]+)\s*C', out)
+        return m.group(1) if m else "?"
+    out = ssh_run(f"sudo -n {SMART} -A /dev/{dev} 2>/dev/null || {SMART} -A /dev/{dev} 2>/dev/null")
+    t = _parse_ata_temp(out)
+    if t != "?": return t
+    out2 = ssh_run(f"sudo -n {SMART} -A -d sat /dev/{dev} 2>/dev/null || {SMART} -A -d sat /dev/{dev} 2>/dev/null")
+    return _parse_ata_temp(out2)
+
+def get_disk_hardware_info():
+    _, dev = _root_block_device()
+    if not dev: return "?", "?", "?"
+    return _disk_model_for(dev), dev, _disk_temp_via_smartctl(dev)
+
+# --------- Aggregate ---------
 def collect_metrics():
-    """Samler alle målinger ét sted og returnerer som dict."""
-    cpu_raw = ssh_run("top -bn1 | grep 'Cpu(s)'")
-    mem_raw = ssh_run("free -m")
+    mem_raw  = ssh_run("free -m")
     disk_raw = ssh_run("df -h /")
-    net_raw = ssh_run("cat /proc/net/dev")
+    net_raw  = ssh_run("cat /proc/net/dev")
     cpu_name, cpu_cores, cpu_freq = parse_cpu_info()
-    cpu_usage = parse_cpu_usage(cpu_raw)
-    ram_usage, ram_total, ram_free = parse_mem(mem_raw)
-    disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw)
-    net_total, net_rx, net_tx, net_iface = parse_net_speed(net_raw)
+    cpu_usage = get_cpu_usage()
+    ram_usage, ram_total, ram_free = parse_mem(mem_raw or "")
+    disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw or "")
+    net_total, net_rx, net_tx, net_iface = parse_net_speed(net_raw or "")
     uptime = get_uptime()
     cpu_temp = get_cpu_temp()
+    disk_model, disk_device, disk_temp = get_disk_hardware_info()
     return {
         "cpu": cpu_usage,
         "cpu_name": cpu_name,
@@ -171,15 +380,17 @@ def collect_metrics():
         "disk_total": disk_total,
         "disk_used": disk_used,
         "disk_free": disk_free,
+        "disk_model": disk_model,
+        "disk_device": disk_device,
+        "disk_temp": disk_temp,
         "network": net_total,
         "net_rx": net_rx,
         "net_tx": net_tx,
         "net_iface": net_iface,
-        "uptime": uptime
+        "uptime": uptime,
     }
 
-# === Baggrundstråd som opdaterer målinger hver 10. sekund ===
-def background_updater():
+def background_updater() -> None:
     global latest_metrics, first_cached_metrics
     first = True
     while True:
@@ -189,7 +400,7 @@ def background_updater():
             if first:
                 first_cached_metrics = metrics
                 first = False
-            time.sleep(10)
         except Exception as e:
-            print(f"[background_updater] Fejl: {e}")
+            print(f"[background_updater] Error: {e}")
+        finally:
             time.sleep(10)

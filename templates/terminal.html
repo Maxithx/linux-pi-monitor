@@ -1,187 +1,46 @@
+
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="terminal-title">Terminal til Linux</h1>
+<h1 class="terminal-title">Terminal to Linux</h1>
 
 <!-- Terminal -->
 <div id="terminal"></div>
 
-<!-- Stop-knap -->
-<button id="stop-process-btn" style="margin-top: 10px;">🛑 Stop aktiv proces (Ctrl + C)</button>
+<!-- Stop button -->
+<button id="stop-process-btn" style="margin-top: 10px;">🛑 Stop active process (Ctrl + C)</button>
 
-<p class="terminal-hint">💡 Brug <strong>Ctrl + C</strong> for at stoppe en proces og <strong>Ctrl + Shift + V</strong> for at indsætte.</p>
+<p class="terminal-hint">💡 Use <strong>Ctrl + C</strong> to stop a process and <strong>Ctrl + Shift + V</strong> to paste.</p>
 
-<!-- Kommandooversigt -->
+<!-- Command Overview -->
 <div id="command-section">
-    <h2>Din kommandoversigt</h2>
-    <input type="text" id="search-box" placeholder="Søg kommando...">
+    <h2>Your Command Overview</h2>
+    <input type="text" id="search-box" placeholder="Search command...">
 
     <div id="command-list"></div>
 
     <form id="add-command-form">
-        <input type="text" id="cmd-title" placeholder="Navn (f.eks. Vis mappe)" required>
-        <input type="text" id="cmd-command" placeholder="Kommando (f.eks. ls -la)" required>
-        <input type="text" id="cmd-desc" placeholder="Beskrivelse (valgfrit)">
-        <button type="submit">Tilføj</button>
+        <input type="text" id="cmd-title" placeholder="Name (e.g. List directory)" required>
+        <input type="text" id="cmd-command" placeholder="Command (e.g. ls -la)" required>
+        <input type="text" id="cmd-desc" placeholder="Description (optional)">
+        <button type="submit">Add</button>
     </form>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<!-- JavaScript -->
+<script src="{{ url_for('static', filename='js/xterm/xterm.js') }}"></script>
+<!-- CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/xterm/xterm.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+<!-- JavaScript -->
+<script src="{{ url_for('static', filename='js/xterm/fontfaceobserver.standalone.js') }}"></script>
+<script src="{{ url_for('static', filename='js/xterm/xterm-addon-fit.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/xterm/xterm-addon-canvas.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/xterm/xterm-addon-serialize.min.js') }}"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/socket.io/client-dist/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-canvas@0.4.0/lib/xterm-addon-canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fontfaceobserver@2.1.0/fontfaceobserver.standalone.js"></script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const font = new FontFaceObserver("Fira Mono");
-
-    font.load().then(() => {
-        const term = new Terminal({
-            cursorBlink: true,
-            scrollback: 1000,
-            fontFamily: '"Fira Mono", monospace',
-            fontSize: 14,
-            lineHeight: 1,
-            fontWeight: 'normal',
-            letterSpacing: 0,
-            theme: { background: '#000000', foreground: '#00FF00' },
-            allowProposedApi: true,
-            allowTransparency: true,
-            lineWrap: true
-        });
-
-        const fitAddon = new FitAddon.FitAddon();
-        const canvasAddon = new CanvasAddon.CanvasAddon();
-
-        term.loadAddon(fitAddon);
-        term.loadAddon(canvasAddon);
-        term.open(document.getElementById('terminal'));
-        fitAddon.fit();
-        term.focus();
-
-        const socket = io();
-        socket.on("connect", () => {
-            fitAddon.fit();
-            term.focus();
-        });
-
-        term.onData(data => {
-            socket.emit("input", data);
-        });
-
-        // ✅ Fang Ctrl + C via tastatur
-        term.attachCustomKeyEventHandler(e => {
-            if (e.ctrlKey && e.key.toLowerCase() === "c") {
-                socket.emit("input", "\x03");
-                return false;
-            }
-            return true;
-        });
-
-        // ✅ Fang klik på "Stop aktiv proces"-knap
-        document.getElementById("stop-process-btn").addEventListener("click", () => {
-            socket.emit("input", "\x03");
-            term.focus();
-        });
-
-        socket.on("output", data => {
-            term.write(data);
-        });
-
-        window.addEventListener("resize", () => {
-            fitAddon.fit();
-            term.focus();
-        });
-
-        // Kommandooversigt
-        const defaultCommands = [
-            { title: "Vis mappe", command: "ls", desc: "Vis filer i mappen" },
-            { title: "Skift mappe", command: "cd <mappe>", desc: "Naviger til anden mappe" },
-            { title: "Vis sti", command: "pwd", desc: "Vis nuværende sti" },
-            { title: "CPU forbrug", command: "top", desc: "Vis CPU og processer" },
-            { title: "RAM info", command: "free -h", desc: "Vis RAM og Swap forbrug" },
-            { title: "Netværksinfo", command: "ip a", desc: "Vis IP og netværksinterface" }
-        ];
-
-        let commands = loadCommands();
-        renderCommandList();
-
-        function loadCommands() {
-            const saved = localStorage.getItem("linuxCommands");
-            return saved ? JSON.parse(saved) : defaultCommands;
-        }
-
-        function saveCommands(cmds) {
-            localStorage.setItem("linuxCommands", JSON.stringify(cmds));
-        }
-
-        function renderCommandList() {
-            const listDiv = document.getElementById("command-list");
-            const filter = document.getElementById("search-box").value.toLowerCase();
-            listDiv.innerHTML = "";
-
-            commands.forEach((cmd, index) => {
-                if (
-                    cmd.title.toLowerCase().includes(filter) ||
-                    cmd.command.toLowerCase().includes(filter) ||
-                    (cmd.desc && cmd.desc.toLowerCase().includes(filter))
-                ) {
-                    const item = document.createElement("div");
-                    item.style.marginBottom = "8px";
-
-                    const title = document.createElement("strong");
-                    title.textContent = cmd.title;
-                    title.style.cursor = "pointer";
-                    title.style.color = "#4FC3F7";
-
-                    title.addEventListener("click", () => {
-                        term.paste(cmd.command);
-                        requestAnimationFrame(() => {
-                            term.clearSelection();
-                            window.getSelection().removeAllRanges();
-                        });
-                        term.focus();
-                    });
-
-                    const info = document.createElement("span");
-                    info.innerHTML = `: <code>${cmd.command}</code> ${cmd.desc ? "- " + cmd.desc : ""}`;
-
-                    const deleteBtn = document.createElement("button");
-                    deleteBtn.textContent = "Slet";
-                    deleteBtn.style.marginLeft = "10px";
-                    deleteBtn.addEventListener("click", () => {
-                        commands.splice(index, 1);
-                        saveCommands(commands);
-                        renderCommandList();
-                    });
-
-                    item.appendChild(title);
-                    item.appendChild(info);
-                    item.appendChild(deleteBtn);
-                    listDiv.appendChild(item);
-                }
-            });
-        }
-
-        document.getElementById("add-command-form").addEventListener("submit", function (e) {
-            e.preventDefault();
-            const title = document.getElementById("cmd-title").value.trim();
-            const command = document.getElementById("cmd-command").value.trim();
-            const desc = document.getElementById("cmd-desc").value.trim();
-            if (!title || !command) return;
-            commands.push({ title, command, desc });
-            saveCommands(commands);
-            renderCommandList();
-            this.reset();
-        });
-
-        document.getElementById("search-box").addEventListener("input", renderCommandList);
-    });
-});
-</script>
+<script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 {% endblock %}

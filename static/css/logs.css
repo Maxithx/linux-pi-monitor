@@ -1,4 +1,5 @@
-/* Bruger den samme grundlæggende styling som dashboard.css */
+/* === GENERAL PAGE STYLES === */
+/* Uses similar styles to dashboard.css */
 
 body {
     background-color: #111;
@@ -6,12 +7,14 @@ body {
     font-family: 'Segoe UI', sans-serif;
 }
 
+/* === MAIN CONTAINER === */
 .container {
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
 }
 
+/* === HEADER SECTION === */
 .logs-header {
     margin-bottom: 20px;
     display: flex;
@@ -19,7 +22,7 @@ body {
     align-items: center;
 }
 
-/* Styling til "Go to Dashboard"-link som knap */
+/* === DASHBOARD BUTTON AS LINK === */
 .button-link {
     background-color: #2196F3;
     color: white;
@@ -37,6 +40,7 @@ body {
     background-color: #0d8ae3;
 }
 
+/* === LOG LIST CONTAINER === */
 .logs-container {
     background-color: #1e1e1e;
     padding: 20px;
@@ -44,6 +48,7 @@ body {
     box-shadow: 0 0 10px #000;
 }
 
+/* === INDIVIDUAL LOG ENTRIES === */
 #logs-list {
     list-style-type: none;
     padding: 0;
@@ -58,7 +63,7 @@ body {
     color: #ccc;
 }
 
-/* Responsive Breakpoint for smaller screens */
+/* === RESPONSIVE STYLES === */
 @media (max-width: 768px) {
     .container {
         padding: 10px;

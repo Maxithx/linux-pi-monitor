@@ -1,0 +1,743 @@
+# routes/profiles.py
+from flask import Blueprint, current_app, request, jsonify, Response
+import os, re, json, uuid, paramiko, time
+from typing import List, Tuple, Optional
+
+profiles_bp = Blueprint("profiles_bp", __name__, url_prefix="/profiles")
+
+# -------------------------- helpers --------------------------
+
+def _profiles_path() -> str:
+    path = current_app.config.get("PROFILES_PATH")
+    if not path:
+        raise RuntimeError("PROFILES_PATH not set on app.config")
+    return path
+
+def _ensure_store() -> dict:
+    """Hent eller initier json-strukturen på disken."""
+    path = _profiles_path()
+    if not os.path.exists(path):
+        data = {"profiles": [], "active_profile_id": None, "default_profile_id": None}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return data
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _write_store(data: dict) -> None:
+    with open(_profiles_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+def _find(data: dict, pid: str):
+    for p in data.get("profiles", []):
+        if p.get("id") == pid:
+            return p
+    return None
+
+def _active_profile(data: dict) -> Optional[dict]:
+    pid = data.get("active_profile_id")
+    return _find(data, pid) if pid else None
+
+def _sync_active_into_legacy_config(prof: dict | None) -> None:
+    """Hold bagudkompatible kodeveje i live (læser SSH_SETTINGS fra aktiv profil)."""
+    if not prof:
+        current_app.config["SSH_SETTINGS"] = {}
+        return
+    current_app.config["SSH_SETTINGS"] = {
+        "pi_host": prof.get("pi_host", ""),
+        "pi_user": prof.get("pi_user", ""),
+        "auth_method": prof.get("auth_method", "key"),
+        "ssh_key_path": prof.get("ssh_key_path", ""),
+        "password": prof.get("password", "")
+    }
+
+def _expand_user_home(path: str) -> str:
+    # Gør "~" og %USERPROFILE%/HOME portable
+    return os.path.expandvars(os.path.expanduser(path))
+
+def _default_key_path_for_profile(prof: dict) -> str:
+    """Standardsti til ny nøgle: ~/.ssh/id_rsa_<profil-id8> (stabilt og sikkert filnavn)."""
+    home_ssh = os.path.join(_expand_user_home("~"), ".ssh")
+    os.makedirs(home_ssh, exist_ok=True)
+    stem = f"id_rsa_{prof.get('id','')[:8] or 'profile'}"
+    return os.path.join(home_ssh, stem)
+
+def _safe_stem_from_profile(prof: dict) -> str:
+    """Brug profilens navn, ellers id8, og lav en sikker fil-stem."""
+    name = (prof.get("name") or "").strip()
+    if name:
+        stem = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
+    else:
+        stem = f"profile_{(prof.get('id','')[:8] or '00000000')}"
+    return stem
+
+def _detect_key_type_from_file(path: str) -> Optional[str]:
+    """Læs første linjer og gæt nøgletype (rsa/ed25519/ecdsa)."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            head = f.read(2048)
+    except Exception:
+        return None
+    if "BEGIN OPENSSH PRIVATE KEY" in head:
+        return "openssh"
+    if "BEGIN RSA PRIVATE KEY" in head:
+        return "rsa"
+    if "BEGIN EC PRIVATE KEY" in head or "BEGIN ECDSA PRIVATE KEY" in head:
+        return "ecdsa"
+    return "openssh"
+
+def _load_private_key(path: str):
+    """Prøv at indlæse privatnøglen uanset type (RSA/Ed25519/ECDSA)."""
+    err = None
+    try:
+        return paramiko.RSAKey.from_private_key_file(path)
+    except Exception as e:
+        err = e
+    try:
+        return paramiko.Ed25519Key.from_private_key_file(path)
+    except Exception as e:
+        err = e
+    try:
+        return paramiko.ECDSAKey.from_private_key_file(path)
+    except Exception as e:
+        err = e
+    raise err or RuntimeError("Unsupported key type")
+
+def _key_candidates() -> List[Tuple[str, str, float]]:
+    """
+    Find kandidatnøgler i ~/.ssh med prioritet:
+    id_ed25519, id_rsa, id_ecdsa, ellers andre 'id_*' filer.
+    Returnerer liste af (path, type, mtime).
+    """
+    home_ssh = os.path.join(_expand_user_home("~"), ".ssh")
+    if not os.path.isdir(home_ssh):
+        return []
+    entries = []
+    try:
+        for name in os.listdir(home_ssh):
+            path = os.path.join(home_ssh, name)
+            if not os.path.isfile(path):
+                continue
+            if path.endswith(".pub"):
+                continue
+            if name in ("config", "known_hosts"):
+                continue
+            if not os.path.exists(path + ".pub"):
+                continue
+            ktype = _detect_key_type_from_file(path) or "unknown"
+            mtime = 0.0
+            try:
+                mtime = os.path.getmtime(path)
+            except Exception:
+                pass
+            entries.append((path, ktype, mtime))
+    except Exception:
+        return []
+
+    def _prio(item):
+        p, k, _ = item
+        base = os.path.basename(p)
+        if base == "id_ed25519":
+            return (0, base)
+        if base == "id_rsa":
+            return (1, base)
+        if base == "id_ecdsa":
+            return (2, base)
+        return (3, base)
+    entries.sort(key=_prio)
+    return entries
+
+# ----------- SSH helpers for readiness/prepare-host ------------
+
+def _ssh_connect(host: str, user: str, auth: str, key_path: str, password: str, prefer_password=False, timeout=10) -> paramiko.SSHClient:
+    """
+    Opret en SSH-forbindelse. Hvis prefer_password=True forsøges password først (til bootstrap-scenarier).
+    """
+    if not host or not user:
+        raise RuntimeError("Host and user required")
+
+    cli = paramiko.SSHClient()
+    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    def _connect_with_pw():
+        if not password:
+            raise RuntimeError("Password required")
+        cli.connect(hostname=host, username=user, password=password, timeout=timeout)
+
+    def _connect_with_key():
+        if not key_path or not os.path.exists(key_path):
+            raise RuntimeError("Key path missing")
+        key = _load_private_key(key_path)
+        cli.connect(hostname=host, username=user, pkey=key, timeout=timeout)
+
+    primary = _connect_with_pw if (prefer_password or auth == "password") else _connect_with_key
+    fallback = _connect_with_key if primary is _connect_with_pw else _connect_with_pw
+
+    try:
+        primary()
+    except Exception as e1:
+        try:
+            fallback()
+        except Exception as e2:
+            raise RuntimeError(f"Login failed: {e1}; fallback: {e2}")
+
+    # keepalive
+    try:
+        tr = cli.get_transport()
+        if tr:
+            tr.set_keepalive(10)
+    except Exception:
+        pass
+    return cli
+
+def _ssh_exec(ssh: paramiko.SSHClient, cmd: str, timeout=20) -> Tuple[int, str, str]:
+    """Kør kommando og returner (rc, stdout, stderr)."""
+    try:
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
+        try:
+            stdout.channel.settimeout(timeout)
+            stderr.channel.settimeout(timeout)
+        except Exception:
+            pass
+        out = stdout.read().decode(errors="replace")
+        err = stderr.read().decode(errors="replace")
+        rc = stdout.channel.recv_exit_status()
+        return rc, out, err
+    except Exception as e:
+        return 255, "", f"{e}"
+
+def _profile_from_request_or_active() -> Tuple[dict, dict]:
+    """Return (data, profile) – profil kan være aktiv hvis ikke angivet i body."""
+    data = _ensure_store()
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    prof = _find(data, pid) if pid else _active_profile(data)
+    if not prof:
+        raise RuntimeError("Profile not found")
+    return data, prof
+
+# --------------------------- routes --------------------------
+
+@profiles_bp.get("/list")
+def list_profiles():
+    data = _ensure_store()
+    return jsonify({
+        "ok": True,
+        "profiles": data.get("profiles", []),
+        "active_profile_id": data.get("active_profile_id"),
+        "default_profile_id": data.get("default_profile_id"),
+    })
+
+@profiles_bp.post("/new")
+def new_profile():
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "New profile").strip()
+
+    data = _ensure_store()
+    pid = str(uuid.uuid4())
+
+    prof = {
+        "id": pid,
+        "name": name,
+        "pi_host": "",
+        "pi_user": "",
+        "auth_method": "key",
+        "ssh_key_path": "",
+        "password": ""
+    }
+    data.setdefault("profiles", []).append(prof)
+
+    # Første profil → gør aktiv (default-feltet efterlades, men bruges ikke i UI)
+    if not data.get("active_profile_id"):
+        data["active_profile_id"] = pid
+    if not data.get("default_profile_id"):
+        data["default_profile_id"] = pid
+
+    _write_store(data)
+
+    if data.get("active_profile_id") == pid:
+        _sync_active_into_legacy_config(prof)
+        current_app.config["UPDATER_RELOAD_HINT"] = time.time()
+
+    return jsonify({"ok": True, "profile": prof})
+
+@profiles_bp.post("/save")
+def save_profile():
+    """
+    Opdater eksisterende profil (partial update).
+    Kræver: id
+    Tilladte felter: name, pi_host, pi_user, auth_method, ssh_key_path, password, make_active
+    """
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+
+    data = _ensure_store()
+    prof = _find(data, pid)
+    if not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    def _maybe_set(key, transform=lambda x: x):
+        if key in body:
+            val = body.get(key)
+            if key == "name":
+                val = (val or "").strip()
+                if not val:
+                    return "empty_name"
+            prof[key] = transform(val)
+
+    if _maybe_set("name") == "empty_name":
+        return jsonify({"ok": False, "error": "Name cannot be empty"}), 400
+
+    _maybe_set("pi_host",     lambda v: (v or "").strip())
+    _maybe_set("pi_user",     lambda v: (v or "").strip())
+    _maybe_set("auth_method", lambda v: (v or "key").strip())
+    _maybe_set("ssh_key_path",lambda v: _expand_user_home((v or "").strip()))
+    _maybe_set("password",    lambda v: v or "")
+
+    if body.get("make_active") is True:
+        data["active_profile_id"] = pid
+
+    _write_store(data)
+
+    if data.get("active_profile_id") == pid:
+        _sync_active_into_legacy_config(prof)
+        current_app.config["UPDATER_RELOAD_HINT"] = time.time()
+
+    return jsonify({"ok": True, "profile": prof})
+
+@profiles_bp.post("/delete")
+def delete_profile():
+    body = request.get_json(silent=True) or {}
+    pid = body.get("id")
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+
+    data = _ensure_store()
+    profs = data.get("profiles", [])
+    profs = [p for p in profs if p.get("id") != pid]
+    data["profiles"] = profs
+
+    changed_active = False
+    if data.get("active_profile_id") == pid:
+        data["active_profile_id"] = profs[0]["id"] if profs else None
+        changed_active = True
+    if data.get("default_profile_id") == pid:
+        data["default_profile_id"] = profs[0]["id"] if profs else None
+
+    _write_store(data)
+
+    new_active = _find(data, data.get("active_profile_id"))
+    _sync_active_into_legacy_config(new_active)
+
+    if changed_active:
+        current_app.config["UPDATER_RELOAD_HINT"] = time.time()
+
+    return jsonify({"ok": True})
+
+@profiles_bp.post("/set-active")
+def set_active():
+    body = request.get_json(silent=True) or {}
+    pid = body.get("id")
+    data = _ensure_store()
+    prof = _find(data, pid)
+    if not pid or not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    data["active_profile_id"] = pid
+    _write_store(data)
+
+    _sync_active_into_legacy_config(prof)
+    current_app.config["UPDATER_RELOAD_HINT"] = time.time()
+    return jsonify({"ok": True})
+
+@profiles_bp.post("/set-default")
+def set_default():
+    # Beholdes for bagudkomp., men UI’et behøver den ikke længere
+    body = request.get_json(silent=True) or {}
+    pid = body.get("id")
+    data = _ensure_store()
+    if not pid or not _find(data, pid):
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+    data["default_profile_id"] = pid
+    _write_store(data)
+    return jsonify({"ok": True})
+
+@profiles_bp.post("/test")
+def test_profile():
+    """Light SSH connectivity test (uden at gemme)."""
+    body = request.get_json(silent=True) or {}
+    host = (body.get("pi_host") or "").strip()
+    user = (body.get("pi_user") or "").strip()
+    auth = (body.get("auth_method") or "key").strip()
+    key_path = _expand_user_home((body.get("ssh_key_path") or "").strip())
+    pw = body.get("password") or ""
+
+    if not host or not user:
+        return jsonify({"ok": False, "error": "Host and user required"}), 400
+
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if auth == "key":
+            pkey = _load_private_key(key_path)
+            ssh.connect(host, username=user, pkey=pkey, timeout=6)
+        else:
+            ssh.connect(host, username=user, password=pw, timeout=6)
+        ssh.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+# --------------------------- key management --------------------------
+
+@profiles_bp.get("/suggest-key-path")
+def suggest_key_path():
+    """
+    Foreslå SSH-nøglesti ud fra ~\\.ssh.
+    Optional query: ?id=<profile_id> (bruges til at foreslå et pænt nyt filnavn hvis ingen kandidater findes)
+    Returnerer:
+    {
+      "ok": true,
+      "default": "C:\\Users\\Thomas\\.ssh\\id_ed25519",  # eller None hvis ingen
+      "candidates": [
+        {"path": "...", "type": "ed25519|rsa|ecdsa|openssh|unknown", "mtime": 1737560000.0}
+      ],
+      "suggest_new": "~/.ssh/id_<profilename>"            # kun hvis ingen kandidater og id er angivet
+    }
+    """
+    data = _ensure_store()
+    pid = (request.args.get("id") or "").strip()
+    prof = _find(data, pid) if pid else None
+
+    cands = _key_candidates()
+    # map til json-venligt format
+    cand_json = []
+    for p, k, m in cands:
+        base = os.path.basename(p)
+        if base == "id_ed25519":
+            k = "ed25519"
+        elif base == "id_rsa":
+            k = "rsa"
+        elif base == "id_ecdsa":
+            k = "ecdsa"
+        cand_json.append({"path": p, "type": k, "mtime": m})
+
+    default = cand_json[0]["path"] if cand_json else None
+
+    suggest_new = None
+    if not default and prof:
+        stem = _safe_stem_from_profile(prof)
+        suggest_new = os.path.join(_expand_user_home("~"), ".ssh", f"id_{stem}")
+
+    return jsonify({"ok": True, "default": default, "candidates": cand_json, "suggest_new": suggest_new})
+
+@profiles_bp.post("/gen-key")
+def generate_keypair():
+    """
+    Generér en RSA nøgle for en profil.
+    Body: { id, overwrite?: bool, key_path?: str }
+    - Gemmer <path> og <path>.pub lokalt.
+    - Opdaterer profilens ssh_key_path til private key.
+    """
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+
+    data = _ensure_store()
+    prof = _find(data, pid)
+    if not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    desired = (body.get("key_path") or prof.get("ssh_key_path") or _default_key_path_for_profile(prof)).strip()
+    priv_path = _expand_user_home(desired)
+    pub_path = priv_path + ".pub"
+    overwrite = bool(body.get("overwrite"))
+
+    if not overwrite and (os.path.exists(priv_path) or os.path.exists(pub_path)):
+        return jsonify({"ok": False, "error": "Key already exists – pass overwrite=true to replace"}), 400
+
+    try:
+        os.makedirs(os.path.dirname(priv_path), exist_ok=True)
+        key = paramiko.RSAKey.generate(2048)
+        key.write_private_key_file(priv_path)
+        pub_line = f"{key.get_name()} {key.get_base64()}\n"
+        with open(pub_path, "w", encoding="utf-8") as f:
+            f.write(pub_line)
+
+        prof["ssh_key_path"] = priv_path
+        _write_store(data)
+
+        if data.get("active_profile_id") == pid:
+            _sync_active_into_legacy_config(prof)
+
+        return jsonify({"ok": True, "private_key": priv_path, "public_key": pub_path})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Generate failed: {e}"}), 500
+
+@profiles_bp.post("/install-key")
+def install_public_key_on_host():
+    """
+    Installer profilens public key på fjernmaskinen (append til ~/.ssh/authorized_keys).
+    Body: { id, password?: str }
+    """
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+
+    data = _ensure_store()
+    prof = _find(data, pid)
+    if not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    host = (prof.get("pi_host") or "").strip()
+    user = (prof.get("pi_user") or "").strip()
+    key_path = _expand_user_home((prof.get("ssh_key_path") or "").strip())
+    pw = body.get("password") or prof.get("password") or ""  # request > profile
+
+    if not host or not user:
+        return jsonify({"ok": False, "error": "Host and user required on profile"}), 400
+    if not os.path.exists(key_path):
+        return jsonify({"ok": False, "error": "Private key not found – generate first"}), 400
+    if not os.path.exists(key_path + ".pub"):
+        return jsonify({"ok": False, "error": "Public key not found – generate first"}), 400
+
+    with open(key_path + ".pub", "r", encoding="utf-8") as f:
+        pub_line = f.read().strip() + "\n"
+
+    def _connect_with_password(ssh):
+        if not pw:
+            raise RuntimeError("Password required to install key")
+        ssh.connect(host, username=user, password=pw, timeout=10)
+
+    def _connect_with_key(ssh):
+        pkey = _load_private_key(key_path)
+        ssh.connect(host, username=user, pkey=pkey, timeout=10)
+
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        try:
+            if pw:
+                _connect_with_password(ssh)
+            else:
+                _connect_with_key(ssh)
+        except Exception as primary_err:
+            try:
+                if pw:
+                    _connect_with_key(ssh)
+                else:
+                    _connect_with_password(ssh)
+            except Exception as secondary_err:
+                raise RuntimeError(f"Login failed: {primary_err}; fallback: {secondary_err}")
+
+        _, stdout, _ = ssh.exec_command("echo $HOME")
+        home_dir = stdout.read().decode().strip() or f"/home/{user}"
+        ssh_dir = f"{home_dir}/.ssh"
+        auth_keys = f"{ssh_dir}/authorized_keys"
+
+        sftp = ssh.open_sftp()
+        try:
+            sftp.mkdir(ssh_dir)
+        except IOError:
+            pass
+        sftp.chmod(ssh_dir, 0o700)
+
+        try:
+            with sftp.file(auth_keys, "a", -1) as f:
+                f.write(pub_line)
+        except IOError:
+            with sftp.file(auth_keys, "w", -1) as f:
+                f.write(pub_line)
+        sftp.chmod(auth_keys, 0o600)
+        sftp.close()
+        ssh.close()
+        return jsonify({"ok": True, "installed_to": auth_keys})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Install failed: {e}"}), 500
+
+# -------------------- host bootstrap / readiness --------------------
+
+@profiles_bp.get("/check-readiness")
+def check_readiness():
+    """
+    Tjek om målhosten er “klar” til vores dashboard/metrics.
+    Returnerer et JSON-objekt med detaljer og samlet status.
+    """
+    try:
+        data, prof = _profile_from_request_or_active()
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    host = (prof.get("pi_host") or "").strip()
+    user = (prof.get("pi_user") or "").strip()
+    auth = (prof.get("auth_method") or "key").strip()
+    keyp = _expand_user_home((prof.get("ssh_key_path") or "").strip())
+    pw = prof.get("password") or ""
+
+    result = {
+        "ok": False,
+        "checks": {},
+        "host": host, "user": user
+    }
+
+    try:
+        ssh = _ssh_connect(host, user, auth, keyp, pw, prefer_password=False, timeout=10)
+    except Exception as e:
+        result["checks"]["ssh_login"] = {"ok": False, "msg": f"{e}"}
+        return jsonify(result), 200
+
+    def add(name, rc, out, err, ok_if=0):
+        result["checks"][name] = {"ok": (rc == ok_if), "rc": rc, "out": out.strip(), "err": err.strip()}
+
+    # SSH dæmon
+    add("ssh_service", *_ssh_exec(ssh, "systemctl is-active ssh || systemctl is-active sshd || true"))
+    # Port 22
+    add("port_22", *_ssh_exec(ssh, "ss -tln | grep -q ':22 ' || lsof -i -P -n | grep -q 'sshd.*LISTEN'"), ok_if=0)
+    # Værktøjer
+    for tool in ("lscpu", "free", "df", "lsblk", "findmnt"):
+        add(f"has_{tool}", *_ssh_exec(ssh, f"command -v {tool} >/dev/null 2>&1; echo $?"), ok_if=0)
+    # sensors/smartctl (må gerne mangle – marker som optional)
+    add("has_sensors", *_ssh_exec(ssh, "command -v sensors >/dev/null 2>&1; echo $?"), ok_if=0)
+    add("has_smartctl", *_ssh_exec(ssh, "command -v smartctl >/dev/null 2>&1; echo $?"), ok_if=0)
+    # sensors-data
+    add("sensors_json", *_ssh_exec(ssh, "sensors -j >/dev/null 2>&1; echo $?"), ok_if=0)
+    # root-disk
+    rc, out, err = _ssh_exec(ssh, "findmnt -no SOURCE /")
+    root_src = out.strip()
+    add("root_source", rc, out, err)
+    rc2, out2, err2 = _ssh_exec(ssh, f"lsblk -no PKNAME {root_src} 2>/dev/null || true") if root_src else (1,"","")
+    base = out2.strip()
+    result["checks"]["root_base"] = {"ok": bool(base), "rc": rc2, "out": base, "err": err2.strip()}
+
+    # NOPASSWD smartctl test (optional)
+    if base:
+        rc3, out3, err3 = _ssh_exec(ssh, f"sudo -n smartctl -A /dev/{base} >/dev/null 2>&1; echo $?")
+        try_ok = "0" in out3.strip()
+        result["checks"]["smartctl_nopasswd"] = {"ok": try_ok, "rc": 0 if try_ok else 1, "out": out3.strip(), "err": err3.strip()}
+    else:
+        result["checks"]["smartctl_nopasswd"] = {"ok": False, "rc": 1, "out": "", "err": "no base device"}
+
+    ssh.close()
+
+    # Samlet status: kræver ssh_service, port_22, tools (lscpu/free/df/lsblk/findmnt)
+    essentials = ["ssh_service", "port_22", "has_lscpu", "has_free", "has_df", "has_lsblk", "has_findmnt"]
+    result["ok"] = all(result["checks"].get(k, {}).get("ok") for k in essentials)
+    return jsonify(result), 200
+
+
+@profiles_bp.post("/prepare-host")
+def prepare_host():
+    """
+    Idempotent opsætning af målhosten til SSH & metrics.
+    Body: { id?: str, smartctl_nopasswd?: bool }
+    """
+    body = request.get_json(silent=True) or {}
+    smartctl_nopasswd = bool(body.get("smartctl_nopasswd", True))
+
+    try:
+        data, prof = _profile_from_request_or_active()
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    host = (prof.get("pi_host") or "").strip()
+    user = (prof.get("pi_user") or "").strip()
+    auth = (prof.get("auth_method") or "key").strip()
+    keyp = _expand_user_home((prof.get("ssh_key_path") or "").strip())
+    pw = prof.get("password") or ""
+
+    log = []
+    def push(line): 
+        log.append(line)
+
+    try:
+        ssh = _ssh_connect(host, user, auth, keyp, pw, prefer_password=True, timeout=12)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"SSH connect failed: {e}", "log": []}), 200
+
+    def run(cmd, label=None, ok_rc=0):
+        rc, out, err = _ssh_exec(ssh, cmd, timeout=60)
+        if label:
+            push(f"$ {label}")
+        push(f"$ {cmd}")
+        if out.strip():
+            push(out.strip())
+        if err.strip():
+            push(f"[stderr] {err.strip()}")
+        push(f"[rc={rc}]")
+        return rc == ok_rc
+
+    # Pakker
+    run("sudo apt-get update -y", "apt update")
+    run("sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server sysstat lm-sensors smartmontools", "install packages")
+    # SSH service enable/start (ssh eller sshd)
+    run("sudo systemctl enable --now ssh || sudo systemctl enable --now sshd", "enable ssh service")
+    # sørg for password + pubkey auth slået til (idempotent)
+    run("if grep -qE '^[#\\s]*PasswordAuthentication' /etc/ssh/sshd_config; then sudo sed -i 's/^[#\\s]*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config; else echo 'PasswordAuthentication yes' | sudo tee -a /etc/ssh/sshd_config >/dev/null; fi", "ensure PasswordAuthentication yes")
+    run("if grep -qE '^[#\\s]*PubkeyAuthentication' /etc/ssh/sshd_config; then sudo sed -i 's/^[#\\s]*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config; else echo 'PubkeyAuthentication yes' | sudo tee -a /etc/ssh/sshd_config >/dev/null; fi", "ensure PubkeyAuthentication yes")
+    run("sudo systemctl restart ssh || sudo systemctl restart sshd", "restart sshd")
+    # sensors auto-detect (må gerne fejle uden at stoppe)
+    run("sudo sensors-detect --auto || true", "sensors-detect --auto", ok_rc=0)
+
+    # (valgfrit) sudoers-regel til smartctl -A /dev/*
+    if smartctl_nopasswd:
+        run(f"printf '%s ALL=(root) NOPASSWD: /usr/sbin/smartctl -A /dev/*\\n' '{user}' | sudo tee /etc/sudoers.d/99-smartctl-monitor >/dev/null", "add sudoers smartctl -A")
+        run("sudo chmod 440 /etc/sudoers.d/99-smartctl-monitor", "chmod sudoers file")
+        run("sudo visudo -c >/dev/null || true", "visudo -c", ok_rc=0)
+
+    # hurtig verifikation
+    ok_tools = run("command -v lscpu && command -v free && command -v df && command -v lsblk && command -v findmnt", "verify tools", ok_rc=0)
+    ok_service = run("systemctl is-active ssh || systemctl is-active sshd", "verify ssh active", ok_rc=0)
+    ssh.close()
+
+    return jsonify({
+        "ok": bool(ok_tools and ok_service),
+        "log": log
+    }), 200
+
+# --------------------------- bootstrap script ---------------------------
+
+@profiles_bp.get("/bootstrap.sh")
+def bootstrap_script():
+    # Simpelt, defensivt bootstrap-script til Debian/Ubuntu/Mint
+    script = r"""#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v sudo >/dev/null 2>&1; then
+  echo "This script needs sudo. Please run on a Debian/Ubuntu-based system."
+  exit 1
+fi
+
+# Install and enable ssh server
+sudo apt-get update -y
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server
+
+# Ensure ssh starts on boot and is running now
+sudo systemctl enable --now ssh
+
+# Allow password auth temporarily so the controller can push a key
+if grep -qE '^[#\s]*PasswordAuthentication' /etc/ssh/sshd_config; then
+  sudo sed -i 's/^[#\s]*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+else
+  echo 'PasswordAuthentication yes' | sudo tee -a /etc/ssh/sshd_config >/dev/null
+fi
+
+# Make sure pubkey auth is on
+if grep -qE '^[#\s]*PubkeyAuthentication' /etc/ssh/sshd_config; then
+  sudo sed -i 's/^[#\s]*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+else
+  echo 'PubkeyAuthentication yes' | sudo tee -a /etc/ssh/sshd_config >/dev/null
+fi
+
+sudo systemctl restart ssh
+
+echo
+echo "✅ OpenSSH server installed and running."
+echo "   You can now go back to the controller and press 'Install key on host'."
+echo
+"""
+    return Response(script, mimetype="text/plain")

@@ -1,5 +1,5 @@
-/* === GENERELT === */
-/* Grundlæggende layout og farver */
+/* === GENERAL === */
+/* Basic layout and colors */
 body {
   background-color: #111;
   color: #fff;
@@ -8,21 +8,20 @@ body {
 }
 
 /* === CONTAINER === */
-/* Centrering og margin/padding for hele indholdsområdet */
 .container {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
 }
 
-/* === FORM ELEMENTER === */
-/* Standard styling for formularfelter og labels */
+/* === FORM ELEMENTS === */
 label {
   display: block;
   margin-top: 10px;
 }
 
-input, select {
+input,
+select {
   width: 100%;
   padding: 8px;
   margin: 10px 0;
@@ -32,8 +31,7 @@ input, select {
   color: #fff;
 }
 
-/* === KNAPPER === */
-/* Primær styling for knapper inkl. hover-effekt */
+/* === BUTTONS === */
 button {
   background-color: #2196F3;
   color: white;
@@ -55,13 +53,12 @@ a {
   text-decoration: none;
 }
 
-/* === SKJUL ELEMENTER === */
+/* === HIDDEN ELEMENTS === */
 .hidden {
   display: none;
 }
 
-/* === BESKEDER (ALERTS) === */
-/* Farvede beskeder med baggrund efter status */
+/* === ALERT MESSAGES === */
 .alert {
   padding: 10px;
   border-radius: 5px;
@@ -83,8 +80,7 @@ a {
   color: white;
 }
 
-/* === STATUS-INDIKATOR === */
-/* Statussektion for forbindelser med farvede prikker */
+/* === CONNECTION STATUS === */
 .status-indicator {
   font-weight: bold;
   margin-bottom: 15px;
@@ -108,8 +104,7 @@ a {
   background-color: #F44336;
 }
 
-/* === SPINNER ANIMATION === */
-/* Grøn roterende spinner bruges ved installation */
+/* === SPINNER LOADER === */
 .spinner {
   display: inline-block;
   width: 18px;
@@ -126,4 +121,75 @@ a {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* === TERMINAL SOFTWARE INSTALLATION GRID === */
+.software-grid-box {
+  margin-top: 15px;
+  border: 0px solid #333;
+  border-radius: 6px;
+  background-color: #1c1c2c;
+  padding: 10, 0px;
+  overflow-x: auto;
+}
+
+/* === Software table design === */
+.software-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+  font-size: 15px;
+}
+
+/* Gør kun overskriftsrækken med colspan=4 gennemsigtig */
+.software-table thead tr:first-child th {
+  background-color: rgba(29, 27, 49); /* let gennemsigtig sort */
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+  text-align: left;
+}
+
+.software-table th,
+.software-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #333;
+}
+
+.software-table th {
+  background-color: #2a2a2a;
+  font-weight: 600;
+}
+
+.software-table td:nth-child(1) {
+  width: 40px;
+  text-align: center;
+  background-color: #202020;
+  font-weight: bold;
+  color: #ccc;
+}
+
+.software-table td:nth-child(2) {
+  font-weight: 500;
+}
+
+.software-table td:nth-child(3) {
+  color: lightgreen;
+  font-weight: 600;
+}
+
+.software-table td.installed {
+  color: lightgreen;
+}
+
+.software-table td.not-installed {
+  color: #ccc;
+}
+
+/* === Checkmark icon styling === */
+.checkmark {
+  color: #b276ff;
+  font-size: 16px;
+  margin-left: 8px;
 }

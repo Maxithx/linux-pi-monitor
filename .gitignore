@@ -1,9 +1,31 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.log
-*.spec
-build/
+.venv/
+venv/
+.env
+
+# Node / frontend
+node_modules/
 dist/
-*.egg-info/
+build/
+*.map
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# PyInstaller/Build artefacts
+output_setup/
 installer/
+*.spec
+*.exe
+*.zip
+
+# Project-specific
+app.py.log
+glances_install.log
+Backups/

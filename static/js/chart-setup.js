@@ -1,16 +1,39 @@
-function createChart(ctx, label, color) {
-  const savedData = sessionStorage.getItem(label);
-  const chartData = savedData ? JSON.parse(savedData) : Array(30).fill(0);
+// === helpers ================================================================
 
+function clamp01(x) { return Math.max(0, Math.min(100, x)); }
+function safeNum(v, def = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+function kbpsFmt(v) {
+  const n = safeNum(v, 0);
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' MB/s';
+  return n.toFixed(0) + ' KB/s';
+}
+
+// Persist last N points for a chart by label (sessionStorage)
+function loadSeries(label, n = 30) {
+  const saved = sessionStorage.getItem(label);
+  const arr = saved ? JSON.parse(saved) : Array(n).fill(0);
+  return Array.isArray(arr) ? arr.slice(-n) : Array(n).fill(0);
+}
+function saveSeries(label, data) {
+  sessionStorage.setItem(label, JSON.stringify(data));
+}
+
+// === chart factories ========================================================
+
+function createPercentChart(ctx, label, color) {
+  const data = loadSeries(label);
   return new Chart(ctx, {
     type: 'line',
     data: {
-      labels: Array(chartData.length).fill(''),
+      labels: Array(data.length).fill(''),
       datasets: [{
-        label: label,
-        data: chartData,
+        label,
+        data,
         borderColor: color,
-        backgroundColor: color + "33",
+        backgroundColor: color + '33',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.4
@@ -19,13 +42,16 @@ function createChart(ctx, label, color) {
     options: {
       responsive: true,
       animation: false,
+      maintainAspectRatio: false,
       scales: {
         y: {
           beginAtZero: true,
+          min: 0,
           max: 100,
           ticks: {
-            stepSize: 20,
-            callback: val => val + '%',
+            // no stepSize => let Chart.js space ticks; limit their count instead
+            maxTicksLimit: 6,
+            callback: v => v + '%',
             color: '#ccc',
             font: { family: "'Segoe UI', sans-serif" }
           },
@@ -48,111 +74,184 @@ function createChart(ctx, label, color) {
   });
 }
 
-const cpuChart = createChart(document.getElementById("cpuChart").getContext("2d"), "CPU %", "#2196F3");
-const ramChart = createChart(document.getElementById("ramChart").getContext("2d"), "RAM %", "#9C27B0");
-const diskChart = createChart(document.getElementById("diskChart").getContext("2d"), "Disk %", "#FF9800");
-const netChart = createChart(document.getElementById("netChart").getContext("2d"), "Netværk %", "#4CAF50");
+function createNetworkChart(ctx, label, color) {
+  const data = loadSeries(label);
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array(data.length).fill(''),
+      datasets: [{
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: color + '33',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          // IMPORTANT: no stepSize here; limit tick count to avoid warnings
+          ticks: {
+            maxTicksLimit: 6,
+            callback: kbpsFmt,
+            color: '#ccc',
+            font: { family: "'Segoe UI', sans-serif" }
+          },
+          grid: { color: '#444' }
+        },
+        x: {
+          ticks: { display: false },
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#ccc',
+            font: { family: "'Segoe UI', sans-serif" }
+          }
+        }
+      }
+    }
+  });
+}
 
-function updateChart(chart, value) {
-  chart.data.datasets[0].data.push(value);
+// === initialize charts ======================================================
+
+const cpuChart = createPercentChart(
+  document.getElementById('cpuChart').getContext('2d'), 'CPU %', '#2196F3'
+);
+const ramChart = createPercentChart(
+  document.getElementById('ramChart').getContext('2d'), 'RAM %', '#9C27B0'
+);
+const diskChart = createPercentChart(
+  document.getElementById('diskChart').getContext('2d'), 'Disk %', '#FF9800'
+);
+const netChart = createNetworkChart(
+  document.getElementById('netChart').getContext('2d'), 'Network', '#4CAF50'
+);
+
+// === update helpers =========================================================
+
+function updateChart(chart, value, labelForStorage) {
+  const v = safeNum(value, 0);
+  const ds = chart.data.datasets[0];
+
+  ds.data.push(v);
   chart.data.labels.push('');
-  if (chart.data.datasets[0].data.length > 30) {
-    chart.data.datasets[0].data.shift();
+  if (ds.data.length > 30) {
+    ds.data.shift();
     chart.data.labels.shift();
   }
-  sessionStorage.setItem(chart.data.datasets[0].label, JSON.stringify(chart.data.datasets[0].data));
+  saveSeries(labelForStorage ?? ds.label, ds.data);
+
+  // For network, nudge suggestedMax to keep the line nicely visible
+  if (chart === netChart) {
+    const maxV = Math.max(...ds.data, 10);
+    chart.options.scales.y.suggestedMax = maxV * 1.2; // headroom
+  }
+
   chart.update('none');
 }
 
 function updateProgressBar(id, percent) {
   const bar = document.getElementById(id);
-  if (bar) bar.style.width = `${percent}%`;
+  if (bar) bar.style.width = `${clamp01(safeNum(percent, 0))}%`;
 }
 
 function updateTextValues(data) {
-  document.getElementById("cpuInfo").innerHTML = `
+  // CPU
+  document.getElementById('cpuInfo').innerHTML = `
     <div class="title">CPU:</div>
-    <div class="value">${data.cpu}%</div>
-    <div>${data.cpu_name}</div>
-    <div>${data.cpu_cores} kerner, ${data.cpu_freq}</div>
+    <div class="value">${safeNum(data.cpu, 0)}%</div>
+    <div>${data.cpu_name || 'Unknown CPU'}</div>
+    <div>${(data.cpu_cores ?? '?')} kerner, ${data.cpu_freq || '? / ? GHz'}</div>
     <div class="progress-bar"><div class="progress-bar-fill" id="cpuBar"></div></div>`;
-  updateProgressBar("cpuBar", data.cpu);
+  updateProgressBar('cpuBar', data.cpu);
 
-  document.getElementById("ramInfo").innerHTML = `
+  // RAM
+  document.getElementById('ramInfo').innerHTML = `
     <div class="title">RAM:</div>
-    <div class="value">${data.ram}%</div>
-    <div>Total: ${data.ram_total} MB</div>
-    <div>Fri: ${data.ram_free} MB</div>
+    <div class="value">${safeNum(data.ram, 0)}%</div>
+    <div>Total: ${data.ram_total ?? '?'} MB</div>
+    <div>Fri: ${data.ram_free ?? '?'} MB</div>
     <div class="progress-bar"><div class="progress-bar-fill" id="ramBar"></div></div>`;
-  updateProgressBar("ramBar", data.ram);
+  updateProgressBar('ramBar', data.ram);
 
-  document.getElementById("diskInfo").innerHTML = `
+  // Disk
+  document.getElementById('diskInfo').innerHTML = `
     <div class="title">Disk:</div>
-    <div class="value">${data.disk}%</div>
-    <div>Brug: ${data.disk_used} / ${data.disk_total}</div>
-    <div>Fri: ${data.disk_free}</div>
+    <div class="value">${safeNum(data.disk, 0)}%</div>
+    <div>Brug: ${data.disk_used ?? '?'} / ${data.disk_total ?? '?'}</div>
+    <div>Fri: ${data.disk_free ?? '?'}</div>
+    <div>Model: ${data.disk_model || "?"} (${data.disk_device || "?"})</div>
+    <div>Temp: ${(data.disk_temp && data.disk_temp !== "?") ? (data.disk_temp + " °C") : "?"}</div>
     <div class="progress-bar"><div class="progress-bar-fill" id="diskBar"></div></div>`;
-  updateProgressBar("diskBar", data.disk);
+  updateProgressBar('diskBar', data.disk);
 
-  document.getElementById("netInfo").innerHTML = `
-    <div class="title">Netværk:</div>
-    <div class="value">${data.network} KB/s</div>
-    <div>⬇ ${data.net_rx} KB/s, ⬆ ${data.net_tx} KB/s</div>
-    <div>Interface: ${data.net_iface}</div>
+  // Network (text)
+  const totalKBs = safeNum(data.network, 0);
+  document.getElementById('netInfo').innerHTML = `
+    <div class="title">Network:</div>
+    <div class="value">${kbpsFmt(totalKBs)}</div>
+    <div>⬇ ${kbpsFmt(data.net_rx)} , ⬆ ${kbpsFmt(data.net_tx)}</div>
+    <div>Interface: ${data.net_iface || '?'}</div>
     <div class="progress-bar"><div class="progress-bar-fill" id="netBar"></div></div>`;
-  updateProgressBar("netBar", Math.min(data.network, 100));
+  updateProgressBar('netBar', Math.min(totalKBs, 100));
 
-  document.getElementById("uptimeInfo").innerHTML = `
+  // Uptime + CPU temp
+  document.getElementById('uptimeInfo').innerHTML = `
     <div class="title">System Uptime:</div>
-    <div class="value">${data.uptime}</div>`;
-
-  document.getElementById("tempInfo").innerHTML = `
+    <div class="value">${data.uptime || '--'}</div>`;
+  document.getElementById('tempInfo').innerHTML = `
     <div class="title">CPU Temp:</div>
-    <div class="value">${data.cpu_temp} °C</div>`;
+    <div class="value">${(data.cpu_temp ?? '--')} °C</div>`;
 }
+
+// === data loop =============================================================
 
 async function fetchData() {
   try {
-    const response = await fetch('/metrics');
-    const data = await response.json();
-    if (!data.cpu) return;
+    const res = await fetch('/metrics');
+    const data = await res.json();
+    if (data == null || typeof data.cpu !== 'number') return;
 
-    updateChart(cpuChart, data.cpu);
-    updateChart(ramChart, data.ram);
-    updateChart(diskChart, data.disk);
-    updateChart(netChart, data.network);
+    updateChart(cpuChart, data.cpu, 'CPU %');
+    updateChart(ramChart, data.ram, 'RAM %');
+    updateChart(diskChart, data.disk, 'Disk %');
+    updateChart(netChart, data.network, 'Network');
+
     updateTextValues(data);
-
-    sessionStorage.setItem("latest_metrics", JSON.stringify(data));
+    sessionStorage.setItem('latest_metrics', JSON.stringify(data));
   } catch (err) {
-    console.error("Fejl ved hentning af data:", err);
+    console.error('Error fetching data:', err);
   }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // ?reset=true clears cached series
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('reset') === 'true') {
     sessionStorage.clear();
-    cpuChart.data.datasets[0].data = [];
-    ramChart.data.datasets[0].data = [];
-    diskChart.data.datasets[0].data = [];
-    netChart.data.datasets[0].data = [];
-    cpuChart.update();
-    ramChart.update();
-    diskChart.update();
-    netChart.update();
+    for (const c of [cpuChart, ramChart, diskChart, netChart]) {
+      c.data.datasets[0].data = [];
+      c.data.labels = [];
+      c.update();
+    }
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // ← Hent og vis gemte tekstdata hvis de findes
-  const saved = sessionStorage.getItem("latest_metrics");
+  // Restore last metrics for the boxes (optional)
+  const saved = sessionStorage.getItem('latest_metrics');
   if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      updateTextValues(parsed);
-    } catch (e) {
-      console.warn("Gemte metrics kunne ikke parses:", e);
-    }
+    try { updateTextValues(JSON.parse(saved)); } catch { }
   }
 
   fetchData();
