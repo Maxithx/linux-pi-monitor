@@ -222,12 +222,19 @@ Custom alerts (CPU temp, disk space)
 
 Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page here.
 
-![Dashboard](image-1.png)
 
-![Settings](image-2.png)
+### Dashboard
+[![Dashboard – Linux Pi Monitor](docs/screenshots/image-1.png)](docs/screenshots/image-1.png)
 
-![Logs](image-3.png)
+### Settings
+[![Settings – SSH/Glances](docs/screenshots/image-2.png)](docs/screenshots/image-2.png)
 
-![Glances Monitor](image-4.png)
+### Logs
+[![Logs](docs/screenshots/image-3.png)](docs/screenshots/image-3.png)
 
-![Terminal](image-5.png)
+### Settings
+[![Glances Monitor](docs/screenshots/image-2.png)](docs/screenshots/image-4.png)
+
+### Logs
+[![Terminal](docs/screenshots/image-3.png)](docs/screenshots/image-5.png)
+
