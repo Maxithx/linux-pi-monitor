@@ -94,16 +94,14 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
    git clone https://github.com/Maxithx/linux-pi-monitor.git
    cd linux-pi-monitor
 
-2. Create venv & install deps
+2. **Create venv & install deps**
 
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
 
-3. 
-
-Start
+3. **Start**
 
 python app.py
 
