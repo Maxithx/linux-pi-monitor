@@ -1,92 +1,214 @@
 # Linux Pi Monitor
 
-**Linux Pi Monitor** is a powerful, modern dashboard for monitoring and interacting with your Linux or Raspberry Pi system – all from a user-friendly web interface built with Python + Flask and running on Windows.
+**Linux Pi Monitor** is a fast, modern web app (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines **over SSH** — from your Windows PC.  
+It features a live dashboard with charts, a built-in web terminal, one-click Glances installation, and **multi-profile** SSH management (keys or passwords).
 
-## 🚀 Features
+---
 
-- 📡 Realtime system monitoring via SSH
-- 📊 Live dashboard showing:
-  - CPU and RAM usage
-  - Swap, temperature, and disk space
-  - Network activity
-- 🖥️ HTOP-style monitoring via Glances (auto-installed)
-- 🧠 Built-in terminal (live SSH terminal with command history)
-- 🛠️ Settings panel for SSH configuration (key or password)
-- 📦 Ready for Windows `.exe` packaging (via Inno Setup)
-- 🌗 Dark theme UI
-- 🔄 Multi-language ready (Danish and English support planned)
+## ✨ Highlights
 
-## 🧰 Technologies Used
+- **Multi-profile SSH**: Save multiple hosts (Pi, Linux laptop/server), switch instantly.
+- **Key or password auth**:
+  - Generate per-profile **ed25519** keys.
+  - One-click **Install key on host** (adds to `~/.ssh/authorized_keys`).
+  - Key **detection** & **smart path suggestions** (`~/.ssh/id_<profilename>`).
+- **Connection indicator**: Realtime status (connected/disconnected) that follows the selected profile.
+- **Live dashboard**:
+  - Uptime, CPU temp, CPU model/cores/freq
+  - RAM total/usage
+  - Disk model/device/temp + usage
+  - Network interface + live RX/TX
+  - Smooth charts (CPU %, RAM %, Disk %, Network KB/s)
+- **Glances integration**:
+  - One-click **Install/Start/View log/Uninstall**
+  - Runs as a **systemd service** on the remote host
+  - Dedicated **Live System (Glances)** page
+- **Built-in terminal**: Web SSH terminal (xterm.js) with color output and history.
+- **Dark theme**, responsive layout, snappy UI.
 
-- Python 3 + Flask
-- Paramiko (SSH communication)
-- HTML, CSS, JavaScript
-- Glances (HTOP-style system monitor)
-- xterm.js (web terminal interface)
-- GitHub for version control
+---
 
-## 🖥️ Installation
+## 🧰 Tech Stack
 
-1. Enable SSH on your Raspberry Pi
-2. Clone the repo:
+- **Backend**: Python 3, Flask, Paramiko (SSH)
+- **Frontend**: HTML/CSS/JavaScript, Chart.js, xterm.js
+- **System monitor**: Glances (remote), systemd service
+- **Platform**: Developed and run from Windows (works great without extra build steps)
+
+---
+
+## 📦 Install & Run (Windows)
+
+> The app runs locally on your Windows machine and connects to your Linux/Pi over SSH.
+
+1. **Clone**
    ```bash
    git clone https://github.com/Maxithx/linux-pi-monitor.git
    cd linux-pi-monitor
-3. Install dependencies: pip install -r requirements.txt
 
-4. Run the app: python app.py
-5. Open in browser:
-http://127.0.0.1:8080
+# Linux Pi Monitor
 
--------------------------------------------------------------------------------------------------------------
+**Linux Pi Monitor** is a fast, modern web app (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines **over SSH** — from your Windows PC.  
+It features a live dashboard with charts, a built-in web terminal, one-click Glances installation, and **multi-profile** SSH management (keys or passwords).
 
-🔒 SSH Features
-SSH Key or Password login
+---
 
-Secure background connection to your Pi
+## ✨ Highlights
 
-Automatically restores connection if lost
+- **Multi-profile SSH**: Save multiple hosts (Pi, Linux laptop/server), switch instantly.
+- **Key or password auth**:
+  - Generate per-profile **ed25519** keys.
+  - One-click **Install key on host** (adds to `~/.ssh/authorized_keys`).
+  - Key **detection** & **smart path suggestions** (`~/.ssh/id_<profilename>`).
+- **Connection indicator**: Realtime status (connected/disconnected) that follows the selected profile.
+- **Live dashboard**:
+  - Uptime, CPU temp, CPU model/cores/freq
+  - RAM total/usage
+  - Disk model/device/temp + usage
+  - Network interface + live RX/TX
+  - Smooth charts (CPU %, RAM %, Disk %, Network KB/s)
+- **Glances integration**:
+  - One-click **Install/Start/View log/Uninstall**
+  - Runs as a **systemd service** on the remote host
+  - Dedicated **Live System (Glances)** page
+- **Built-in terminal**: Web SSH terminal (xterm.js) with color output and history.
+- **Dark theme**, responsive layout, snappy UI.
 
-Web-based terminal with command history and feedback
+---
 
-🧪 Live Web Terminal
-Run Pi commands directly from your browser
+## 🧰 Tech Stack
 
-Powered by xterm.js + Flask
+- **Backend**: Python 3, Flask, Paramiko (SSH)
+- **Frontend**: HTML/CSS/JavaScript, Chart.js, xterm.js
+- **System monitor**: Glances (remote), systemd service
+- **Platform**: Developed and run from Windows (works great without extra build steps)
 
-Editable command history
+---
 
-Color output and auto-scroll
+## 📦 Install & Run (Windows)
 
-📊 System Monitor: Glances
-Auto-installable with one click
+> The app runs locally on your Windows machine and connects to your Linux/Pi over SSH.
 
-Runs as a background systemd service
+1. **Clone**
+   ```bash
+   git clone https://github.com/Maxithx/linux-pi-monitor.git
+   cd linux-pi-monitor
 
-Streams live stats to the dashboard
+2. Create venv & install deps
 
-HTOP-style interface (CPU cores, memory, disk, network)
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 
-🛠️ Development Roadmap
- Auto-install Glances
 
- Live Terminal with SSH
+3. 
 
- Real-time dashboard charts
+Start
 
- Multi-language UI (Danish + English)
+python app.py
 
- .exe installer via Inno Setup
+Open: http://127.0.0.1:8080
 
- Background daemon & auto-updater
+Tip: Ensure SSH is enabled on your Raspberry Pi / Linux host and that you can reach it from your Windows machine.
+
+🔐 SSH Features (Details)
+
+Profiles: New, Duplicate, Rename, Delete, Save. Active profile is shared across pages.
+
+Auth methods:
+
+SSH Key: Generate ed25519 key, install public key on host (prompts once for password), suggest/detect key paths.
+
+Password: Store per-profile (optional; key auth recommended).
+
+Status checks:
+
+Fast /profiles/test?quick=1 checks without blocking.
+
+UI updates indicator immediately on profile switch or save.
+
+📊 Glances (Remote System Monitor)
+
+From Settings → Glances:
+
+Install Glances (and dependencies) remotely via SSH.
+
+Start Glances service (systemd).
+
+View Glances log and service log directly in the app.
+
+Uninstall when needed.
+
+There’s a dedicated Live System (Glances) page that embeds the Glances Web UI for HTOP-style detail (per-CPU, processes, disk IO, etc.).
+
+🖥️ Built-in Terminal
+
+Web SSH terminal (xterm.js) inside the app.
+
+Color output, auto-scroll, and command history.
+
+Perfect for quick admin tasks without leaving the browser.
+
+🧩 Extra Tools
+
+On the Settings page you can install/remove optional terminal tools:
+
+Neofetch
+
+CMatrix
+
+🗂️ Project Structure (simplified)
+linux-pi-monitor/
+├─ app.py                    # Flask app entrypoint
+├─ routes/                   # Flask blueprints & server logic
+├─ static/
+│  ├─ css/                   # Styles
+│  └─ js/                    # Frontend logic (profiles, glances, charts, terminal)
+├─ templates/                # Jinja2 HTML templates (Dashboard, Settings, Glances, Terminal, Logs)
+├─ requirements.txt          # Python dependencies
+├─ full_requirements.txt     # (optional, dev)
+└─ README.md                 # This file
+
+✅ Supported Targets
+
+Remote: Raspberry Pi OS / Debian / Ubuntu (systemd available)
+
+Local runner: Windows 10/11 (Python 3.10+ recommended)
+
+You’ll need a user with permission to install packages/start services on the remote host (typically via sudo).
+
+🔧 Troubleshooting
+
+“No connection to Linux”:
+
+Check host/IP, username, and auth method in Settings.
+
+If using keys, click Install key on host once, or ensure your public key exists in ~/.ssh/authorized_keys on the remote host.
+
+Glances won’t start:
+
+View Glances log and service log from the Settings page.
+
+Ensure systemd is present and the user can sudo systemctl ....
+
+Charts look flat:
+
+Give it a minute; the dashboard samples continuously.
+
+Network values are in KB/s (not Kb/s).
+
+🗺️ Roadmap
+
+Language switcher (Danish/English UI)
+
+Packaging as .exe (optional)
+
+Auto-update channel
+
+More charts (per-core, disk IO, net per-iface)
+
+Custom alerts (CPU temp, disk space)
 
 🖼️ Screenshots
-(Insert screenshots of settings page, dashboard, terminal, etc.)
 
-📄 License
-This project is privately developed by Maxithx.
-Please ask for permission before using this project commercially or redistributing it.
-
-
-
-
+Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page here.
