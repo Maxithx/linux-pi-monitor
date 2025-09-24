@@ -1,3 +1,14 @@
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
+![Flask](https://img.shields.io/badge/Flask-2.x-black)
+
+## 📸 Screenshots
+- [Dashboard](#dashboard)
+- [Settings (SSH/Glances)](#settings)
+- [Terminal](#terminal)
+- [Live System (Glances)](#live-system-glances)
+- [Logs](#logs)
+
 # Linux Pi Monitor
 
 **Linux Pi Monitor** is a fast, modern web app (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines **over SSH** — from your Windows PC.  
