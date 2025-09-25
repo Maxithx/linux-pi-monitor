@@ -44,34 +44,44 @@
         </div>
     </div>
 
-    <!-- Action bar -->
+    <!-- Primary action (noob-friendly) -->
     <div class="card" style="background:#121421; border-radius:10px; padding:14px; margin-bottom:14px;">
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-            <!-- CHECK -->
-            <button class="btn" data-action="apt_update">APT: Update index</button>
-            <button class="btn" data-action="apt_list">APT: List upgradable</button>
-            <button class="btn" data-action="apt_dry_full">APT: Dry-run full-upgrade</button>
-
-            <!-- APPLY -->
-            <button class="btn success" data-action="apt_upgrade">Apply (safe upgrade)</button>
-            <button class="btn warn" data-action="apt_full_upgrade">Apply (full upgrade)</button>
-
-            <!-- ONE-CLICK FULL -->
-            <button class="btn success" data-action="full_noob_update"
-                title="apt full-upgrade + cleanup + Flatpak/Snap + reboot check">
-                Full Update (Recommended)
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn success" data-action="full_noob_update"
+                    title="apt full-upgrade + cleanup + Flatpak/Snap + reboot check">
+                    Full Update (Recommended)
+                </button>
+            </div>
+            <button id="btn-toggle-advanced" class="btn small" title="Show advanced maintenance tools">
+                Show advanced options
             </button>
+        </div>
 
-            <!-- FLATPAK -->
-            <button class="btn" data-action="flatpak_dry">Flatpak: Dry-run</button>
-            <button class="btn" data-action="flatpak_apply">Flatpak: Update</button>
+        <!-- Advanced options (hidden by default) -->
+        <div id="advanced-actions" style="display:none; margin-top:12px;">
+            <div style="opacity:.85; font-size:.95rem; margin-bottom:8px;">Advanced maintenance:</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <!-- CHECK -->
+                <button class="btn" data-action="apt_update">APT: Update index</button>
+                <button class="btn" data-action="apt_list">APT: List upgradable</button>
+                <button class="btn" data-action="apt_dry_full">APT: Dry-run full-upgrade</button>
 
-            <!-- SNAP -->
-            <button class="btn" data-action="snap_list">Snap: List</button>
-            <button class="btn" data-action="snap_refresh">Snap: Refresh</button>
+                <!-- APPLY -->
+                <button class="btn" data-action="apt_upgrade">Apply (safe upgrade)</button>
+                <button class="btn warn" data-action="apt_full_upgrade">Apply (full upgrade)</button>
 
-            <!-- DOCKER -->
-            <button class="btn" data-action="docker_ps">Docker: Running</button>
+                <!-- FLATPAK -->
+                <button class="btn" data-action="flatpak_dry">Flatpak: Dry-run</button>
+                <button class="btn" data-action="flatpak_apply">Flatpak: Update</button>
+
+                <!-- SNAP -->
+                <button class="btn" data-action="snap_list">Snap: List</button>
+                <button class="btn" data-action="snap_refresh">Snap: Refresh</button>
+
+                <!-- DOCKER -->
+                <button class="btn" data-action="docker_ps">Docker: Running</button>
+            </div>
         </div>
     </div>
 
@@ -82,9 +92,12 @@
             <div style="font-weight:600;">Available updates</div>
             <div style="display:flex; gap:8px;">
                 <button id="btn-install-security" class="btn small"
-                    title="Install only updates from the security pocket">Install security updates</button>
-                <button id="btn-install-all" class="btn small" title="Run full update (recommended)">Install all
-                    updates</button>
+                    title="Install only updates from the security pocket" disabled>
+                    Install security updates
+                </button>
+                <button id="btn-install-all" class="btn small" title="Run full update (recommended)" disabled>
+                    Install all updates
+                </button>
             </div>
         </div>
         <div id="updates-empty" style="padding:14px; display:none; opacity:.85;">No updates found.</div>
@@ -104,10 +117,37 @@
     </div>
 
     <!-- Output -->
-    <div class="card" style="background:#0f111b; border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
+    <div class="card" style="background:#0f111b; border-radius:10px; padding:0; overflow:hidden; margin-bottom:10px;">
         <div style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600;">Output</div>
         <pre id="out"
             style="margin:0; padding:14px; max-height:420px; overflow:auto; background:#0b0d15; color:#cfe3ff; font-family:'Fira Mono', monospace; font-size:13px; white-space:pre-wrap;"></pre>
+    </div>
+
+    <!-- APT warning explainer (conditional) -->
+    <div id="apt-warning-note" class="card"
+        style="display:none; background:#14192b; border-radius:10px; padding:12px; margin-bottom:14px;">
+        <div style="font-weight:600; margin-bottom:6px;">About the APT warning</div>
+        <div style="opacity:.9; font-size:.95rem; line-height:1.45;">
+            You may see: <code>apt does not have a stable CLI interface. Use with caution in scripts.</code><br>
+            This is a standard informational message when <strong>apt</strong> is used non-interactively. It is
+            <strong>not an error</strong>, and updates continue as normal. For scripted operations,
+            <strong>apt-get</strong> is the classic tool; our commands are safe and well-documented.
+        </div>
+    </div>
+
+    <!-- Phased updates explainer (conditional) -->
+    <div id="phasing-note" class="card"
+        style="display:none; background:#122016; border-radius:10px; padding:12px; margin-bottom:14px;">
+        <div style="font-weight:600; margin-bottom:6px;">Why an update may be “deferred”</div>
+        <div style="opacity:.9; font-size:.95rem; line-height:1.45;">
+            Some Ubuntu/Mint updates are rolled out in <strong>phases</strong> (phased updates). That means the update
+            is gradually offered to a percentage of users to ensure stability. If you see
+            <em>“The following upgrades have been deferred due to phasing”</em>, your system simply isn’t in the current
+            rollout wave yet. This is <strong>normal</strong> and usually resolves automatically within a few days.
+            <br><br>
+            Tips: You can try again later, or install other available updates meanwhile. Your system is fully usable in
+            the meantime.
+        </div>
     </div>
 
     <!-- Help -->
@@ -119,21 +159,13 @@
             </summary>
             <div style="padding:14px; font-size:.95rem; line-height:1.45;">
                 <ul style="margin:0; padding-left:18px;">
-                    <li><strong>APT: Update index</strong> — Fetch the latest package lists (run this before upgrading).
-                    </li>
-                    <li><strong>APT: List upgradable</strong> — Show packages that <em>can</em> be upgraded (no
-                        changes).</li>
-                    <li><strong>APT: Dry-run full-upgrade</strong> — Simulate a full upgrade and show what would change.
-                    </li>
-                    <li><strong>Apply (safe upgrade)</strong> — <code>apt upgrade</code>: Upgrade without removing
-                        existing packages.</li>
-                    <li><strong>Apply (full upgrade)</strong> — <code>apt full-upgrade</code>: May install/remove
-                        packages to resolve dependencies.</li>
                     <li><strong>Full Update (Recommended)</strong> — One-click full update + cleanup + Flatpak/Snap +
                         reboot check.</li>
-                    <li><strong>Flatpak</strong> — Dry-run or apply Flatpak updates.</li>
-                    <li><strong>Snap</strong> — List or refresh snaps now (snaps also auto-update).</li>
-                    <li><strong>Docker: Running</strong> — Show running containers via <code>docker ps</code>.</li>
+                    <li><strong>Advanced options</strong> — Tools for manual APT/Flatpak/Snap/Docker tasks (for
+                        experienced users).</li>
+                    <li><strong>Why do I see an APT warning?</strong> — When updates run non-interactively, apt prints a
+                        generic scripting warning. It’s expected and harmless; <code>exit 0</code> confirms success.
+                    </li>
                 </ul>
                 <div style="opacity:.8; margin-top:10px;">
                     The <strong>Reboot required</strong> badge appears when the system requests a reboot after updates.
@@ -151,10 +183,35 @@
     const btnReboot = document.getElementById('btn-reboot');
     const bodyEl = document.getElementById('updates-body');
     const emptyEl = document.getElementById('updates-empty');
+    const aptNote = document.getElementById('apt-warning-note');
+    const phasingNote = document.getElementById('phasing-note');
+    const btnInstallAll = document.getElementById('btn-install-all');
+    const btnInstallSec = document.getElementById('btn-install-security');
+    const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
+    const advancedBox = document.getElementById('advanced-actions');
+
+    const APT_WARNING = 'apt does not have a stable CLI interface';
+    const PHASING_MARKER = 'deferred due to phasing';
+
+    // Toggle advanced panel
+    btnToggleAdvanced.addEventListener('click', () => {
+        const open = advancedBox.style.display !== 'none';
+        advancedBox.style.display = open ? 'none' : '';
+        btnToggleAdvanced.textContent = open ? 'Show advanced options' : 'Hide advanced options';
+    });
+
+    function showOrHideAptNote(text) {
+        aptNote.style.display = (text && text.includes(APT_WARNING)) ? 'block' : 'none';
+    }
+    function showOrHidePhasingNote(text) {
+        phasingNote.style.display = (text && text.toLowerCase().includes(PHASING_MARKER)) ? 'block' : 'none';
+    }
 
     function append(text) {
         out.textContent = text;
         out.scrollTop = out.scrollHeight;
+        showOrHideAptNote(text);
+        showOrHidePhasingNote(text);
     }
 
     async function run(action) {
@@ -217,9 +274,7 @@
             badgeReboot.style.display = need ? 'inline-block' : 'none';
             btnReboot.disabled = !need;
             btnReboot.title = need ? 'Reboot the remote machine' : 'No reboot required';
-        } catch {
-            // keep current state
-        }
+        } catch { /* noop */ }
     }
 
     function sevBadge(security) {
@@ -268,15 +323,25 @@
             if (!j.ok) {
                 bodyEl.innerHTML = `<tr><td colspan="4" style="padding:12px; color:#ffb3b3;">Error: ${j.error || 'unknown'}</td></tr>`;
                 emptyEl.style.display = 'none';
+                btnInstallAll.disabled = true;
+                btnInstallSec.disabled = true;
                 return;
             }
             const data = j.updates || [];
-            if (!data.length) {
+
+            // Enable/disable install buttons based on results
+            const hasUpdates = data.length > 0;
+            const hasSecurity = data.some(p => !!p.security);
+            btnInstallAll.disabled = !hasUpdates;
+            btnInstallSec.disabled = !hasUpdates || !hasSecurity;
+
+            if (!hasUpdates) {
                 bodyEl.innerHTML = '';
                 emptyEl.style.display = 'block';
                 return;
             }
             emptyEl.style.display = 'none';
+
             let html = '';
             data.forEach((pkg, i) => {
                 html += pkgRow(pkg, i);
@@ -284,7 +349,7 @@
             });
             bodyEl.innerHTML = html;
 
-            // toggle details on row click (collapsed by default)
+            // Toggle details on row click (collapsed by default)
             const rows = Array.from(document.querySelectorAll('tr.pkg'));
             rows.forEach((row) => {
                 const detail = row.nextElementSibling;
@@ -299,18 +364,20 @@
         } catch (e) {
             bodyEl.innerHTML = `<tr><td colspan="4" style="padding:12px; color:#ffb3b3;">Network error: ${e}</td></tr>`;
             emptyEl.style.display = 'none';
+            btnInstallAll.disabled = true;
+            btnInstallSec.disabled = true;
         }
     }
 
-    // Buttons
+    // Wire buttons
     document.querySelectorAll('.btn[data-action]').forEach(btn => {
         btn.addEventListener('click', () => run(btn.dataset.action));
     });
     document.getElementById('btn-refresh').addEventListener('click', () => {
         run('apt_list'); checkReboot(); fetchUpdates();
     });
-    document.getElementById('btn-install-all').addEventListener('click', () => run('full_noob_update'));
-    document.getElementById('btn-install-security').addEventListener('click', async () => {
+    btnInstallAll.addEventListener('click', () => run('full_noob_update'));
+    btnInstallSec.addEventListener('click', async () => {
         append('Running: security updates (filtered)…');
         await run('apt_update');
         await run('apt_full_upgrade');
@@ -350,6 +417,12 @@
     .btn.warn {
         background: #352319;
         border-color: #5b3d28;
+    }
+
+    .btn[disabled] {
+        opacity: .55;
+        cursor: not-allowed;
+        filter: none;
     }
 
     .card {
