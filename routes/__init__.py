@@ -18,4 +18,3 @@ def register_routes(app):
     app.register_blueprint(terminal_bp)
     app.register_blueprint(software_bp)
     app.register_blueprint(profiles_bp)
- 
