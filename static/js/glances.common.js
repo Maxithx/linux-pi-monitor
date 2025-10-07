@@ -12,20 +12,20 @@
     uninstallingText: $("uninstalling-text"),
     outBox: $("glances-output"),
     logBox: $("glances-log-output"),
-    iframe: document.querySelector('iframe[src^="/glances"]')
+    iframe: document.getElementById("glances-frame")
   };
 
-  function setButtons(disabled) {
-    [els.installBtn, els.startBtn, els.viewLogBtn, els.uninstallBtn].forEach(b => { if (b) b && (b.disabled = disabled); });
+  async function getActiveProfile() {
+    try {
+      return await fetch("/profiles/list", { cache: "no-store" }).then(r => r.json());
+    } catch {
+      return { profiles: [] };
+    }
   }
 
-  async function getActiveProfileId() {
-    try {
-      const data = await fetch("/profiles/list").then(r => r.json());
-      return data.active_profile_id || data.default_profile_id || null;
-    } catch {
-      return null;
-    }
+  function setButtons(disabled) {
+    [els.installBtn, els.startBtn, els.viewLogBtn, els.uninstallBtn]
+      .forEach(b => { if (b) b.disabled = !!disabled; });
   }
 
   async function updateStatus(profileId) {
@@ -34,14 +34,17 @@
     els.statusText.textContent = "Henter status...";
 
     try {
-      const pid = profileId || await getActiveProfileId();
+      const data = await getActiveProfile();
+      const pid = profileId || data.active_profile_id || data.default_profile_id || null;
       if (!pid) throw new Error("no profile id");
 
-      const data = await fetch(`/glances/status?profile_id=${encodeURIComponent(pid)}`).then(r => r.json());
-      if (data.installed && data.running) {
+      const st = await fetch(`/glances/status?profile_id=${encodeURIComponent(pid)}`, { cache: "no-store" })
+        .then(r => r.json());
+
+      if (st.installed && st.running) {
         els.statusText.style.color = "lightgreen";
         els.statusText.textContent = "✅ Glances er installeret og tjenesten kører.";
-      } else if (data.installed) {
+      } else if (st.installed) {
         els.statusText.style.color = "orange";
         els.statusText.textContent = "⚠️ Glances er installeret, men tjenesten kører ikke.";
       } else {
@@ -54,24 +57,16 @@
     }
   }
 
-  async function pollStatus({ tries = 5, delay = 1500, profileId = null } = {}) {
-    for (let i = 0; i < tries; i++) {
-      await updateStatus(profileId);
-      await new Promise(r => setTimeout(r, delay));
-      try {
-        const pid = profileId || await getActiveProfileId();
-        const data = await fetch(`/glances/status?profile_id=${encodeURIComponent(pid)}`).then(r => r.json());
-        if (data.running) break;
-      } catch { }
-    }
-  }
-
   async function reloadIframe(profileId) {
     if (!els.iframe) return;
-    const pid = profileId || await getActiveProfileId();
-    if (!pid) return;
-    const base = "/glances/";
-    els.iframe.src = `${base}?profile_id=${encodeURIComponent(pid)}&t=${Date.now()}`;
+    const data = await getActiveProfile();
+    const pid = profileId || data.active_profile_id || data.default_profile_id || null;
+    const prof = (data.profiles || []).find(p => p.id === pid);
+    const host = prof && (prof.pi_host || "").trim();
+    if (!host) return;  // glances_url blev også tom i templaten
+
+    const url = `http://${host}:61208/?t=${Date.now()}`; // cache-bust
+    els.iframe.src = url;
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -85,6 +80,5 @@
     await reloadIframe();
   });
 
-  // Eksporter små helpers til Settings-siden (kan kaldes efter profilswitch)
-  window.GlancesUI = { els, setButtons, updateStatus, pollStatus, reloadIframe, getActiveProfileId };
+  window.GlancesUI = { setButtons, updateStatus, reloadIframe };
 })();

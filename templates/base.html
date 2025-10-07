@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="en">
 
 <head>
-  <!-- === Remember sidebar state before page fully loads === -->
+  <!-- Remember sidebar state before page fully loads -->
   <script>
     (function () {
       const savedState = localStorage.getItem("sidebarState") || "open";
@@ -10,25 +10,25 @@
     })();
   </script>
 
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Linux Monitor{% endblock %}</title>
 
-  <!-- === Stylesheets === -->
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
-  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet">
+  <!-- Stylesheets -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}" />
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Mono&display=swap" rel="stylesheet" />
 
-  <!-- === Scripts === -->
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
 </head>
 
 <body class="sidebar-{{ sidebar_state }}">
-  <!-- === Sidebar Navigation === -->
+  <!-- Sidebar Navigation -->
   <div class="sidebar">
     <div class="logo-details">
       <div class="logo_name">Linux/Pi Monitor</div>
@@ -42,6 +42,7 @@
         </a>
         <span class="tooltip">Dashboard</span>
       </li>
+
       <li>
         <a href="{{ url_for('settings.settings') }}">
           <i class='bx bx-cog'></i>
@@ -49,6 +50,15 @@
         </a>
         <span class="tooltip">Settings</span>
       </li>
+
+      <li>
+        <a href="{{ url_for('network.network') }}">
+          <i class='bx bx-wifi'></i>
+          <span class="links_name">Network</span>
+        </a>
+        <span class="tooltip">Network</span>
+      </li>
+
       <li>
         <a href="{{ url_for('logs.logs') }}">
           <i class='bx bx-chat'></i>
@@ -56,6 +66,7 @@
         </a>
         <span class="tooltip">Logs</span>
       </li>
+
       <li>
         <a href="{{ url_for('settings.glances') }}">
           <i class='bx bx-pie-chart-alt-2'></i>
@@ -63,6 +74,7 @@
         </a>
         <span class="tooltip">Live System (Glances)</span>
       </li>
+
       <li>
         <a href="{{ url_for('terminal.terminal') }}">
           <i class='bx bx-terminal'></i>
@@ -71,10 +83,18 @@
         <span class="tooltip">Terminal</span>
       </li>
 
-      <!-- === Sidebar Profile Area === -->
+      <li>
+        <a href="{{ url_for('updates.updates') }}">
+          <i class='bx bx-refresh'></i>
+          <span class="links_name">Updates</span>
+        </a>
+        <span class="tooltip">Updates</span>
+      </li>
+
+      <!-- Sidebar Profile Area -->
       <li class="profile">
         <div class="profile-details">
-          <img src="{{ url_for('static', filename='images/profile.png') }}" alt="profileImg">
+          <img src="{{ url_for('static', filename='images/profile.png') }}" alt="profileImg" />
           <div class="name_job">
             <div class="name">MAXITHX</div>
             <div class="job">Developer</div>
@@ -85,12 +105,12 @@
     </ul>
   </div>
 
-  <!-- === Main Content Section === -->
+  <!-- Main Content -->
   <section class="home-section">
     {% block content %}{% endblock %}
   </section>
 
-  <!-- === Optional Scripts for Each Page === -->
+  <!-- Page-specific scripts -->
   {% block scripts %}{% endblock %}
 </body>
 

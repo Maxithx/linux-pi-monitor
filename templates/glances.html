@@ -1,78 +1,213 @@
 {% extends "base.html" %}
 
 {% block title %}System Monitoring{% endblock %}
-{% block page_title %}Live System Monitor{% endblock %}
+{% block page_title %}Live System (Glances){% endblock %}
 
 {% block content %}
 
-<p style="margin-bottom: 10px;">
-    Below is the <strong>Glances</strong> real-time system monitor. Glances provides live stats for CPU, RAM, network,
-    disks, and more.
+<p style="margin-bottom:10px">
+    Below is the <strong>Glances</strong> real-time system monitor (CPU, RAM, network, disks, etc.).
 </p>
 
-<!-- Embedded Glances Web UI (via reverse proxy).
-     src sættes/fornyes via glances.common.js så den følger aktiv profil -->
-<iframe src="/glances/" width="100%" height="600" style="border:2px solid #333;border-radius:6px;background:#111"
-    title="Glances System Monitor" referrerpolicy="no-referrer" loading="eager">
-</iframe>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+    <span id="status-chip"
+        style="padding:4px 10px;border-radius:12px;background:#333;color:#ddd;border:1px solid #444;">
+        Status: <strong id="status-text">—</strong>
+    </span>
 
-<!-- Key bindings / help -->
-<div style="margin-top:16px; border:1px solid #2b2b2b; border-radius:8px; background:#121212;">
-    <div style="padding:12px 14px; border-bottom:1px solid #2b2b2b;">
-        <strong>Glances key bindings</strong>
-        <span style="opacity:.8;">(click inside the monitor first to focus)</span>
-    </div>
+    <span style="opacity:.85;margin-left:10px;">Source:</span>
+    <button id="btn-proxy" type="button"
+        style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
+        Proxy (/glances-proxy)
+    </button>
+    <button id="btn-direct" type="button"
+        style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
+        Direct (61208)
+    </button>
 
-    <div
-        style="display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding:12px 14px;">
-        <!-- Views / layout -->
-        <div>
-            <div style="opacity:.8; margin-bottom:6px;">Views &amp; layout</div>
-            <ul style="margin:0; padding-left:18px; line-height:1.55;">
-                <li><code>1</code> <span style="opacity:.85;">Toggle per-CPU bars</span></li>
-                <li><code>2</code> <span style="opacity:.85;">Toggle left sidebar</span></li>
-                <li><code>3</code>/<code>4</code>/<code>5</code> <span style="opacity:.85;">Cycle CPU/mem graphs
-                        detail</span></li>
-                <li><code>d</code> <span style="opacity:.85;">Toggle Disk I/O</span>, <code>f</code> <span
-                        style="opacity:.85;">Filesystems</span>, <code>n</code> <span
-                        style="opacity:.85;">Network</span>, <code>s</code> <span style="opacity:.85;">Sensors</span>
-                </li>
-                <li><code>D</code> <span style="opacity:.85;">Docker stats (if available)</span></li>
-                <li><code>h</code> / <code>?</code> <span style="opacity:.85;">Toggle built-in help</span></li>
-            </ul>
+    <button id="btn-reload" type="button"
+        style="margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
+        Reload
+    </button>
+</div>
+
+<div id="glances-wrap" style="position:relative;">
+    <iframe id="glances-frame" data-glances-url="{{ glances_url or '' }}" title="Glances System Monitor" width="100%"
+        height="640" style="border:2px solid #333;border-radius:8px;background:#111">
+    </iframe>
+
+    <!-- Error overlay -->
+    <div id="glances-overlay"
+        style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#111;">
+        <div
+            style="max-width:620px;margin:0 16px;padding:18px;border:1px solid #444;border-radius:8px;background:#181818;color:#ddd;">
+            <h3 style="margin:0 0 8px;">Could not load Glances</h3>
+            <p id="overlay-msg" style="margin:0 0 12px;">Try switching source or reloading.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="ovl-proxy" type="button"
+                    style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Use
+                    Proxy</button>
+                <button id="ovl-direct" type="button"
+                    style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Use
+                    Direct</button>
+                <button id="ovl-reload" type="button"
+                    style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Reload</button>
+            </div>
         </div>
-
-        <!-- Process sorting -->
-        <div>
-            <div style="opacity:.8; margin-bottom:6px;">Process sorting</div>
-            <ul style="margin:0; padding-left:18px; line-height:1.55;">
-                <li><code>a</code> <span style="opacity:.85;">Auto (by most used resource)</span></li>
-                <li><code>c</code> <span style="opacity:.85;">By CPU%</span>, <code>m</code> <span
-                        style="opacity:.85;">By MEM%</span></li>
-                <li><code>p</code> <span style="opacity:.85;">By process name</span>, <code>u</code> <span
-                        style="opacity:.85;">By user</span></li>
-                <li><code>i</code> <span style="opacity:.85;">By I/O rate</span>, <code>t</code> <span
-                        style="opacity:.85;">By TIME+</span></li>
-            </ul>
-        </div>
-
-        <!-- Alerts / misc -->
-        <div>
-            <div style="opacity:.8; margin-bottom:6px;">Alerts &amp; misc</div>
-            <ul style="margin:0; padding-left:18px; line-height:1.55;">
-                <li><code>l</code> <span style="opacity:.85;">Toggle alert log</span></li>
-                <li><code>w</code> <span style="opacity:.85;">Clear warnings</span>, <code>x</code> <span
-                        style="opacity:.85;">Clear all alerts</span></li>
-                <li><code>q</code> / <code>Esc</code> <span style="opacity:.85;">Quit (for TUI; close tab for Web
-                        UI)</span></li>
-            </ul>
-        </div>
-    </div>
-
-    <div style="padding:10px 14px; border-top:1px solid #2b2b2b; font-size:.95rem; opacity:.85;">
-        Tip: Keyboard shortcuts also work in the Web UI—just make sure the black monitor area has focus (click it once).
-        For the full list, press <code>h</code> inside Glances.
     </div>
 </div>
+
+<!-- Glances help / key bindings -->
+<div style="margin-top:16px; border:1px solid #2d2d2d; border-radius:8px; background:#141414; color:#ddd;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;">
+        <strong>How to navigate Glances</strong>
+        <button id="help-toggle" type="button"
+            style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
+            Show
+        </button>
+    </div>
+    <div id="help-body" style="display:none;padding:0 12px 12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+            <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+                <div><strong>General</strong></div>
+                <ul style="margin:6px 0 0 18px;">
+                    <li><code>q</code> – Quit Glances</li>
+                    <li><code>h</code> – Help (inside Glances)</li>
+                    <li><code>1</code> – Toggle CPU per-core</li>
+                    <li><code>2</code> – Toggle I/O</li>
+                    <li><code>3</code> – Toggle File System</li>
+                    <li><code>4</code> – Toggle Sensors</li>
+                </ul>
+            </div>
+            <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+                <div><strong>Views / Sorting</strong></div>
+                <ul style="margin:6px 0 0 18px;">
+                    <li><code>c</code> – Sort by CPU</li>
+                    <li><code>m</code> – Sort by Memory</li>
+                    <li><code>i</code> – Sort by I/O</li>
+                    <li><code>p</code> – Sort by Process name</li>
+                    <li><code>r</code> – Reset filters/sort</li>
+                </ul>
+            </div>
+            <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+                <div><strong>Processes</strong></div>
+                <ul style="margin:6px 0 0 18px;">
+                    <li><code>UP/DOWN</code> – Select process</li>
+                    <li><code>ENTER</code> – Expand details</li>
+                    <li><code>k</code> – Kill selected process</li>
+                    <li><code>u</code> – Show per-user processes</li>
+                    <li><code>/</code> – Search process</li>
+                </ul>
+            </div>
+            <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+                <div><strong>Tips</strong></div>
+                <ul style="margin:6px 0 0 18px;">
+                    <li>Use the mouse in the Web UI to scroll tables.</li>
+                    <li>Switch between <em>Proxy</em>/<em>Direct</em> if something doesn’t load.</li>
+                    <li>If Direct fails, ensure Glances is running on <code>127.0.0.1:61208</code>.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        var iframe = document.getElementById('glances-frame');
+        var overlay = document.getElementById('glances-overlay');
+        var overlayMsg = document.getElementById('overlay-msg');
+        var statusText = document.getElementById('status-text');
+
+        var btnProxy = document.getElementById('btn-proxy');
+        var btnDirect = document.getElementById('btn-direct');
+        var btnReload = document.getElementById('btn-reload');
+
+        var ovlProxy = document.getElementById('ovl-proxy');
+        var ovlDirect = document.getElementById('ovl-direct');
+        var ovlReload = document.getElementById('ovl-reload');
+
+        var helpToggle = document.getElementById('help-toggle');
+        var helpBody = document.getElementById('help-body');
+
+        // Sources
+        var proxyUrl = '/glances-proxy'; // raw proxy response, no template
+        var directUrl = (iframe.dataset.glancesUrl && iframe.dataset.glancesUrl.trim().length > 0)
+            ? iframe.dataset.glancesUrl.trim()
+            : 'http://127.0.0.1:61208/';
+
+        var currentUrl = '';
+        var loadTimer = null;
+
+        function setStatus(text, isError) {
+            statusText.textContent = text;
+            var chip = document.getElementById('status-chip');
+            if (isError) {
+                chip.style.background = '#402222';
+                chip.style.border = '1px solid #633';
+                chip.style.color = '#ffd9d9';
+            } else {
+                chip.style.background = '#333';
+                chip.style.border = '1px solid #444';
+                chip.style.color = '#ddd';
+            }
+        }
+
+        function showOverlay(msg) {
+            overlayMsg.textContent = msg;
+            overlay.style.display = 'flex';
+        }
+
+        function hideOverlay() {
+            overlay.style.display = 'none';
+        }
+
+        function startWatchdog() {
+            if (loadTimer) clearTimeout(loadTimer);
+            loadTimer = setTimeout(function () {
+                if (currentUrl === proxyUrl) {
+                    applyUrl(directUrl);
+                } else {
+                    setStatus('Error', true);
+                    showOverlay('Failed to load via Proxy and Direct. Ensure Glances is running and the proxy route works.');
+                }
+            }, 3500);
+        }
+
+        function applyUrl(url) {
+            currentUrl = url;
+            hideOverlay();
+            setStatus('Loading...', false);
+            iframe.src = url;
+            startWatchdog();
+        }
+
+        iframe.addEventListener('load', function () {
+            if (loadTimer) clearTimeout(loadTimer);
+            hideOverlay();
+            setStatus('Live', false);
+        });
+
+        // Buttons
+        btnProxy.addEventListener('click', function () { applyUrl(proxyUrl); });
+        btnDirect.addEventListener('click', function () { applyUrl(directUrl); });
+        btnReload.addEventListener('click', function () { applyUrl(currentUrl || proxyUrl); });
+
+        ovlProxy.addEventListener('click', function () { applyUrl(proxyUrl); });
+        ovlDirect.addEventListener('click', function () { applyUrl(directUrl); });
+        ovlReload.addEventListener('click', function () { applyUrl(currentUrl || proxyUrl); });
+
+        // Help toggle
+        helpToggle.addEventListener('click', function () {
+            var open = helpBody.style.display === 'block';
+            helpBody.style.display = open ? 'none' : 'block';
+            helpToggle.textContent = open ? 'Show' : 'Hide';
+        });
+
+        // Start with proxy
+        applyUrl(proxyUrl);
+    })();
+</script>
 
 {% endblock %}
