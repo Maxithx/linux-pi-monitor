@@ -5,6 +5,7 @@
 ## 📸 Screenshots
 - [Dashboard](#dashboard)
 - [Settings (SSH/Glances)](#settings)
+- [Network – Interfaces & Wi-Fi (dummy)](#network)
 - [Terminal](#terminal)
 - [Live System Monitor(Glances)](#live-system-glances)
 - [Logs](#logs)
@@ -12,112 +13,81 @@
 
 # Linux Pi Monitor
 
-**Linux Pi Monitor** is a fast, modern web app (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines **over SSH** — from your Windows PC.  
-It features a live dashboard with charts, a built-in web terminal, one-click Glances installation, a **System Update Center**, and **multi-profile** SSH management (keys or passwords).
+A simple web app to monitor and manage Linux and Raspberry Pi hosts from a Windows PC.  
+Backend is **Flask**; remote actions are done over **SSH**; live metrics use **Glances**.  
+UI includes a dashboard, terminal, network tools, logs, and an update center.
 
 ---
 
-## ✨ Highlights
+## Features
 
-- **Multi-profile SSH**: Save multiple hosts (Pi, Linux laptop/server), switch instantly.
-- **Key or password auth**:
-  - Generate per-profile **ed25519** keys.
-  - One-click **Install key on host** (adds to `~/.ssh/authorized_keys`).
-  - Key **detection** & **smart path suggestions** (`~/.ssh/id_<profilename>`).
-- **Connection indicator**: Realtime status (connected/disconnected) that follows the selected profile.
-- **Live dashboard**:
-  - Uptime, CPU temp, CPU model/cores/freq
-  - RAM total/usage
-  - Disk model/device/temp + usage
-  - Network interface + live RX/TX
-  - Smooth charts (CPU %, RAM %, Disk %, Network KB/s)
-- **Glances integration**:
-  - One-click **Install/Start/View log/Uninstall**
-  - Runs as a **systemd service** on the remote host
-  - Dedicated **Live System (Glances)** page
-- **Update Center**:
-  - Quick: **Install security updates**, **Install all updates**
-  - Advanced (APT / Flatpak / Snap / Docker info)
-  - Buttons auto-disable when **no updates** are available
-- **Built-in terminal**: Web SSH terminal (xterm.js) with color output and history.
-- **Dark theme**, responsive layout, snappy UI.
+- **Profiles**: save multiple SSH targets and switch instantly.
+- **Key or password auth**: generate ed25519 keys and install the public key on the host.
+- **Dashboard**: CPU, RAM, disk, temperatures, and mini charts.
+- **Glances integration**: install/start/stop service and open the web UI.
+- **Terminal (redesigned)**: xterm.js with saved commands, Insert/Run actions.
+- **Network**: interface overview, Wi-Fi scan and connect, default route and DNS.
+- **Update Center**: security upgrades or full upgrades, plus status for APT/Flatpak/Snap/Docker.
+- **Logs**: view service and app logs directly in the browser.
+- **Dark theme** and responsive layout.
 
 ---
 
-## 🧰 Tech Stack
+## Requirements
 
-- **Backend**: Python 3, Flask, Paramiko (SSH)
-- **Frontend**: HTML/CSS/JavaScript, Chart.js, xterm.js
-- **System monitor**: Glances (remote), systemd service
-- **Platform**: Developed and run from Windows (works great without extra build steps)
+- **Runner**: Windows 10/11 with Python 3.10+ (the app runs on Windows).
+- **Targets**: Linux hosts with SSH enabled; systemd required for Glances service control.
+- Network access between Windows and the Linux/Pi hosts.
 
 ---
 
-## 📦 Install & Run (Windows)
+## Quick start (Windows)
 
-> The app runs locally on your Windows machine and connects to your Linux/Pi over SSH.
+```bash
+git clone https://github.com/Maxithx/linux-pi-monitor.git
+cd linux-pi-monitor
 
-1. **Clone**
-   ```bash
-   git clone https://github.com/Maxithx/linux-pi-monitor.git
-   cd linux-pi-monitor
-Create venv & install deps
-
-bash
-Kopier kode
+# Create venv and install
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-Start
 
-bash
-Kopier kode
+# Run
 python app.py
-Open: http://127.0.0.1:8080
+# Open http://127.0.0.1:8080 in your browser
 
-Tip: Ensure SSH is enabled on your Raspberry Pi / Linux host and that you can reach it from your Windows machine.
+Pages overview
+Settings
 
-🔐 SSH Features (Details)
-Profiles: New, Duplicate, Rename, Delete, Save. Active profile is shared across pages.
+Manage SSH profiles and keys. Generate an ed25519 key pair and one-click install the public key to ~/.ssh/authorized_keys on the target. Shows active profile status across pages.
 
-Auth methods:
+Network
 
-SSH Key: Generate ed25519 key, install public key on host (prompts once for password), suggest/detect key paths.
+Interface table (type, IPv4, MAC, SSID, signal, bitrate, default route, DNS).
+Wi-Fi panel for scanning, connecting, and forgetting networks. Includes a filter box for SSIDs.
 
-Password: Store per-profile (optional; key auth recommended).
+Terminal
 
-Status checks:
+Full-width xterm.js terminal. Saved commands table with columns Title | Command | Description | Action.
+Actions:
 
-Fast /profiles/test?quick=1 checks without blocking.
+Insert: write the command into the prompt without Enter.
 
-UI updates indicator immediately on profile switch or save.
+Run: send the command followed by Enter.
+Seeds 3 examples on first load: sudo reboot, free -h, df -h.
 
-📊 Glances (Remote System Monitor)
-From Settings → Glances:
+Live System (Glances)
 
-Install Glances (and dependencies) remotely via SSH.
+Install Glances remotely, manage the systemd service, and open the embedded Glances web UI.
 
-Start Glances service (systemd).
+Update Center
 
-View Glances log and service log directly in the app.
+Run security-only or full system upgrades. Shows basic package ecosystem info (APT/Flatpak/Snap/Docker).
 
-Uninstall when needed.
+Logs
 
-There’s a dedicated Live System (Glances) page that embeds the Glances Web UI for HTOP-style detail (per-CPU, processes, disk IO, etc.).
+View logs for Glances, services, and the app. Helpful for troubleshooting installs or services.
 
-🖥️ Built-in Terminal
-Web SSH terminal (xterm.js) inside the app.
-
-Color output, auto-scroll, and command history.
-
-Perfect for quick admin tasks without leaving the browser.
-
-🧩 Extra Tools
-On the Settings page you can install/remove optional software :
-
-Neofetch
-
-CMatrix
 
 🗂️ Project Structure (simplified)
 csharp
@@ -185,3 +155,5 @@ Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page her
 ### Update-Center
 [![Update-Center](docs/screenshots/image-6.png)](docs/screenshots/image-6.png)
 
+### Network
+[![Network – Interfaces & Wi-Fi (dummy)](docs/screenshots/network-dummy.png)](docs/screenshots/image-7.png)
