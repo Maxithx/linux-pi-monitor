@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Network{% endblock %}
+{% block page_title %}Network Overview{% endblock %}
+
+{% block content %}
+<!-- Reuse shared styles + page styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/network.css') }}">
+
+<h1 style="margin-bottom:12px;">Network Overview</h1>
+<p class="muted" style="margin:-6px 0 18px">
+    See interfaces, IPs, DNS, default route — and manage Wi-Fi connections.
+</p>
+
+<div class="container" id="network-root">
+
+    <!-- Top actions -->
+    <div class="toolbar">
+        <button id="btn-refresh" class="primary">Refresh</button>
+        <button id="btn-scan" class="primary">Scan Wi-Fi</button>
+        <input id="wifi-filter" placeholder="Filter SSID…">
+        <span id="net-status" class="muted right" aria-live="polite"></span>
+    </div>
+
+    <!-- Interfaces (grid) -->
+    <h3 style="margin:6px 0 8px;">Interfaces</h3>
+    <div class="scroll-x">
+        <div class="net-grid iface-grid" id="iface-grid">
+            <div class="hdr">
+                <div>Default</div>
+                <div>Ifname</div>
+                <div>Type</div>
+                <div>IPv4</div>
+                <div>MAC</div>
+                <div>Speed</div>
+                <div>SSID</div>
+                <div>Signal</div>
+                <div>Bitrate</div>
+            </div>
+            <div class="row">
+                <div class="cell-muted" style="grid-column:1 / -1">Loading…</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick connect -->
+    <h3 style="margin:16px 0 8px;">Wi-Fi</h3>
+    <div class="qc-row">
+        <input id="qc-ssid" placeholder="SSID" type="text">
+        <input id="qc-pass" placeholder="Password (empty = open)" type="password">
+        <label class="check-inline"><input id="qc-hidden" type="checkbox"> Hidden</label>
+        <input id="qc-sudo" placeholder="sudo password (if required)" type="password">
+        <button id="qc-connect" class="primary">Connect</button>
+        <button id="qc-forget" class="danger">Forget</button>
+    </div>
+
+    <!-- Wi-Fi scan results (grid) -->
+    <div class="scroll-x">
+        <div class="net-grid wifi-grid" id="wifi-grid">
+            <div class="hdr">
+                <div>SSID</div>
+                <div>Signal</div>
+                <div>Security</div>
+                <div>Connected</div>
+                <div>Action</div>
+            </div>
+            <div class="row">
+                <div class="cell-muted" style="grid-column:1 / -1">Click “Scan Wi-Fi”.</div>
+            </div>
+        </div>
+    </div>
+
+    <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/network.js') }}?v=7"></script>
+{% endblock %}

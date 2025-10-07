@@ -1,0 +1,317 @@
+import webview
+import webbrowser
+from flask import Flask, render_template, jsonify, request, redirect
+import paramiko
+import re
+import time
+import threading
+import os
+import logging
+import sys
+import json
+
+app = Flask(__name__)
+
+# Stier til konfiguration og logs
+appdata_dir = os.path.join(os.getenv("APPDATA"), "raspberry_pi_monitor")
+os.makedirs(appdata_dir, exist_ok=True)
+settings_path = os.path.join(appdata_dir, "settings.json")
+log_file_path = os.path.join(appdata_dir, "server_logs.txt")
+
+# Logging
+logging.basicConfig(
+    filename=log_file_path,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logging.info("Programmet blev startet.")
+
+handler = logging.FileHandler(log_file_path)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(message)s')
+handler.setFormatter(formatter)
+app.logger.addHandler(handler)
+
+# Udskrift til logfil
+sys.stdout = open(log_file_path, 'a')
+sys.stderr = sys.stdout
+
+# Standard SSH-data (overskrives af settings.json)
+PI_HOST = ""
+PI_USER = ""
+SSH_KEY_PATH = ""
+SSH_PASSWORD = ""
+AUTH_METHOD = "key"
+
+def load_user_settings():
+    global PI_HOST, PI_USER, SSH_KEY_PATH, SSH_PASSWORD, AUTH_METHOD
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r") as f:
+                data = json.load(f)
+                PI_HOST = data.get("pi_host", "")
+                PI_USER = data.get("pi_user", "")
+                SSH_KEY_PATH = data.get("ssh_key_path", "")
+                SSH_PASSWORD = data.get("ssh_password", "")
+                AUTH_METHOD = data.get("auth_method", "key")
+        except Exception as e:
+            print("Fejl ved indlæsning af settings:", e)
+
+load_user_settings()
+
+# Caching og netværksstatus
+last_stats = {"rx": None, "tx": None, "time": None}
+latest_metrics = {}
+first_cached_metrics = {}
+
+def ssh_run(command):
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if AUTH_METHOD == "key":
+            key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
+            ssh.connect(PI_HOST, username=PI_USER, pkey=key)
+        elif AUTH_METHOD == "password":
+            ssh.connect(PI_HOST, username=PI_USER, password=SSH_PASSWORD)
+        else:
+            print("Ugyldig auth_method:", AUTH_METHOD)
+            return ""
+
+        stdin, stdout, stderr = ssh.exec_command(command)
+        output = stdout.read().decode().strip()
+        ssh.close()
+        return output
+    except Exception as e:
+        print("SSH error:", e)
+        return ""
+
+def parse_cpu_info():
+    name = ssh_run("lscpu | grep 'Model name' | awk -F: '{print $2}'").strip() or "Unknown CPU"
+    cores = ssh_run("nproc").strip() or "Unknown"
+    freq_line = ssh_run("lscpu | grep MHz | tail -1").strip()
+    freq_match = re.search(r'(\d+\.?\d*)', freq_line)
+    freq_ghz = f"{round(float(freq_match.group(1)) / 1000, 2)}" if freq_match else "?"
+    max_freq_line = ssh_run("lscpu | grep 'CPU max MHz'").strip()
+    max_match = re.search(r'(\d+\.?\d*)', max_freq_line)
+    max_ghz = f"{round(float(max_match.group(1)) / 1000, 2)}" if max_match else "?"
+    return name, cores, f"{freq_ghz} / {max_ghz} GHz"
+
+def parse_cpu_usage(output):
+    match = re.search(r'(\d+\.\d+)\s+id', output)
+    return round(100 - float(match.group(1)), 1) if match else 0
+
+def parse_mem(output):
+    for line in output.splitlines():
+        if line.lower().startswith("mem:"):
+            parts = line.split()
+            if len(parts) >= 7:
+                total = int(parts[1])
+                used = int(parts[2])
+                free = int(parts[6])
+                return round(used / total * 100, 1), total, free
+    return 0, 0, 0
+
+def parse_disk(output):
+    for line in output.splitlines():
+        if "/" in line and "%" in line:
+            parts = line.split()
+            if len(parts) >= 5:
+                used = int(parts[4].replace('%', ''))
+                return used, parts[1], parts[2], parts[3]
+    return 0, "?", "?", "?"
+
+def parse_net_speed(output):
+    global last_stats
+    best_iface = None
+    best_total = 0
+    rx, tx = 0, 0
+    for line in output.splitlines():
+        if ":" in line:
+            iface, data = line.split(":")
+            parts = data.split()
+            if len(parts) >= 10:
+                curr_rx = int(parts[0])
+                curr_tx = int(parts[8])
+                total = curr_rx + curr_tx
+                if total > best_total:
+                    best_iface, rx, tx, best_total = iface.strip(), curr_rx, curr_tx, total
+    now = time.time()
+    if last_stats["rx"] is None:
+        last_stats.update({"rx": rx, "tx": tx, "time": now})
+        return 0, 0, 0, best_iface
+    delta_time = now - last_stats["time"]
+    delta_rx = (rx - last_stats["rx"]) / delta_time if delta_time > 0 else 0
+    delta_tx = (tx - last_stats["tx"]) / delta_time if delta_time > 0 else 0
+    last_stats.update({"rx": rx, "tx": tx, "time": now})
+    return round((delta_rx + delta_tx) / 1024, 1), round(delta_rx / 1024, 1), round(delta_tx / 1024, 1), best_iface or "?"
+
+def get_uptime():
+    try:
+        total_seconds = int(float(ssh_run("cat /proc/uptime").split()[0]))
+        return f"{total_seconds // 3600}t {(total_seconds % 3600) // 60}m {total_seconds % 60}s"
+    except:
+        return "?"
+
+def get_cpu_temp():
+    try:
+        return round(int(ssh_run("cat /sys/class/thermal/thermal_zone0/temp")) / 1000, 1)
+    except:
+        return "?"
+
+def collect_metrics():
+    cpu_raw = ssh_run("top -bn1 | grep 'Cpu(s)'")
+    mem_raw = ssh_run("free -m")
+    disk_raw = ssh_run("df -h /")
+    net_raw = ssh_run("cat /proc/net/dev")
+    cpu_name, cpu_cores, cpu_freq = parse_cpu_info()
+    cpu_usage = parse_cpu_usage(cpu_raw)
+    ram_usage, ram_total, ram_free = parse_mem(mem_raw)
+    disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw)
+    net_total, net_rx, net_tx, net_iface = parse_net_speed(net_raw)
+    uptime = get_uptime()
+    cpu_temp = get_cpu_temp()
+    return {
+        "cpu": cpu_usage,
+        "cpu_name": cpu_name,
+        "cpu_cores": cpu_cores,
+        "cpu_freq": cpu_freq,
+        "cpu_temp": cpu_temp,
+        "ram": ram_usage,
+        "ram_total": ram_total,
+        "ram_free": ram_free,
+        "disk": disk_usage,
+        "disk_total": disk_total,
+        "disk_used": disk_used,
+        "disk_free": disk_free,
+        "network": net_total,
+        "net_rx": net_rx,
+        "net_tx": net_tx,
+        "net_iface": net_iface,
+        "uptime": uptime
+    }
+
+def background_updater():
+    global latest_metrics, first_cached_metrics
+    first = True
+    while True:
+        load_user_settings()
+        metrics = collect_metrics()
+        latest_metrics = metrics
+        if first:
+            first_cached_metrics = metrics
+            first = False
+        time.sleep(10)
+
+@app.route("/", endpoint='dashboard')
+def dashboard():
+    if not (PI_HOST and PI_USER and (SSH_PASSWORD or SSH_KEY_PATH)):
+        return redirect("/settings")
+    return render_template("dashboard.html")
+
+@app.route("/metrics")
+def metrics():
+    global first_cached_metrics
+    if first_cached_metrics:
+        data = first_cached_metrics
+        first_cached_metrics = {}
+        app.logger.info("Bruger hurtig første måling.")
+        return jsonify(data)
+    return jsonify(latest_metrics)
+
+@app.route("/logs")
+def logs():
+    return render_template("logs.html", logs=read_logs())
+
+@app.route("/settings")
+def settings():
+    if os.path.exists(settings_path):
+        with open(settings_path, "r") as f:
+            settings_data = json.load(f)
+    else:
+        settings_data = {
+            "pi_host": "",
+            "pi_user": "",
+            "auth_method": "key",
+            "ssh_key_path": "",
+            "password": ""
+        }
+    return render_template("settings.html", settings=settings_data)
+
+@app.route("/save-settings", methods=["POST"])
+def save_settings():
+    try:
+        new_settings = {
+            "pi_host": request.form.get("pi_host", "").strip(),
+            "pi_user": request.form.get("pi_user", "").strip(),
+            "auth_method": request.form.get("auth_method", "key"),
+            "ssh_key_path": request.form.get("ssh_key_path", "").strip(),
+            "password": request.form.get("password", "").strip()
+        }
+
+        os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+
+        with open(settings_path, "w") as f:
+            json.dump(new_settings, f, indent=4)
+
+        return redirect("/settings")
+    except Exception as e:
+        return f"Fejl i JSON-format: {e}", 400
+
+def read_logs():
+    if not os.path.exists(log_file_path):
+        with open(log_file_path, "w") as file:
+            file.write("Logfile created for the first time.\nNo logs yet.\n")
+    try:
+        with open(log_file_path, "r") as file:
+            lines = file.readlines()
+            return [line.strip() for line in reversed(lines)]
+    except Exception as e:
+        return [f"Error reading logs: {e}"]
+    
+def run_flask():
+    app.run(
+        host="0.0.0.0",
+        port=8080,
+        debug=True,         # viser Flask-info i terminal
+        use_reloader=False  # undgå dobbeltstart ved tråd
+    )
+
+def on_window_closed():
+    print("Vinduet blev lukket. Lukker hele Raspberry Pi Monitor...")
+    os._exit(0)
+
+import webbrowser
+
+def run_browser_mode():
+    print("Starter Raspberry Pi Monitor i browser...")
+    print(" * Running on http://127.0.0.1:8080 (Tryk CTRL+C for at stoppe)\n")
+    
+    threading.Thread(target=run_flask).start()
+    threading.Thread(target=background_updater, daemon=True).start()
+    
+    webbrowser.open("http://127.0.0.1:8080")  # Åben browser automatisk
+
+    while True:
+        time.sleep(1)
+
+
+def run_webview_mode():
+    print("Starter Raspberry Pi Monitor i WebView...")
+    threading.Thread(target=run_flask).start()
+    threading.Thread(target=background_updater, daemon=True).start()
+
+    window = webview.create_window(
+        'Raspberry Pi Monitor',
+        'http://127.0.0.1:8080',
+        width=1450,
+        height=850
+    )
+    window.events.closed += on_window_closed
+    webview.start(gui='qt')
+
+if __name__ == "__main__":
+    if "--webview" in sys.argv:
+        run_webview_mode()
+    else:
+        run_browser_mode()
