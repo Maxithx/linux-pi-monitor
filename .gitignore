@@ -6,6 +6,12 @@ __pycache__/
 venv/
 .env
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
 # Node / frontend
 node_modules/
 dist/
@@ -28,4 +34,4 @@ installer/
 # Project-specific
 app.py.log
 glances_install.log
-Backups/
+
