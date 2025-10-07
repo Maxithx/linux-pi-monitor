@@ -2,14 +2,15 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/Flask-2.x-black)
 
+
 ## 📸 Screenshots
-- [Dashboard](#dashboard)
-- [Settings (SSH/Glances)](#settings)
-- [Network – Interfaces & Wi-Fi (dummy)](#network)
-- [Terminal](#terminal)
-- [Live System Monitor(Glances)](#live-system-glances)
-- [Logs](#logs)
-- [Update Center](#update-center)
+- [Dashboard](#s1-dashboard)
+- [Settings (SSH/Glances)](#s2-settings)
+- [Network – Interfaces & Wi-Fi](#s3-network)
+- [Logs](#s4-logs)
+- [Live System Monitor (Glances)](#s5-glances)
+- [Terminal](#s6-terminal)
+- [Update Center](#s7-update)
 
 # Linux Pi Monitor
 
@@ -136,24 +137,30 @@ Custom alerts (CPU temp, disk space)
 
 Add screenshots of Dashboard, Settings (SSH/Glances), Terminal, Glances page here.
 
-
-### Dashboard
+<a id="s1-dashboard"></a>
+<h3 style="margin-top:20px;">Dashboard</h3>
 [![Dashboard – Linux Pi Monitor](docs/screenshots/image-1.png)](docs/screenshots/image-1.png)
 
-### Settings
+<a id="s2-settings"></a>
+<h3 style="margin-top:20px;">Settings</h3>
 [![Settings – SSH/Glances](docs/screenshots/image-2.png)](docs/screenshots/image-2.png)
 
-### Logs
+<a id="s3-network"></a>
+<h3 style="margin-top:20px;">Network</h3>
+[![Network – Interfaces & Wi-Fi](docs/screenshots/image-7.png)](docs/screenshots/image-7.png)
+
+<a id="s4-logs"></a>
+<h3 style="margin-top:20px;">Logs</h3>
 [![Logs](docs/screenshots/image-3.png)](docs/screenshots/image-3.png)
 
-### live-system-glances
-[![Live System Monitor(Glances)](docs/screenshots/image-4.png)](docs/screenshots/image-4.png)
+<a id="s5-glances"></a>
+<h3 style="margin-top:20px;">Live System Monitor (Glances)</h3>
+[![Live System Monitor (Glances)](docs/screenshots/image-4.png)](docs/screenshots/image-4.png)
 
-### Terminal
+<a id="s6-terminal"></a>
+<h3 style="margin-top:20px;">Terminal</h3>
 [![Terminal](docs/screenshots/image-5.png)](docs/screenshots/image-5.png)
 
-### Update-Center
+<a id="s7-update"></a>
+<h3 style="margin-top:20px;">Update Center</h3>
 [![Update-Center](docs/screenshots/image-6.png)](docs/screenshots/image-6.png)
-
-### Network
-[![Network – Interfaces & Wi-Fi (dummy)](docs/screenshots/network-dummy.png)](docs/screenshots/image-7.png)
