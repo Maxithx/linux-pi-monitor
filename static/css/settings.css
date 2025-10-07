@@ -40,7 +40,6 @@ button {
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
-  margin-top: 10px;
 }
 
 button:hover {
@@ -343,4 +342,84 @@ pre.logbox {
   max-height: 50vh;
   overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* === Unified control sizing (global) === */
+:root {
+  --control-h: 42px;
+  --control-pad-x: 14px;
+  --control-radius: 8px;
+}
+
+/* Inputs/selects */
+input,
+select,
+textarea {
+  height: var(--control-h);
+  padding: 0 var(--control-pad-x);
+  border-radius: var(--control-radius);
+  font-size: 14px;
+}
+
+/* Buttons (match input height) */
+button {
+  height: var(--control-h);
+  padding: 0 var(--control-pad-x);
+  border-radius: var(--control-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  background-color: #2c7be5;
+  /* blue */
+}
+
+button:hover {
+  background-color: #1f6fdc;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ==== Unified control sizing & alignment (global) ==== */
+:root {
+  --ctl-h: 42px;
+}
+
+button,
+.btn,
+.primary,
+.secondary,
+.danger {
+  height: var(--ctl-h);
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  /* lodret centreret label */
+  line-height: 1;
+}
+
+/* inputs/selects i samme højde som knapper */
+input[type="text"],
+input[type="password"],
+input[type="search"],
+select {
+  height: var(--ctl-h);
+  padding: 0 12px;
+}
+
+/* Topbar i Settings: dropdown + knapper på linje og ens højde */
+.profiles-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.profiles-bar select {
+  flex: 1 1 420px;
+  /* fylder, men giver plads til knapper */
+  min-width: 320px;
 }

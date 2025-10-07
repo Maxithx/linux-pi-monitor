@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
 
-{# Bruges kun til at enable/disable knapper i Glances/Software #}
 {% set conn_ready =
 (settings.pi_host and settings.pi_user) and
 ((settings.auth_method=='key' and settings.ssh_key_path) or
@@ -18,22 +17,18 @@
 
 <div class="container" id="settings-root" data-active-profile="{{ active_profile_id|default('') }}">
 
-    <!-- ====== SSH PROFILES ====== -->
+    <!-- ====== SSH PROFILES (unchanged) ====== -->
     <h2 style="margin-bottom:6px">SSH Profiles <span class="pill muted">beta</span></h2>
-
     <div class="profiles-bar">
-        <!-- Udfyldes/holdes opdateret af settings.profiles.js -->
         <select id="ssh_profile_select" class="grow" aria-label="Select SSH profile">
             <option value="__none__" selected disabled>Loading profiles…</option>
         </select>
-
-        <!-- Knapper (JS accepterer både 'profile-*-btn' og 'btn-*-profile') -->
-        <button id="btn-new-profile" class="secondary" title="Opret ny profil">New</button>
-        <button id="btn-duplicate-profile" class="secondary" title="Duplikér valgt profil">Duplicate</button>
-        <button id="btn-rename-profile" class="secondary" title="Omdøb valgt profil">Rename</button>
-        <button id="btn-delete-profile" class="danger" title="Slet valgt profil">Delete</button>
-        <button id="btn-test-profile" class="secondary" title="Test SSH-forbindelse">Test</button>
-        <button id="btn-save-profile" class="primary" title="Gem felterne i valgt profil">Save profile</button>
+        <button id="btn-new-profile" class="secondary">New</button>
+        <button id="btn-duplicate-profile" class="secondary">Duplicate</button>
+        <button id="btn-rename-profile" class="secondary">Rename</button>
+        <button id="btn-delete-profile" class="danger">Delete</button>
+        <button id="btn-test-profile" class="secondary">Test</button>
+        <button id="btn-save-profile" class="primary">Save profile</button>
     </div>
 
     <div class="muted" style="margin:-2px 0 16px">
@@ -41,9 +36,8 @@
         update.
     </div>
 
-    <!-- ====== CONNECTION STATUS (JS-styret) ====== -->
+    <!-- ====== CONNECTION STATUS ====== -->
     <div id="ssh-connection" class="status-line" aria-live="polite" aria-atomic="true">
-        <!-- JS skifter farve/tekst/spinner når profil ændres -->
         <span id="ssh-conn-dot" class="dot dot-red" aria-hidden="true"></span>
         <span id="ssh-conn-text">No connection to Linux</span>
         <span id="ssh-conn-spinner" class="spinner" style="display:none;"></span>
@@ -72,83 +66,100 @@
     <div class="alert alert-info" id="status-alert">ℹ️ Already connected.</div>
     {% endif %}
 
-    <!-- ====== SSH FORM (bundet til valgt profil via settings.profiles.js) ====== -->
+    <!-- ====== SSH FORM (unchanged) ====== -->
     <form id="save-form" onsubmit="return false;">
         <input type="hidden" id="profile_id" name="profile_id" value="" />
-
         <label for="pi_host">Pi Host</label>
         <input type="text" id="pi_host" name="pi_host" value="{{ settings.pi_host }}">
-
         <label for="pi_user">Pi Username</label>
         <input type="text" id="pi_user" name="pi_user" value="{{ settings.pi_user }}">
-
         <label for="auth_method">Authentication Method</label>
         <select id="auth_method" name="auth_method">
             <option value="key" {% if settings.auth_method=='key' %}selected{% endif %}>SSH Key</option>
             <option value="password" {% if settings.auth_method=='password' %}selected{% endif %}>Password</option>
         </select>
 
-        <!-- KEY auth fields -->
         <div id="key_fields" {% if settings.auth_method!='key' %}style="display:none" {% endif %}>
             <label for="ssh_key_path">SSH Key Path</label>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input type="text" id="ssh_key_path" name="ssh_key_path" class="grow"
                     value="{{ settings.ssh_key_path }}">
-                <button id="btn-gen-key" class="secondary" type="button"
-                    title="Generate a new ed25519 key for this profile">Generate key</button>
-                <button id="btn-install-key" class="secondary" type="button"
-                    title="Install the public key on the host">Install key on host</button>
-                <button id="btn-ssh-help" class="secondary" type="button" title="Show how to enable SSH on Linux"
-                    style="margin-left:8px;">SSH setup help</button>
+                <button id="btn-gen-key" class="secondary" type="button">Generate key</button>
+                <button id="btn-install-key" class="secondary" type="button">Install key on host</button>
+                <button id="btn-ssh-help" class="secondary" type="button" style="margin-left:8px;">SSH setup
+                    help</button>
             </div>
             <div class="muted" style="margin-top:6px">
-                Tip: Keys are created as <code>~/.ssh/id_&lt;profilename&gt;</code> (ed25519).
-                “Install key” appends the public key to <code>~/.ssh/authorized_keys</code> on the selected host.
+                Tip: Keys are created as <code>~/.ssh/id_&lt;profilename&gt;</code> (ed25519). “Install key” appends the
+                public
+                key to <code>~/.ssh/authorized_keys</code> on the selected host.
             </div>
         </div>
 
-        <!-- PASSWORD auth field -->
         <div id="password_field" {% if settings.auth_method!='password' %}style="display:none" {% endif %}>
             <label for="password">Password</label>
             <input type="password" id="password" name="password" value="{{ settings.password or '' }}">
         </div>
 
-        <!-- Kun clear helper -->
         <button id="clear-fields-btn" class="secondary" type="button" style="margin:10px 0;">Clear fields</button>
     </form>
 
     <hr>
 
     <!-- ====== GLANCES ====== -->
-    <div style="margin-top: 20px;">
+    <div style="margin-top:20px;">
         <h2>Glances System Monitor</h2>
         <p style="color:#ccc; margin-bottom:10px;">
             <strong>What is Glances?</strong> Glances is an advanced system monitoring tool that provides live stats for
-            CPU, RAM, disk, and network on your Raspberry Pi. It’s required for the
-            <strong>Live System (HTOP)</strong> page to work.
+            CPU,
+            RAM, disk, and network on your Raspberry Pi. It’s required for the <strong>Live System (Glances)</strong>
+            page to work.
         </p>
 
         <div id="glances-status-box" style="margin-bottom:10px;">
             <span id="glances-status-text" style="color: yellow;">Fetching status...</span>
         </div>
 
-        <div id="installing-text" style="color: lightgreen; display:none; margin: 10px 0;">
+        <div id="installing-text" style="color: lightgreen; display:none; margin:10px 0;">
             <span class="spinner"></span> Installing Glances… <span id="install-timer">00:00</span>
         </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <!-- Buttons row -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+
             <button id="install-glances-btn" {% if not conn_ready %}disabled title="Complete SSH settings first" {%
-                endif %}>Install Glances</button>
-            <button id="start-glances-service-btn" {% if not conn_ready %}disabled title="Complete SSH settings first"
-                {% endif %}>Start Glances Service</button>
+                endif %}>
+                Install Glances
+            </button>
+
+            <!-- New: systemd dropdown button -->
+            <div class="dropdown" style="position:relative; display:inline-block;">
+                <button id="glances-systemd-btn" class="secondary" {% if not conn_ready %}disabled
+                    title="Complete SSH settings first" {% endif %}>
+                    Glances systemd ▾
+                </button>
+                <div id="glances-systemd-menu" class="dropdown-menu"
+                    style="display:none; position:absolute; z-index:5; min-width:190px; background:#1e1e1e; border:1px solid #333; border-radius:6px; padding:6px;">
+                    <button class="menu-item" data-action="start" style="width:100%;">Start / Restart</button>
+                    <button class="menu-item" data-action="stop" style="width:100%;">Stop</button>
+                    <button class="menu-item" data-action="status" style="width:100%;">Show status</button>
+                </div>
+            </div>
+
             <button id="view-glances-log-btn" {% if not conn_ready %}disabled title="Complete SSH settings first" {%
-                endif %}>View Glances Log</button>
+                endif %}>
+                View Glances Log
+            </button>
+
             <button id="uninstall-glances" class="uninstall-button" {% if not conn_ready %}disabled
-                title="Complete SSH settings first" {% endif %}>Uninstall Glances</button>
+                title="Complete SSH settings first" {% endif %}>
+                Uninstall Glances
+            </button>
+
             <button id="clear-glances-log-btn" class="secondary">Clear log</button>
         </div>
 
-        <p style="margin-top: 10px; color: orange; font-size: 14px;">
+        <p style="margin-top:10px; color:orange; font-size:14px;">
             If you uninstall Glances and its dependencies, the <strong>Live System (Glances)</strong> page will stop
             working.
         </p>
@@ -163,9 +174,9 @@
 
     <hr>
 
-    <h3 style="margin-top: 20px;">Terminal Software</h3>
+    <!-- Terminal software (unchanged) -->
+    <h3 style="margin-top:20px;">Terminal Software</h3>
     <p>Install or remove optional programs on your Raspberry Pi:</p>
-
     <div class="software-grid-box">
         <table class="software-table">
             <thead>
@@ -215,7 +226,7 @@
 <pre id="terminal-software-output" class="logbox"
     style="display:none; background:#000; color:#0f0; padding:10px; margin-top:10px; font-family:monospace;"></pre>
 
-<!-- === SSH Setup Help Modal (popup) === -->
+<!-- SSH help modal (unchanged) -->
 <div id="sshSetupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sshSetupTitle">
     <div class="modal-card">
         <div class="modal-header">
@@ -223,12 +234,11 @@
             <button type="button" class="btn-close" id="sshSetupClose" aria-label="Close">×</button>
         </div>
         <div class="modal-body">
-            <p>Kør disse kommandoer i terminalen på målmaskinen <code id="sshHelpHost">your-host</code> (som bruger
-                <code id="sshHelpUser">your-user</code>):
+            <p>Run these commands on <code id="sshHelpHost">your-host</code> as <code id="sshHelpUser">your-user</code>:
             </p>
             <pre id="sshHelpCommands" class="modal-pre"></pre>
-            <p style="margin-top:8px;">Efter installation kan du trykke <em>Install key on host</em> her i Settings for
-                at aktivere nøgle-login.</p>
+            <p style="margin-top:8px;">After installation, click <em>Install key on host</em> here in Settings to enable
+                key login.</p>
         </div>
         <div class="modal-footer" style="display:flex; gap:8px; justify-content:flex-end;">
             <button type="button" class="btn btn-outline" id="sshHelpCopy">Copy all</button>
@@ -242,16 +252,13 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/settings.auth.js') }}"></script>
 
-<script src="{{ url_for('static', filename='js/glances.common.js') }}"></script>
-<script src="{{ url_for('static', filename='js/glances.install.js') }}"></script>
-<script src="{{ url_for('static', filename='js/glances.uninstall.js') }}"></script>
-<script src="{{ url_for('static', filename='js/glances.service.js') }}"></script>
+<!-- Glances scripts -->
+<script src="{{ url_for('static', filename='js/glances.common.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/glances.install.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/glances.uninstall.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/glances.service.js') }}?v=13"></script>
 
 <script src="{{ url_for('static', filename='js/software.js') }}"></script>
-
-<!-- Profiles FIRST -->
 <script src="{{ url_for('static', filename='js/settings.profiles.js') }}?v=8"></script>
-
-<!-- Then the connection indicator -->
-<script src="{{ url_for('static', filename='js/settings.ssh-status.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/settings.ssh-status.js') }}?v=9"></script>
 {% endblock %}
