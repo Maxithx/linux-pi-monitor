@@ -1,46 +1,61 @@
-
 {% extends "base.html" %}
 
 {% block content %}
 <h1 class="terminal-title">Terminal to Linux</h1>
 
-<!-- Terminal -->
-<div id="terminal"></div>
+<!-- Terminal block -->
+<section class="card term-card">
+    <div id="terminal"></div>
+    <div class="term-toolbar">
+        <button id="stop-process-btn">🛑 Stop active process (Ctrl + C)</button>
+        <span class="terminal-hint">
+            Use <strong>Ctrl + C</strong> to stop. Use <strong>Ctrl + Shift + V</strong> to paste.
+        </span>
+    </div>
+</section>
 
-<!-- Stop button -->
-<button id="stop-process-btn" style="margin-top: 10px;">🛑 Stop active process (Ctrl + C)</button>
+<!-- Commands block (full width under terminal) -->
+<section class="card cmds-card">
+    <header class="cmds-header">
+        <div class="title-wrap">
+            <h2>Your Command Overview</h2>
+            <span id="cmd-count" class="muted"></span>
+        </div>
+        <input type="text" id="search-box" placeholder="Filter…">
+    </header>
 
-<p class="terminal-hint">💡 Use <strong>Ctrl + C</strong> to stop a process and <strong>Ctrl + Shift + V</strong> to paste.</p>
+    <div class="cmds-table">
+        <div class="cmds-head">
+            <div>Title</div>
+            <div>Command</div>
+            <div>Description</div>
+            <div class="actions-col">Action</div>
+        </div>
+        <div id="command-list" class="cmds-body"></div>
+    </div>
 
-<!-- Command Overview -->
-<div id="command-section">
-    <h2>Your Command Overview</h2>
-    <input type="text" id="search-box" placeholder="Search command...">
-
-    <div id="command-list"></div>
-
-    <form id="add-command-form">
-        <input type="text" id="cmd-title" placeholder="Name (e.g. List directory)" required>
-        <input type="text" id="cmd-command" placeholder="Command (e.g. ls -la)" required>
+    <form id="add-command-form" class="cmds-form">
+        <input type="text" id="cmd-title" placeholder="Name (e.g. Reboot)" required>
+        <input type="text" id="cmd-command" placeholder="Command (e.g. sudo reboot)" required>
         <input type="text" id="cmd-desc" placeholder="Description (optional)">
         <button type="submit">Add</button>
     </form>
-</div>
+
+    <p class="muted hint">
+        Tip: Click a command cell to <strong>Insert</strong> into the prompt. Use <strong>Run</strong> to send with
+        Enter.
+        First load includes examples: Reboot, Show memory, Show disk usage.
+    </p>
+</section>
 {% endblock %}
 
 {% block scripts %}
-<!-- JavaScript -->
-<script src="{{ url_for('static', filename='js/xterm/xterm.js') }}"></script>
-<!-- CSS -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/xterm/xterm.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
-<!-- JavaScript -->
-<script src="{{ url_for('static', filename='js/xterm/fontfaceobserver.standalone.js') }}"></script>
+
+<script src="{{ url_for('static', filename='js/xterm/xterm.js') }}"></script>
 <script src="{{ url_for('static', filename='js/xterm/xterm-addon-fit.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/xterm/xterm-addon-canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/xterm/xterm-addon-serialize.min.js') }}"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/socket.io/client-dist/socket.io.js"></script>
-
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 {% endblock %}

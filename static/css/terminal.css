@@ -1,148 +1,217 @@
-/* === TERMINAL CONTAINER === */
-/* Styles for the main terminal display area */
+/* === TERMINAL AREA === */
 #terminal {
   width: 100%;
-  height: 400px;
-  background-color: black;
+  height: 420px;
+  background: #0f1123;
+  border: 2px solid #0d0f1d;
+  border-radius: 8px;
   box-sizing: border-box;
-  margin-bottom: 15px;
-  border: 1px solid #222;
-  border-radius: 4px;
-}
-
-/* === XTERM PROTECTION === */
-/* Prevent global styles from interfering with xterm rendering */
-#terminal .xterm {
-  font-variant-ligatures: none;
-  letter-spacing: 0;
-  word-spacing: 0;
 }
 
 .xterm .xterm-cursor {
   display: block !important;
   opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* === PROMPT STYLING === */
-/* Optional: terminal prompt colors (user, host, path) */
-.prompt {
-  color: #c0c0c0;
-  margin-bottom: 5px;
-}
-
-.prompt .user {
-  color: #00ffae;
-}
-
-.prompt .host {
-  color: #3ea6ff;
-}
-
-.prompt .path {
-  color: #ffff88;
-}
-
-/* === COMMAND OUTPUT AREA === */
-.result {
-  white-space: pre-wrap;
-  color: #bbb;
-  margin-bottom: 15px;
-}
-
-/* === PAGE HEADER === */
-.home-section h1 {
-  margin-bottom: 20px;
 }
 
 .terminal-title {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
-/* === HINTS AND HELP TEXT === */
-.terminal-hint {
-  margin-top: 10px;
-  color: #888;
+.card {
+  background: #161728;
+  border: 1px solid #22243a;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  margin-bottom: 16px;
 }
 
-/* === COMMAND SECTION CONTAINER === */
-/* Contains the command list, search field, and add form */
-#command-section {
-  margin-top: 30px;
-  padding-left: 5px;
-  max-width: 800px;
-}
-
-/* === SEARCH FIELD === */
-#search-box {
-  margin-bottom: 15px;
-  padding: 5px;
-  width: 100%;
-  max-width: 400px;
-}
-
-/* === COMMAND LIST BOX === */
-/* Scrollable list of saved commands */
-#command-list {
-  margin-bottom: 20px;
-  max-height: 180px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border: 1px solid #444;
-  padding: 10px;
-  border-radius: 5px;
-  line-height: 1.8;
-  font-size: 15px;
-}
-
-/* === ADD COMMAND FORM === */
-/* Form to add new commands */
-#add-command-form {
+.term-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 400px;
-}
-
-#add-command-form button {
-  width: 100px;
-}
-
-.command-item {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#stop-process-btn {
+  background: #b32020;
+  color: #fff;
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#stop-process-btn:hover {
+  filter: brightness(1.05);
+}
+
+.terminal-hint {
+  opacity: .8;
+}
+
+/* === COMMANDS PANEL === */
+.cmds-header {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.muted {
+  opacity: .75;
+  font-size: .92em;
+}
+
+/* Grid table */
+.cmds-table {
+  border: 1px solid #22243a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cmds-head,
+.cmd-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 1.4fr 220px;
+  /* wider desc + fixed actions */
+  gap: 10px;
+}
+
+.cmds-head {
+  background: #1b1d33;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid #22243a;
+}
+
+.cmds-body {
+  max-height: 340px;
+  overflow: auto;
+}
+
+.cmd-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid #22243a;
+}
+
+.cmd-row:last-child {
+  border-bottom: none;
+}
+
+.cmd-title {
+  font-weight: 600;
+}
+
+/* single-line command + description to keep row height uniform */
+.cmd-command code,
+.cmd-desc {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-command code {
+  background: #12142a;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cmd-desc {
+  opacity: .9;
+}
+
+/* Actions: fixed-width equal buttons */
+.actions-col {
+  text-align: right;
+}
+
+.cmd-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cmd-actions button {
+  width: 72px;
+  /* equal width */
+  background: #2a63e8;
+  color: #fff;
+  border: 0;
   padding: 6px 0;
-  border-bottom: 1px solid #333;
+  /* height consistent */
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: center;
 }
 
-.command-content {
-  flex-grow: 1;
-  color: #ccc;
-  font-size: 14px;
-  line-height: 1.4;
+.cmd-actions .ghost {
+  background: #384062;
 }
 
-.command-title {
-  font-weight: bold;
-  color: #4FC3F7;
+.cmd-actions .danger {
+  background: #b32020;
+}
+
+/* Add form */
+.cmds-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 120px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cmds-form input,
+.cmds-header input {
+  background: #0f1123;
+  border: 1px solid #22243a;
+  color: #e5f4ff;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.cmds-form button {
+  background: #2a9d43;
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.command-desc {
-  opacity: 0.8;
-  margin-left: 4px;
+.hint {
+  margin-top: 8px;
 }
 
-.command-delete {
-  margin-left: 12px;
-  padding: 4px 10px;
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: 4px;
-  background-color: #333;
-  color: white;
-  border: 1px solid #666;
+/* Responsive: stack header on narrow screens */
+@media (max-width: 720px) {
+  .cmds-header {
+    grid-template-columns: 1fr;
+  }
+
+  .cmds-head,
+  .cmd-row {
+    grid-template-columns: 1fr 1fr;
+    /* collapse to two columns */
+    grid-auto-rows: auto;
+  }
+
+  .actions-col {
+    display: none;
+  }
+
+  .cmd-desc {
+    display: none;
+  }
 }
-
-
