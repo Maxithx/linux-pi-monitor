@@ -19,9 +19,9 @@ first_sent = False
 
 def _load_active_profile():
     """
-    Indlæs aktiv profil direkte fra profiles.json (PROFILES_PATH).
-    Returnerer et dict med felter: pi_host, pi_user, auth_method, ssh_key_path, password
-    eller {} hvis ikke fundet.
+    Load active profile directly from profiles.json (PROFILES_PATH).
+    Returns a dict with: pi_host, pi_user, auth_method, ssh_key_path, password
+    or {} if not found.
     """
     try:
         prof_path = current_app.config.get("PROFILES_PATH")
@@ -48,8 +48,8 @@ def _load_active_profile():
 
 def _sync_active_into_legacy_cfg(active):
     """
-    Sørg for at utils/ssh_run (legacy) kan læse målhosten fra app.config["SSH_SETTINGS"].
-    Kaldes på hvert /metrics-kald for at undgå stale cache.
+    Keep utils/ssh_run (legacy) reading its target host from app.config["SSH_SETTINGS"].
+    Called on each /metrics request to avoid stale cache.
     """
     if not isinstance(active, dict) or not active:
         current_app.config["SSH_SETTINGS"] = {}
@@ -67,7 +67,7 @@ def _sync_active_into_legacy_cfg(active):
 @dashboard_bp.route("/dashboard", endpoint="dashboard")
 def dashboard():
     """
-    Åbn dashboardet. Vi tjekker blot at den aktive profil har de nødvendige felter.
+    Open dashboard. Validate the active profile has needed fields.
     """
     active = _load_active_profile()
     if not active.get("pi_host") or not active.get("pi_user"):
@@ -84,9 +84,9 @@ def dashboard():
 @dashboard_bp.route("/metrics")
 def metrics():
     """
-    Hent live-metrics via SSH mod den AKTIVE profil.
-    Fejl håndteres blødt: returner tomt objekt på fejl.
-    Første kald kan få cachede værdier for hurtigere “first paint”.
+    Fetch live metrics via SSH against the ACTIVE profile.
+    Soft-fail: returns empty object on error.
+    First call can serve cached values for faster first paint.
     """
     global latest_metrics, first_cached_metrics, first_sent
 
@@ -96,7 +96,7 @@ def metrics():
         return jsonify(first_cached_metrics)
 
     try:
-        # 1) Sync aktiv profil
+        # 1) Sync active profile
         active = _load_active_profile()
         _sync_active_into_legacy_cfg(active)
 
@@ -147,3 +147,41 @@ def metrics():
     except Exception as e:
         current_app.logger.warning(f"Error in metrics: {e}")
         return jsonify({})
+
+
+# === ROUTE: OS name (for connection line) ===
+@dashboard_bp.route("/system/os")
+def system_os():
+    """
+    Return OS name of the active target, e.g. 'Linux Mint 21.3' or 'Raspberry Pi OS'.
+    Primary source: /etc/os-release -> PRETTY_NAME
+    Fallback: 'uname -sr'
+    """
+    try:
+        # Keep SSH settings in sync
+        active = _load_active_profile()
+        _sync_active_into_legacy_cfg(active)
+
+        # Read /etc/os-release if available
+        osrel = ssh_run("cat /etc/os-release 2>/dev/null || true") or ""
+        os_name = ""
+
+        if osrel:
+            for line in osrel.splitlines():
+                if line.startswith("PRETTY_NAME="):
+                    # Value can be quoted; strip surrounding quotes if present
+                    val = line.split("=", 1)[1].strip()
+                    if len(val) >= 2 and ((val[0] == val[-1] == '"') or (val[0] == val[-1] == "'")):
+                        val = val[1:-1]
+                    os_name = val.strip()
+                    break
+
+        # Fallback if PRETTY_NAME is not present
+        if not os_name:
+            os_name = (ssh_run("uname -sr") or "Linux").strip()
+
+        return jsonify({"os_name": os_name})
+
+    except Exception as e:
+        current_app.logger.warning(f"Error in system_os: {e}")
+        return jsonify({"os_name": ""})
