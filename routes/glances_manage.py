@@ -69,7 +69,7 @@ def _remote_home(ssh, user: str) -> str:
     rc, out, _ = ssh_exec(ssh, f"getent passwd {user} | cut -d: -f6", timeout=8)
     return (out.strip() or f"/home/{user}")
 
-# --------------------- cross-distro pipx discovery ---------------------
+# --------------------- pkg/pipx helpers ---------------------
 
 def _detect_pkg_manager(ssh) -> str | None:
     for tool, cmd in [
@@ -84,18 +84,15 @@ def _detect_pkg_manager(ssh) -> str | None:
     return None
 
 def _ensure_pipx_cmd(ssh, sudo_pw: str | None, user: str) -> str | None:
-    # user-local pipx?
     rc, _, _ = ssh_exec(ssh, "test -x ~/.local/bin/pipx || false", timeout=5)
     if rc == 0:
         return "~/.local/bin/pipx"
-    # system pipx?
     rc, _, _ = ssh_exec(ssh, "test -x /usr/bin/pipx || false", timeout=5)
     if rc == 0:
         return "/usr/bin/pipx"
-    # install via package manager
     mgr = _detect_pkg_manager(ssh)
     if not mgr:
-        _log_append("[stderr]\nNo known package manager found; cannot install pipx automatically.")
+        _log_append("[stderr]\nNo package manager found; cannot install pipx.")
         return None
     _log_append(f"[*] Installing pipx via {mgr} …")
     if mgr == "apt":
@@ -115,7 +112,7 @@ def _ensure_pipx_cmd(ssh, sudo_pw: str | None, user: str) -> str | None:
         _ssh_run_logged(ssh, "zypper -n install pipx python3-pip python3-virtualenv || true", sudo_pw, timeout=600)
         rc, _, _ = ssh_exec(ssh, "command -v pipx || false", timeout=5)
         if rc == 0: return "pipx"
-    _log_append("[stderr]\nFailed to install pipx via package manager.")
+    _log_append("[stderr]\nFailed to install pipx.")
     return None
 
 def _ensure_glances_web_via_pipx(ssh, pipx_cmd: str) -> str | None:
@@ -132,7 +129,7 @@ def _ensure_glances_web_via_pipx(ssh, pipx_cmd: str) -> str | None:
     rc, _, _ = ssh_exec(ssh, f"test -x '{glances_bin}' || false", timeout=5)
     return glances_bin if rc == 0 else None
 
-# --------------------- systemd unit (full file) ---------------------
+# --------------------- systemd unit ---------------------
 
 def _write_base_service_unit(ssh, sudo_pw: str | None, user: str, glances_bin: str):
     unit_path = "/etc/systemd/system/glances.service"
@@ -154,7 +151,7 @@ def _write_base_service_unit(ssh, sudo_pw: str | None, user: str, glances_bin: s
         "[Install]\\n"
         "WantedBy=multi-user.target\\n"
     )
-    _log_append("[*] Writing full /etc/systemd/system/glances.service …")
+    _log_append("[*] Writing /etc/systemd/system/glances.service …")
     _ssh_run_logged(ssh, f"bash -lc \"printf '{unit}' | tee {unit_path} > /dev/null\"", sudo_pw, timeout=20)
 
 # --------------------- optional firewall ---------------------
@@ -169,6 +166,23 @@ def _open_firewall_if_needed(ssh, sudo_pw: str | None):
 
 # --------------------- STATUS / LOG endpoints ---------------------
 
+def _is_port_open_61208(ssh) -> bool:
+    rc, out, _ = ssh_exec(ssh, "ss -ltn 'sport = :61208' 2>/dev/null | tail -n +2", timeout=8)
+    return (rc == 0 and bool((out or "").strip()))
+
+def _is_proc_glances_web(ssh) -> bool:
+    rc, out, _ = ssh_exec(ssh, r"ps -eo pid,cmd | grep -E 'glances(\s|$).*-w' | grep -v grep || true", timeout=8)
+    return (rc == 0 and bool((out or "").strip()))
+
+def _is_systemd_active(ssh) -> bool:
+    rc, _, _ = ssh_exec(ssh, "systemctl is-active --quiet glances || false", timeout=8)
+    return (rc == 0)
+
+def _is_systemd_user_active(ssh, user: str) -> bool:
+    # Try user unit as a fallback (some setups prefer --user units)
+    rc, _, _ = ssh_exec(ssh, f"sudo -u {user} -H bash -lc 'systemctl --user is-active --quiet glances || false'", timeout=8)
+    return (rc == 0)
+
 @glances_bp.get("/glances/status")
 def glances_status():
     try:
@@ -181,19 +195,20 @@ def glances_status():
         )
         user = s["pi_user"]
 
+        # Installed path (use user shell PATH)
         rc, which_out, _ = ssh_exec(ssh, f"sudo -u {user} -H bash -lc 'command -v glances || true'", timeout=8)
         which = (which_out.strip() or "")
 
-        rc_v, _, _ = ssh_exec(ssh, f"test -x /home/{user}/.local/share/pipx/venvs/glances/bin/glances || false", timeout=5)
-        is_pipx = ("/.local/bin/glances" in which) or (rc_v == 0)
+        # Running checks (OR together for robustness)
+        running = (
+            _is_systemd_active(ssh)
+            or _is_systemd_user_active(ssh, user)
+            or _is_port_open_61208(ssh)
+            or _is_proc_glances_web(ssh)
+        )
 
-        rc_r, _, _ = ssh_exec(ssh, "systemctl is-active --quiet glances || false", timeout=8)
-        running = (rc_r == 0)
-
-        rc_p, out_p, _ = ssh_exec(ssh, "ss -ltn | grep ':61208 ' || true", timeout=8)
-        web_port_open = (rc_p == 0 and bool(out_p.strip()))
-
-        _, vout, _ = ssh_exec(ssh, "glances --version 2>/dev/null | head -n1", timeout=8)
+        # Version using user's shell PATH
+        _, vout, _ = ssh_exec(ssh, f"sudo -u {user} -H bash -lc 'glances --version 2>/dev/null | head -n1 || true'", timeout=8)
         version = (vout or "").strip()
 
         try: ssh.close()
@@ -204,8 +219,8 @@ def glances_status():
             "installed": bool(which),
             "running": running,
             "which": which or "?",
-            "is_pipx": is_pipx,
-            "web_port_open": web_port_open,
+            "is_pipx": "~/.local" in which or "/pipx/" in which,
+            "web_port_open": _is_port_open_61208(ssh),  # quick re-check is fine; cheap
             "version": version
         })
     except Exception as e:
@@ -251,7 +266,7 @@ def glances_log_tail():
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
-# --------------------- INSTALL ---------------------
+# --------------------- INSTALL / START / STOP / UNINSTALL ---------------------
 
 @glances_bp.post("/glances/install")
 def glances_install():
@@ -271,7 +286,6 @@ def glances_install():
         )
         user = s["pi_user"]
 
-        # sudo check
         _log_append("[*] Sudo check…")
         rc_nv, _, _ = ssh_exec(ssh, "sudo -n true || false", timeout=8)
         if rc_nv != 0 and not sudo_pw:
@@ -304,17 +318,7 @@ def glances_install():
         _ssh_run_logged(ssh, "systemctl daemon-reload", sudo_pw, timeout=60)
         _ssh_run_logged(ssh, "systemctl enable glances", sudo_pw, timeout=60)
         _ssh_run_logged(ssh, "systemctl restart glances", sudo_pw, timeout=120)
-
         _open_firewall_if_needed(ssh, sudo_pw)
-
-        _ssh_run_logged(
-            ssh,
-            "(command -v ss >/dev/null 2>&1 && ss -ltn 'sport = :61208' | tail -n +2) || "
-            "(command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 61208 && echo 'nc: port open') || "
-            "echo 'No listener detected yet'",
-            sudo_pw,
-            timeout=20
-        )
 
         try: ssh.close()
         except Exception: pass
@@ -325,23 +329,60 @@ def glances_install():
         _log_append(f"Install error: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
-# --------------------- UNINSTALL (improved) ---------------------
+@glances_bp.post("/glances/service/start")
+def glances_service_start():
+    try:
+        data = request.get_json(silent=True) or {}
+        sudo_pw = data.get("sudo_pw") or None
+
+        s = _active_ssh()
+        ssh = ssh_connect(
+            host=s["pi_host"], user=s["pi_user"],
+            auth=s.get("auth_method","key"),
+            key_path=s.get("ssh_key_path",""),
+            password=s.get("password",""), timeout=25
+        )
+        _ssh_run_logged(ssh, "systemctl daemon-reload", sudo_pw, timeout=30)
+        _ssh_run_logged(ssh, "systemctl enable glances", sudo_pw, timeout=60)
+        _ssh_run_logged(ssh, "systemctl restart glances", sudo_pw, timeout=120)
+        _open_firewall_if_needed(ssh, sudo_pw)
+
+        running = _is_systemd_active(ssh) or _is_port_open_61208(ssh) or _is_proc_glances_web(ssh)
+        try: ssh.close()
+        except: pass
+        return jsonify({"ok": running, "running": running})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@glances_bp.post("/glances/service/stop")
+def glances_service_stop():
+    try:
+        data = request.get_json(silent=True) or {}
+        sudo_pw = data.get("sudo_pw") or None
+
+        s = _active_ssh()
+        ssh = ssh_connect(
+            host=s["pi_host"], user=s["pi_user"],
+            auth=s.get("auth_method","key"),
+            key_path=s.get("ssh_key_path",""),
+            password=s.get("password",""), timeout=25
+        )
+        _ssh_run_logged(ssh, "systemctl stop glances || true", sudo_pw, timeout=60)
+
+        running = _is_systemd_active(ssh) or _is_port_open_61208(ssh) or _is_proc_glances_web(ssh)
+        try: ssh.close()
+        except: pass
+        return jsonify({"ok": not running, "running": running})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 def _pipx_uninstall_or_manual(ssh):
-    """Try pipx uninstall; if pipx missing, remove venvs and shim manually."""
-    # Prefer system pipx, then user pipx, then module
-    candidates = [
-        "/usr/bin/pipx",
-        "~/.local/bin/pipx",
-        "pipx",
-        "python3 -m pipx",
-    ]
+    candidates = ["/usr/bin/pipx", "~/.local/bin/pipx", "pipx", "python3 -m pipx"]
     for cmd in candidates:
         rc, _, _ = ssh_exec(ssh, f"bash -lc 'command -v {cmd.split()[0]} >/dev/null 2>&1'", timeout=5)
         if rc == 0:
             _ssh_run_user(ssh, f"{cmd} uninstall glances || true", timeout=180)
             break
-    # Always ensure shim/venvs are gone
     _ssh_run_user(ssh, 'rm -f "$HOME/.local/bin/glances" || true', timeout=20)
     _ssh_run_user(ssh, 'rm -rf "$HOME/.local/share/pipx/venvs/glances" "$HOME/.local/pipx/venvs/glances" || true', timeout=20)
 
@@ -362,17 +403,14 @@ def glances_uninstall():
             password=s.get("password",""), timeout=25
         )
 
-        # Stop/disable service and remove units (file or drop-in)
         _ssh_run_logged(ssh, "systemctl disable --now glances || true", sudo_pw, timeout=120)
         _ssh_run_logged(ssh, "rm -rf /etc/systemd/system/glances.service.d || true", sudo_pw, timeout=30)
         _ssh_run_logged(ssh, "rm -f /etc/systemd/system/glances.service || true", sudo_pw, timeout=30)
         _ssh_run_logged(ssh, "systemctl daemon-reload || true", sudo_pw, timeout=30)
 
-        # Kill any leftover web process (manual runs etc.)
         _ssh_run_user(ssh, 'pkill -f "glances -w" || true', timeout=10)
         _ssh_run_user(ssh, 'pkill -f "uvicorn.*glances" || true', timeout=10)
 
-        # pipx uninstall (or manual cleanup)
         _pipx_uninstall_or_manual(ssh)
 
         try: ssh.close()
@@ -383,7 +421,6 @@ def glances_uninstall():
         _log_append(f"Uninstall error: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
-# Back-compat alias (frontend kan kalde dette navn)
 @glances_bp.post("/glances/uninstall-glances")
 def glances_uninstall_compat():
     return glances_uninstall()
