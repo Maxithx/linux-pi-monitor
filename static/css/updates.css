@@ -13,6 +13,14 @@
     cursor: not-allowed;
 }
 
+/* Subtle visual for busy/disabled primary actions */
+button.is-disabled[disabled],
+.btn.is-disabled[disabled],
+.card .btn.is-disabled[disabled] {
+    opacity: .55;
+    filter: grayscale(12%);
+}
+
 /* --- Fix: buttons rendered as <a class="btn ..."> must not get purple :visited color --- */
 .card a.btn,
 .card a.btn:link,

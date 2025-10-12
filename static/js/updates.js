@@ -12,6 +12,7 @@ const emptyEl = document.getElementById('updates-empty');
 
 const btnInstallAll = document.getElementById('btn-install-all');
 const btnInstallSec = document.getElementById('btn-install-security');
+const btnFull = document.getElementById('btn-full') || document.querySelector('[data-action="full_noob_update"]');
 const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
 const advancedBox = document.getElementById('advanced-actions');
 
@@ -52,6 +53,17 @@ let totalExpected = 0;
 let enrichedCount = 0;
 let discoveredCount = 0;
 
+// Busy toggle for primary action buttons (full/security/all)
+const actionable = [btnFull, btnInstallSec, btnInstallAll].filter(Boolean);
+function setBusy(busy) {
+    actionable.forEach(b => {
+        if (!b) return;
+        b.disabled = !!busy;
+        b.classList.toggle('is-disabled', !!busy);
+        if (busy) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+    });
+}
+
 function ts() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
@@ -69,6 +81,7 @@ function append(text) {
 
 async function run(action) {
     append('Running: ' + action + ' ...');
+    setBusy(true);
 
     // Evt. sudo password prompt (kun for bestemte handlinger)
     let sudo_password = '';
@@ -96,6 +109,7 @@ async function run(action) {
     } finally {
         // slet password reference i JS (ikke strengt nødvendigt, men pænt)
         sudo_password = '';
+        setBusy(false);
     }
 }
 
@@ -393,6 +407,7 @@ function startSSEScan() {
 function disableInstallButtons(disabled) {
     if (btnInstallAll) btnInstallAll.disabled = !!disabled;
     if (btnInstallSec) btnInstallSec.disabled = !!disabled; // re-enable logic happens after enrichment
+    if (btnFull) btnFull.disabled = !!disabled;
 }
 
 function maybeEnableSecurityButton() {
@@ -405,7 +420,8 @@ function maybeEnableSecurityButton() {
 
 // ---- Wire buttons ----
 document.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+        if (btn.disabled) return; // ignore clicks while disabled
         const action = btn.getAttribute('data-action');
         await run(action);
     });
