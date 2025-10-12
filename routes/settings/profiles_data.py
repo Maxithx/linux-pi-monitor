@@ -186,3 +186,4 @@ def get_all_profiles() -> dict:
         "active_profile_id": data.get("active_profile_id"),
         "default_profile_id": data.get("default_profile_id"),
     }
+

@@ -3,11 +3,10 @@ import os
 import json
 import socket
 import paramiko
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import render_template, request, jsonify, current_app
 
-from .ssh_utils import ssh_connect, ssh_exec
-
-settings_bp = Blueprint("settings", __name__)
+from routes.common.ssh_utils import ssh_connect, ssh_exec
+from . import settings_bp
 
 # --- Legacy settings helpers (uændret) ---
 def _legacy_settings_path() -> str:

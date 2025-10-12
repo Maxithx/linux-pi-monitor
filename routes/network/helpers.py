@@ -1,8 +1,8 @@
 import re
 from shlex import quote
 
-from ..ssh_utils import ssh_connect, ssh_exec
-from ..settings import _get_active_ssh_settings, _is_configured
+from routes.common.ssh_utils import ssh_connect, ssh_exec
+from routes.settings import _get_active_ssh_settings, _is_configured
 
 
 # ---- Intern helpers ---------------------------------------------------------

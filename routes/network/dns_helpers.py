@@ -1,7 +1,7 @@
 import re
 from shlex import quote
 
-from ..ssh_utils import ssh_exec
+from routes.common.ssh_utils import ssh_exec
 from .helpers import _nmcli_bin_path, _has_nmcli
 
 

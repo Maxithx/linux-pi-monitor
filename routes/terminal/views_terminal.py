@@ -3,12 +3,10 @@ import os
 import threading
 import paramiko
 import socket
-from flask import Blueprint, render_template, current_app, jsonify, request
+from flask import render_template, current_app, jsonify, request
 from flask_socketio import emit
 from socketio_instance import socketio
-
-# === FLASK BLUEPRINT ===
-terminal_bp = Blueprint("terminal", __name__)
+from . import terminal_bp
 
 # === GLOBAL VARIABLES ===
 shell_channel = None

@@ -1,12 +1,10 @@
-# routes/updates_drivers/os_detect.py
-# Detect remote OS via /etc/os-release (over SSH) and choose driver.
-
+# routes/drivers/os_detect.py
 from __future__ import annotations
 import re
 from typing import Tuple, Dict
 
-from ..ssh_utils import ssh_connect, ssh_exec
-from ..settings import _get_active_ssh_settings, _is_configured
+from routes.common.ssh_utils import ssh_connect, ssh_exec
+from routes.settings import _get_active_ssh_settings, _is_configured
 
 
 def _active_settings() -> dict:
@@ -33,10 +31,6 @@ def _read_os_release_text() -> str:
 
 
 def fetch_os_release() -> Tuple[str, str, str, str]:
-    """
-    Back-compat helper used by choose_driver_name().
-    Returns (ID, ID_LIKE, NAME, VERSION_CODENAME).
-    """
     data = _read_os_release_text()
 
     def _get(key: str) -> str:
@@ -50,10 +44,6 @@ def fetch_os_release() -> Tuple[str, str, str, str]:
 
 
 def fetch_os_info() -> Dict[str, str]:
-    """
-    New helper for UI: returns a dict with id, id_like, name, version,
-    codename, pretty. Missing fields are empty strings.
-    """
     data = _read_os_release_text()
 
     def _get(key: str) -> str:
@@ -72,7 +62,6 @@ def fetch_os_info() -> Dict[str, str]:
         "pretty": _get("PRETTY_NAME") or "",
     }
 
-    # reasonable fallback if PRETTY_NAME is missing
     if not info["pretty"]:
         pieces = [p for p in [info["name"], info["version"]] if p]
         if info["codename"]:
@@ -83,24 +72,14 @@ def fetch_os_info() -> Dict[str, str]:
 
 
 def choose_driver_name() -> str:
-    """
-    Returns a string key: 'debian' or 'mint'
-    (Both map to DebianDriver logic; split kept for future customization.)
-    """
     os_id, id_like, name, codename = fetch_os_release()
     low_all = " ".join([os_id, id_like, name, codename]).lower()
 
-    # Raspbian/Debian family
     if "raspbian" in low_all or "debian" in low_all:
         return "debian"
-
-    # Linux Mint explicit
     if "linuxmint" in low_all or "mint" in low_all:
         return "mint"
-
-    # Ubuntu behaves fine with Debian driver too
     if "ubuntu" in low_all:
         return "debian"
-
-    # Default safest
     return "debian"
+

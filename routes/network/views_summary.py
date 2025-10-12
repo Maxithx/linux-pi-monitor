@@ -2,7 +2,7 @@ from shlex import quote
 from flask import render_template, jsonify
 
 from . import network_bp
-from ..ssh_utils import ssh_exec
+from routes.common.ssh_utils import ssh_exec
 from .helpers import _ssh, _has_nmcli, _nmcli_bin_path
 from .dns_helpers import _dns_status
 
@@ -128,4 +128,3 @@ def summary():
         )
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-

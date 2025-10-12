@@ -1,13 +1,12 @@
 # === routes/drivers.py ===
 # Drivers & Firmware (SSH to active device). UI strings kept in English.
 
-from flask import Blueprint, render_template, jsonify, request
+from flask import render_template, jsonify, request
 from shlex import quote
 
-from .ssh_utils import ssh_connect, ssh_exec
-from .settings import _get_active_ssh_settings, _is_configured
-
-drivers_bp = Blueprint("drivers", __name__, url_prefix="/drivers")
+from routes.common.ssh_utils import ssh_connect, ssh_exec
+from routes.settings import _get_active_ssh_settings, _is_configured
+from . import drivers_bp
 
 # ---------- helpers -----------------------------------------------------------
 

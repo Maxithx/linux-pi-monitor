@@ -3,9 +3,9 @@ from flask import Blueprint, current_app, request, jsonify, Response, session
 import os, time
 from typing import List, Tuple, Optional
 
-# Brug relative imports – filerne ligger i routes/
+# Now inside routes/settings/
 from . import profiles_data
-from . import ssh_utils
+from routes.common import ssh_utils
 
 profiles_bp = Blueprint("profiles_bp", __name__, url_prefix="/profiles")
 

@@ -39,3 +39,4 @@ def check_install_status():
         "neofetch": status_neofetch,
         "cmatrix": status_cmatrix
     })
+

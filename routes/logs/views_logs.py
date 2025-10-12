@@ -2,9 +2,8 @@
 # This file handles log viewing and opening the log file in Windows
 
 import os
-from flask import Blueprint, render_template, jsonify, current_app
-
-logs_bp = Blueprint("logs", __name__)
+from flask import render_template, jsonify, current_app
+from . import logs_bp
 
 # === ROUTE: Display the latest lines from the log file in the UI ===
 @logs_bp.route("/logs", endpoint="logs")

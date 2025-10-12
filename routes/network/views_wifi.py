@@ -3,7 +3,7 @@ from shlex import quote
 from flask import jsonify, request
 
 from . import network_bp
-from ..ssh_utils import ssh_exec
+from routes.common.ssh_utils import ssh_exec
 from .helpers import (
     _ssh,
     _active,
@@ -407,4 +407,3 @@ def forget():
         return jsonify({"ok": ok, "message": msg.strip()})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
-

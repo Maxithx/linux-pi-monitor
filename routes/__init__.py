@@ -12,14 +12,11 @@ def register_routes(app):
 
     Notes for updates:
     - The /updates endpoints use OS-specific drivers located in:
-        routes/updates_drivers/
-            __init__.py
-            driver_base.py
-            driver_debian.py
-            driver_mint.py
+        routes/drivers/
+            os_base.py
+            os_debian.py
+            os_mint.py
             os_detect.py
-      The package is imported indirectly by routes/updates.py, but we also
-      do a no-op import here so the package is initialized when the app loads.
     """
 
     # --- GLOBAL context for ALL templates (fix 500 on /dashboard etc.) ---
@@ -34,21 +31,21 @@ def register_routes(app):
 
     # Ensure driver package is initialized (no-op import; avoids lints/caches)
     try:
-        from .updates_drivers import DebianDriver, MintDriver, choose_driver_name  # noqa: F401
+        from .drivers import DebianDriver, MintDriver, choose_driver_name  # noqa: F401
     except Exception:
-        # Safe to ignore; /routes/updates.py handles driver errors gracefully.
+        # Safe to ignore; updates feature handles driver errors gracefully.
         pass
 
     # --- Imports AFTER the context-processor to avoid circulars ---
-    from .glances import glances_bp                              # proxy
     from .settings import settings_bp                            # settings + iframe
-    from .glances_manage import glances_bp as glances_admin_bp   # /glances/*
+    from .settings.glances_manage import glances_bp as glances_admin_bp   # /glances/*
+    from .settings.glances import glances_bp as glances_compat_bp        # /glances-proxy/*
     from .updates import updates_bp                              # /updates/*
     from .dashboard import dashboard_bp
     from .logs import logs_bp
     from .terminal import terminal_bp
-    from .software import software_bp
-    from .profiles_routes import profiles_bp
+    from .settings.software import software_bp
+    from .settings.views_profiles import profiles_bp
     from .network import network_bp
     from .drivers import drivers_bp
 
@@ -65,7 +62,7 @@ def register_routes(app):
     app.register_blueprint(glances_admin_bp)   # /glances/* (install/uninstall/status/log/service/diag)
     app.register_blueprint(updates_bp)         # /updates, /updates/*
     # Proxy last (namespaced separately)
-    app.register_blueprint(glances_bp)         # /glances-proxy/* and /api/3/*
+    app.register_blueprint(glances_compat_bp)  # /glances-proxy/* and /api/3/*
     app.register_blueprint(network_bp)         # /network, /network/*
     app.register_blueprint(drivers_bp)           # /drivers
 

@@ -1,12 +1,10 @@
-# routes/updates_drivers/driver_base.py
-# Common base + SSH helpers for update drivers.
-
+# routes/drivers/os_base.py
 from __future__ import annotations
 import paramiko
 from typing import Generator, Tuple, Dict, Any
 
-from ..settings import _get_active_ssh_settings, _is_configured
-from ..ssh_utils import ssh_connect, ssh_exec
+from routes.settings import _get_active_ssh_settings, _is_configured
+from routes.common.ssh_utils import ssh_connect, ssh_exec
 
 
 class BaseDriver:
@@ -72,23 +70,11 @@ class BaseDriver:
 
     # -------- Abstract API --------
     def stream_scan(self) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
-        """
-        Yield tuples of (event_name, payload)
-        Events: 'status', 'pkg', 'done', 'error'
-        """
         raise NotImplementedError
 
     def pkg_detail(self, name: str) -> Dict[str, Any]:
-        """
-        Return details for a single package:
-        installed/candidate, repo/suite, security flag,
-        changelog summary/link, CVEs, urgency.
-        """
         raise NotImplementedError
 
     def run_action(self, action: str) -> Tuple[int, str, str]:
-        """
-        Optional pass-through for existing actions if needed.
-        (Kept for compatibility; routes can still call shared /updates/run.)
-        """
         return 0, "", ""
+

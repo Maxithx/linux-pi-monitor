@@ -1,12 +1,9 @@
-# routes/updates_drivers/driver_debian.py
-# Debian/Raspbian/Ubuntu driver: stable scan via `apt-get -s dist-upgrade`.
-
+# routes/drivers/os_debian.py
 from __future__ import annotations
 import re
-from typing import Generator, Tuple, Dict, Any
+from typing import Dict, Any
 
-from .driver_base import BaseDriver
-
+from .os_base import BaseDriver
 
 ANSI_RE = re.compile(r"\x1B\[[0-9;]*[A-Za-z]")
 
@@ -23,13 +20,6 @@ class DebianDriver(BaseDriver):
     """
 
     def stream_scan(self):
-        """
-        Events yielded:
-          ('status', {'stage': 'apt_update'})
-          ('status', {'stage': 'list_upgradable'})
-          ('pkg',    {'name': 'bash', 'candidate': '5.2-2+deb12u1', 'arch': 'arm64'})
-          ('done',   {'count': N})
-        """
         try:
             client = self._ssh_connect_paramiko()
 
@@ -46,18 +36,12 @@ class DebianDriver(BaseDriver):
 
             # Stage 2: streaming scan using dry-run dist-upgrade
             yield ("status", {"stage": "list_upgradable"})
-            # Use LC_ALL=C for consistent english output. Avoid PTY to prevent coloring.
             cmd = (
                 'sh -lc "LC_ALL=C DEBIAN_FRONTEND=noninteractive '
                 'apt-get -s -o Debug::NoLocking=1 dist-upgrade"'
             )
             _stdin2, stdout2, _stderr2 = client.exec_command(cmd, get_pty=False, timeout=900)
 
-            # Example line patterns we parse (all begin with 'Inst '):
-            # Inst bash [5.2-2] (5.2-2+deb12u1 Debian-Security:12/bookworm-security [amd64])
-            # Inst libfoo:armhf (1.2.3-1 Raspbian:12/bookworm [armhf])
-            # Inst libbar [1.0-1] (1.1-1 Debian:12/bookworm [arm64])
-            # We want: package name (w/o :arch suffix), candidate version, architecture (if present)
             pat = re.compile(
                 r"^Inst\s+([^\s:]+)(?::([^\s]+))?(?:\s+\[[^\]]+\])?\s+\(([^)\s]+).*?(?:\[(.*?)\])?",
                 re.IGNORECASE
@@ -90,14 +74,11 @@ class DebianDriver(BaseDriver):
             yield ("error", {"message": str(e)})
 
     def pkg_detail(self, name: str) -> Dict[str, Any]:
-        """Use apt-cache policy + apt-get changelog for details."""
         name = (name or "").strip()
         if not name:
             return {"ok": False, "error": "missing name"}
 
-        # Policy
         rc2, pol, _ = self._ssh_exec_simple(f'SH -lc "LC_ALL=C apt-cache policy {name}"', timeout=60)
-        # Some systems don't like SH -lc with caps; fallback to sh -lc neatly:
         if rc2 != 0 or not pol:
             rc2, pol, _ = self._ssh_exec_simple(f'sh -lc "LC_ALL=C apt-cache policy {name}"', timeout=60)
 
@@ -115,7 +96,6 @@ class DebianDriver(BaseDriver):
             if m: suite = m.group(1).strip()
             repo = suite
 
-        # Changelog
         summary = ""
         cl_link = ""
         cves = []
@@ -140,7 +120,7 @@ class DebianDriver(BaseDriver):
             "candidate": candidate,
             "repo": repo,
             "suite": suite,
-            "arch": "",  # filled by frontend from skeleton if needed
+            "arch": "",
             "security": bool(suite.endswith("-security")) if suite else False,
             "urgency": urgency,
             "summary": summary,
@@ -149,5 +129,5 @@ class DebianDriver(BaseDriver):
         }
 
     def run_action(self, action: str):
-        # Not used; routes already implement /updates/run via shared helper.
         return 0, "", ""
+

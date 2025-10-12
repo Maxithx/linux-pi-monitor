@@ -103,7 +103,7 @@ def ssh_connect(
     """
     Opret en SSH-forbindelse. Hvis prefer_password=True forsøges password først
     (praktisk i bootstrap-scenarier). Vi slår agent-søgning fra for at undgå
-    lange timeouts og “hænger”.
+    lange timeouts og “ohænger?”.
     """
     if not host or not user:
         raise RuntimeError("Host and user required")
@@ -157,7 +157,7 @@ def ssh_connect(
 
 def _quote_sh(cmd: str) -> str:
     """Quote til sh -lc ..."""
-    return (cmd or "").replace('"', r'\"')
+    return (cmd or "").replace('"', r'\\"')
 
 
 def ssh_exec(
@@ -226,3 +226,4 @@ def generate_ssh_keypair(key_path: str, overwrite: bool = False, algo: str = "rs
         f.write(pub_line)
 
     return {"private_key": priv_path, "public_key": pub_path, "algo": key.get_name()}
+
