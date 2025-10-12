@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Drivers & Firmware{% endblock %}
+{% block page_title %}Drivers & Hardware{% endblock %}
+
+{% block content %}
+
+<p class="muted">Tools to inspect drivers and run one-click fixes (Wi-Fi, kernel modules, firmware).</p>
+
+<!-- Top controls -->
+<div class="hstack" style="justify-content:flex-end; margin:-6px 0 10px 0;">
+    <button id="btn-expand-all" class="btn">Expand all</button>
+    <button id="btn-collapse-all" class="btn">Collapse all</button>
+</div>
+
+<style>
+    .drivers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 14px;
+    }
+
+    .driver-card details {
+        background: #0e0f13;
+        border: 1px solid #2a2d36;
+        border-radius: 12px;
+        padding: 0;
+    }
+
+    .driver-card summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 12px 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid #222733;
+    }
+
+    .driver-card summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .badge {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #1b2130;
+        border: 1px solid #2a2d36;
+    }
+
+    .badge.ok {
+        background: #14291b;
+        border-color: #1f6b3a;
+        color: #8ff0ae;
+    }
+
+    .badge.err {
+        background: #2b1519;
+        border-color: #7d2a36;
+        color: #ff9aa9;
+    }
+
+    .driver-body {
+        padding: 12px 14px;
+    }
+
+    .kv {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 8px;
+    }
+
+    .hstack {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+
+    .mono {
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+
+    .icon-btn {
+        margin-left: auto;
+        width: 28px;
+        height: 28px;
+        border: 1px solid #2a2d36;
+        border-radius: 8px;
+        background: #11141b;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .icon-btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="white" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>') center / 16px 16px no-repeat;
+        background: #cfd6e4;
+    }
+
+    details[open]>summary .icon-btn {
+        transform: rotate(180deg);
+    }
+</style>
+
+<div class="drivers-grid">
+
+    <!-- DRIVER: Wi-Fi (dynamic naming) -->
+    <div class="driver-card" id="drv-wifi">
+        <details open>
+            <summary>
+                <span id="wifi-title">{{ drivers.wifi.title }}</span>
+                <span id="wifi-badge" class="badge">checking…</span>
+                <button type="button" class="icon-btn" aria-label="Toggle section"></button>
+            </summary>
+            <div class="driver-body">
+                <div class="kv" id="wifi-kv">
+                    <div><strong>Kernel</strong></div>
+                    <div id="kernel">{{ kernel }}</div>
+                    <div><strong>Interface</strong></div>
+                    <div id="wifi-if">{{ drivers.wifi.iface }}</div>
+                    <div><strong>Present</strong></div>
+                    <div id="wifi-present">{{ 'yes' if drivers.wifi.present else 'no' }}</div>
+                    <div><strong>State</strong></div>
+                    <div id="wifi-state">{{ drivers.wifi.state }}</div>
+                    <div><strong>IPv4</strong></div>
+                    <div id="wifi-ip">{{ drivers.wifi.ipv4 or 'none' }}</div>
+                    <div><strong>Driver</strong></div>
+                    <div id="wifi-driver">{{ drivers.wifi.driver }}</div>
+                    <div><strong>Vendor</strong></div>
+                    <div id="wifi-vendor">{{ drivers.wifi.vendor }}</div>
+                    <div><strong>Firmware</strong></div>
+                    <div id="wifi-fw">{{ drivers.wifi.ethtool or 'n/a' }}</div>
+                </div>
+
+                <div class="hstack">
+                    <button id="btn-scan" class="btn">Scan status</button>
+                    <button id="btn-fix-wifi" class="btn">Fix Wi-Fi</button>
+                    <button id="btn-reinstall" class="btn">Reinstall Kernel/Firmware</button>
+                    <button id="btn-recovery" class="btn"
+                        title="Run /usr/local/sbin/wifi-recover-pi3.sh on the device">Run Recovery Script</button>
+                </div>
+
+                <h4 style="margin-top:12px;">Driver logs</h4>
+                <pre id="wifi-out" class="mono"
+                    style="max-height:320px;overflow:auto;background:#0e0f13;border:1px solid #2a2d36;border-radius:8px;padding:10px;">(click “Scan status”)</pre>
+            </div>
+        </details>
+    </div>
+
+    <!-- Future drivers: duplicate this card and adjust ids/labels -->
+
+</div>
+
+<script>
+    const out = document.getElementById('wifi-out');
+    const badge = document.getElementById('wifi-badge');
+    const titleEl = document.getElementById('wifi-title');
+
+    function setBadge(ok, text) {
+        badge.textContent = text || (ok ? 'connected' : 'issue');
+        badge.classList.remove('ok', 'err');
+        badge.classList.add(ok ? 'ok' : 'err');
+    }
+
+    function fillWifi(data) {
+        const w = data.drivers.wifi;
+        document.getElementById('kernel').textContent = data.kernel;
+        document.getElementById('wifi-if').textContent = w.iface;
+        document.getElementById('wifi-present').textContent = w.present ? 'yes' : 'no';
+        document.getElementById('wifi-state').textContent = w.state || 'unknown';
+        document.getElementById('wifi-ip').textContent = w.ipv4 || 'none';
+        document.getElementById('wifi-driver').textContent = w.driver || '';
+        document.getElementById('wifi-vendor').textContent = w.vendor || 'Wi-Fi';
+        document.getElementById('wifi-fw').textContent = w.ethtool || 'n/a';
+        titleEl.textContent = w.title || 'Wi-Fi';
+
+        const ok = w.present && !!w.ipv4;
+        setBadge(ok, ok ? 'connected' : (w.present ? 'no IP' : 'missing'));
+    }
+
+    async function scan() {
+        out.textContent = 'Scanning…';
+        const r = await fetch('{{ url_for("drivers.status") }}', { cache: 'no-store' });
+        const j = await r.json();
+        if (j.error) { out.textContent = j.error; setBadge(false, 'error'); return; }
+        fillWifi(j);
+        out.textContent =
+            (j.drivers.wifi.dmesg_tail || '(no dmesg)') +
+            (j.drivers.wifi.rfkill ? '\n\nrfkill:\n' + j.drivers.wifi.rfkill : '');
+    }
+
+    async function runFix(target) {
+        out.textContent = 'Running ' + target + ' …';
+        const r = await fetch('{{ url_for("drivers.run_fix", target="X") }}'.replace('X', target), { method: 'POST' });
+        const j = await r.json();
+        out.textContent = (j.log || '') + (j.wifi ? '\n\nNew status:\n' + JSON.stringify(j.wifi, null, 2) : '');
+        if (j.wifi) {
+            fillWifi({ kernel: document.getElementById('kernel').textContent, drivers: { wifi: j.wifi } });
+        } else {
+            scan();
+        }
+    }
+
+    // Buttons
+    document.getElementById('btn-scan').addEventListener('click', scan);
+    document.getElementById('btn-fix-wifi').addEventListener('click', () => runFix('wifi'));
+    document.getElementById('btn-reinstall').addEventListener('click', () => runFix('reinstall_all'));
+    document.getElementById('btn-recovery').addEventListener('click', () => runFix('wifi_script'));
+
+    // Per-card chevron toggle (without toggling via summary click itself)
+    document.querySelectorAll('.driver-card summary .icon-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const details = e.currentTarget.closest('details');
+            details.open = !details.open;
+        });
+    });
+
+    // Expand/Collapse all
+    const expandAllBtn = document.getElementById('btn-expand-all');
+    const collapseAllBtn = document.getElementById('btn-collapse-all');
+    if (expandAllBtn && collapseAllBtn) {
+        expandAllBtn.addEventListener('click', () => {
+            document.querySelectorAll('.driver-card details').forEach(d => d.open = true);
+        });
+        collapseAllBtn.addEventListener('click', () => {
+            document.querySelectorAll('.driver-card details').forEach(d => d.open = false);
+        });
+    }
+
+    // Initial load
+    scan();
+</script>
+{% endblock %}

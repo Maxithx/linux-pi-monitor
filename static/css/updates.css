@@ -1,0 +1,184 @@
+/* Minimal, page-local CSS so we inherit your global theme and .btn styles */
+
+/* Match Network page button sizing (network.css -> toolbar/qc-row rules) */
+.card .btn,
+.card button {
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
+/* Keep disabled look consistent */
+.card .btn[disabled],
+.card button[disabled] {
+    cursor: not-allowed;
+}
+
+/* --- Fix: buttons rendered as <a class="btn ..."> must not get purple :visited color --- */
+.card a.btn,
+.card a.btn:link,
+.card a.btn:visited {
+    color: #eaeaea;
+    /* keep button text consistent */
+    text-decoration: none;
+    /* no underline on buttons */
+}
+
+.card a.btn:hover,
+.card a.btn:focus-visible {
+    text-decoration: none;
+    filter: brightness(1.05);
+}
+
+/* Optional: links inside details (changelog/CVEs) */
+#updates-table .detail a,
+#updates-table .detail a:link,
+#updates-table .detail a:visited {
+    color: #9fc5ff;
+    text-decoration: none;
+}
+
+#updates-table .detail a:hover,
+#updates-table .detail a:focus-visible {
+    text-decoration: underline;
+}
+
+/* Badges (same tone family used elsewhere) */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: .88rem;
+    line-height: 1;
+}
+
+.badge.green {
+    background: rgba(57, 217, 138, .12);
+    border-color: rgba(57, 217, 138, .35);
+    color: #d6ffea;
+}
+
+.badge.warn {
+    background: rgba(245, 205, 79, .12);
+    border-color: rgba(245, 205, 79, .35);
+    color: #fff2c2;
+}
+
+/* Cards */
+.card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+
+/* “Searching…” indicator */
+.search-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #0f1330;
+    border: 1px solid #2b2f57;
+    border-radius: 10px;
+    padding: 6px 10px;
+    user-select: none;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, .25);
+    border-top-color: rgba(255, 255, 255, .9);
+    animation: spin .9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Visual progress cue while waiting for list */
+.progress {
+    --w: 0%;
+    width: 140px;
+    height: 6px;
+    border-radius: 999px;
+    background: #1a1e3c;
+    border: 1px solid #2b2f57;
+    overflow: hidden;
+}
+
+.progress::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: var(--w);
+    background: linear-gradient(90deg, #6aa8ff, #8cc7ff);
+}
+
+/* Updates table */
+#updates-table table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+#updates-table th,
+#updates-table td {
+    padding: 12px;
+    border-bottom: 1px solid #22263a;
+}
+
+#updates-table th {
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #11142a;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, .2);
+}
+
+#updates-body tr.pkg:hover {
+    background: rgba(255, 255, 255, .03);
+}
+
+#updates-body tr:nth-child(4n+1).pkg,
+#updates-body tr:nth-child(4n+2).pkg {
+    background: rgba(255, 255, 255, .01);
+}
+
+#updates-body tr.detail td {
+    font-size: .95rem;
+}
+
+/* Severity pills */
+.pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #2a3a66;
+    background: #1a2237;
+    font-size: .82rem;
+    color: #d6e2ff;
+}
+
+.pill.sec {
+    border-color: #5b3d28;
+    background: #332018;
+    color: #ffe3d0;
+}
+
+/* Output pane */
+#out {
+    max-height: 420px;
+    overflow: auto;
+    background: #0b0d17;
+    color: #e0e0e0;
+    font-family: 'Cascadia Mono', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+
+/* Utilities */
+.muted {
+    opacity: .85;
+}

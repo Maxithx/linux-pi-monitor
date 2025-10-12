@@ -1,0 +1,236 @@
+# === routes/drivers.py ===
+# Drivers & Firmware (SSH to active device). UI strings kept in English.
+
+from flask import Blueprint, render_template, jsonify, request
+from shlex import quote
+
+from .ssh_utils import ssh_connect, ssh_exec
+from .settings import _get_active_ssh_settings, _is_configured
+
+drivers_bp = Blueprint("drivers", __name__, url_prefix="/drivers")
+
+# ---------- helpers -----------------------------------------------------------
+
+def _active():
+    s = _get_active_ssh_settings()
+    if not _is_configured(s):
+        raise RuntimeError("SSH not configured for an active device.")
+    return s
+
+def _ssh():
+    s = _active()
+    return ssh_connect(
+        host=s["pi_host"],
+        user=s["pi_user"],
+        auth=s.get("auth_method", "key"),
+        key_path=s.get("ssh_key_path", ""),
+        password=s.get("password", ""),
+        timeout=20,
+    )
+
+def _sudo_cmd(sudo_pw: str | None, inner: str) -> str:
+    inner = inner.replace('"', r'\"')
+    if sudo_pw:
+        return f'echo "{sudo_pw}" | sudo -S sh -lc "{inner}"'
+    return f'sudo -n sh -lc "{inner}"'
+
+def _which_bin(ssh, names) -> str:
+    for n in names:
+        rc, out, _ = ssh_exec(ssh, f"command -v {quote(n)} 2>/dev/null", timeout=3)
+        path = (out or "").strip()
+        if rc == 0 and path:
+            return path
+        rc, _, _ = ssh_exec(ssh, f"[ -x {quote(n)} ]", timeout=3)
+        if rc == 0:
+            return n
+    return ""
+
+def _iface_detect(ssh) -> str:
+    # prefer iw
+    rc, out, _ = ssh_exec(ssh, "iw dev | awk '$1==\"Interface\"{print $2; exit}'", timeout=5)
+    cand = (out or "").strip()
+    if cand:
+        return cand
+    # fallback: first wlan*/wl* interface
+    rc, devs, _ = ssh_exec(ssh, "ls -1 /sys/class/net | tr -d '\r'", timeout=5)
+    for d in (devs or "").splitlines():
+        d = d.strip()
+        if d.startswith(("wlan","wlp","wlo")):
+            return d
+    return "wlan0"
+
+def _kernel(ssh) -> str:
+    _, out, _ = ssh_exec(ssh, "uname -r", timeout=3)
+    return (out or "").strip()
+
+def _wifi_driver_info(ssh, iface: str) -> dict:
+    iface_q = quote(iface)
+    # driver via sysfs (works even without ethtool)
+    _, drv, _ = ssh_exec(ssh, f"basename $(readlink -f /sys/class/net/{iface_q}/device/driver) 2>/dev/null || true", timeout=3)
+    driver = (drv or "").strip()
+    # optional details via ethtool
+    _, et, _ = ssh_exec(ssh, f"ethtool -i {iface_q} 2>/dev/null | sed -n '1,4p'", timeout=3)
+    et = (et or "").strip()
+    # vendor hint via modalias (pci/usb)
+    _, mod, _ = ssh_exec(ssh, f"cat /sys/class/net/{iface_q}/device/modalias 2>/dev/null || true", timeout=2)
+    modalias = (mod or "").strip()
+
+    # derive a friendly vendor label
+    vendor = "Wi-Fi"
+    d = driver.lower()
+    if "iwlwifi" in d:
+        vendor = "Intel"
+    elif "brcm" in d or d == "wl":
+        vendor = "Broadcom"
+    elif "ath" in d:
+        vendor = "Atheros/Qualcomm"
+    elif d.startswith("rtw") or "rtl" in d:
+        vendor = "Realtek"
+    elif "mt76" in d or "mt7" in d:
+        vendor = "MediaTek"
+    elif d == "":
+        # last-ditch: lspci/lsusb short
+        _, pci, _ = ssh_exec(ssh, "lspci -nn 2>/dev/null | grep -i -E 'network|wireless' | head -n1", timeout=3)
+        _, usb, _ = ssh_exec(ssh, "lsusb 2>/dev/null | grep -i -E 'wireless|802.11|wifi' | head -n1", timeout=3)
+        if "Intel" in (pci or "") or "Intel" in (usb or ""):
+            vendor = "Intel"
+        elif "Realtek" in (pci or "") or "Realtek" in (usb or ""):
+            vendor = "Realtek"
+        elif "Broadcom" in (pci or "") or "Broadcom" in (usb or ""):
+            vendor = "Broadcom"
+        elif "Qualcomm" in (pci or "") or "Atheros" in (pci or ""):
+            vendor = "Atheros/Qualcomm"
+
+    title = f"Wi-Fi ({vendor}{' ' + driver if driver else ''})".strip()
+    return {
+        "driver": driver,
+        "vendor": vendor,
+        "title": title,
+        "ethtool": et,
+        "modalias": modalias
+    }
+
+def _wifi_status(ssh):
+    iface = _iface_detect(ssh)
+    iface_q = quote(iface)
+    rc, out, _ = ssh_exec(ssh, f"ip -brief link show {iface_q} 2>/dev/null", timeout=3)
+    present = rc == 0 and bool((out or "").strip())
+    _, ip4, _ = ssh_exec(ssh, f"ip -4 -o addr show dev {iface_q} | awk '{{print $4}}' | cut -d/ -f1", timeout=3)
+    # broader dmesg filter to catch intel/realtek/mediatek too
+    dmesg_pat = r"'iwlwifi|brcm|brcmfmac|ath|rtw|rtl8|mt76|wl|80211|wifi'"
+    _, dmesg_tail, _ = ssh_exec(ssh, f"dmesg | grep -i -E {dmesg_pat} | tail -n 50 || true", timeout=6)
+    _, rf, _ = ssh_exec(ssh, "rfkill list all || true", timeout=4)
+
+    drv = _wifi_driver_info(ssh, iface)
+    return {
+        "iface": iface,
+        "present": present,
+        "state": (out or "unknown").strip(),
+        "ipv4": (ip4 or "").strip(),
+        "rfkill": rf or "",
+        "dmesg_tail": dmesg_tail or "",
+        "driver": drv["driver"],
+        "vendor": drv["vendor"],
+        "title": drv["title"],
+        "ethtool": drv["ethtool"],
+        "modalias": drv["modalias"],
+    }
+
+# ---------- views -------------------------------------------------------------
+
+@drivers_bp.route("/", methods=["GET"])
+def view():
+    try:
+        ssh = _ssh()
+        kernel = _kernel(ssh)
+        wifi = _wifi_status(ssh)
+        try: ssh.close()
+        except Exception: pass
+        return render_template("drivers.html",
+                               kernel=kernel,
+                               uname_str=f"remote kernel {kernel}",
+                               drivers={"wifi": wifi})
+    except Exception as e:
+        return render_template("drivers.html",
+                               kernel="(unknown)",
+                               uname_str=str(e),
+                               drivers={"wifi": {
+                                   "iface": "wlan0","present": False,
+                                   "state":"unknown","ipv4":"",
+                                   "driver":"", "vendor":"Wi-Fi", "title":"Wi-Fi",
+                                   "ethtool":"", "modalias":""
+                               }})
+
+@drivers_bp.get("/status")
+def status():
+    try:
+        ssh = _ssh()
+        kernel = _kernel(ssh)
+        wifi = _wifi_status(ssh)
+        try: ssh.close()
+        except Exception: pass
+        return jsonify({
+            "kernel": kernel,
+            "drivers": {"wifi": wifi}
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 200
+
+@drivers_bp.route("/run_fix/<target>", methods=["POST"])
+def run_fix(target):
+    logs = []
+    def log(msg): logs.append(msg)
+    try:
+        ssh = _ssh()
+        s = _active()
+        data = request.get_json(silent=True) or {}
+        sudo_pw = data.get("sudo_pw") or s.get("password") or None
+
+        if target == "wifi":
+            iface = _iface_detect(ssh)
+            nmcli = _which_bin(ssh, ["nmcli", "/usr/bin/nmcli", "/bin/nmcli"]) or "nmcli"
+            cmds = [
+                "modprobe brcmfmac || true",      # harmless if non-Broadcom/ built-in
+                "rfkill unblock all || true",
+                f"ip link set {quote(iface)} up || true",
+                "if systemctl list-unit-files | grep -q '^wpa_supplicant@wlan0'; then "
+                "  systemctl enable --now wpa_supplicant@wlan0; "
+                "else "
+                "  systemctl enable --now wpa_supplicant; "
+                "fi",
+                "if systemctl list-unit-files | grep -q '^dhcpcd.service'; then "
+                "  systemctl enable --now dhcpcd && systemctl restart dhcpcd; "
+                "else "
+                "  dhclient -v wlan0 || true; "
+                "fi",
+                f"command -v {nmcli} >/dev/null 2>&1 && {nmcli} radio wifi on || true",
+            ]
+            for c in cmds:
+                rc, out, err = ssh_exec(ssh, _sudo_cmd(sudo_pw, c), timeout=30)
+                log(f"$ {c}\n{(out or '')+(err or '')}\n(rc={rc})\n")
+            wifi = _wifi_status(ssh)
+            try: ssh.close()
+            except Exception: pass
+            return jsonify({"ok": True, "log": "\n".join(logs), "wifi": wifi})
+
+        elif target == "reinstall_all":
+            for c in [
+                "apt update",
+                "apt install -y --reinstall raspberrypi-kernel raspberrypi-bootloader firmware-brcm80211 || true",
+                "depmod -a $(uname -r) || true",
+            ]:
+                rc, out, err = ssh_exec(ssh, _sudo_cmd(sudo_pw, c), timeout=1200)
+                log(f"$ {c}\n{(out or '')+(err or '')}\n(rc={rc})\n")
+            wifi = _wifi_status(ssh)
+            try: ssh.close()
+            except Exception: pass
+            return jsonify({"ok": True, "log": "\n".join(logs), "wifi": wifi})
+
+        else:
+            try: ssh.close()
+            except Exception: pass
+            return jsonify({"ok": False, "log": f"Unknown target: {target}"}), 400
+
+    except Exception as e:
+        logs.append(str(e))
+        return jsonify({"ok": False, "log": "\n".join(logs)}), 200

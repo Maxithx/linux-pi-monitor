@@ -1,0 +1,94 @@
+# routes/updates_drivers/driver_base.py
+# Common base + SSH helpers for update drivers.
+
+from __future__ import annotations
+import paramiko
+from typing import Generator, Tuple, Dict, Any
+
+from ..settings import _get_active_ssh_settings, _is_configured
+from ..ssh_utils import ssh_connect, ssh_exec
+
+
+class BaseDriver:
+    """Abstract base for OS-specific update drivers."""
+
+    # -------- Shared helpers --------
+    def _active_settings(self) -> dict:
+        s = _get_active_ssh_settings()
+        if not _is_configured(s):
+            raise RuntimeError("SSH not configured")
+        return s
+
+    def _ssh_connect_paramiko(self) -> paramiko.SSHClient:
+        """Paramiko client for true streaming (PTY optional)."""
+        s = self._active_settings()
+
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        kwargs = {
+            "hostname": s["pi_host"],
+            "username": s["pi_user"],
+            "timeout": 30,
+        }
+
+        if s.get("auth_method", "key") == "password" and s.get("password"):
+            kwargs["password"] = s["password"]
+        else:
+            pkey = None
+            key_path = s.get("ssh_key_path") or ""
+            if key_path:
+                try:
+                    pkey = paramiko.RSAKey.from_private_key_file(key_path)
+                except Exception:
+                    try:
+                        pkey = paramiko.Ed25519Key.from_private_key_file(key_path)
+                    except Exception:
+                        pkey = None
+            if pkey:
+                kwargs["pkey"] = pkey
+            else:
+                kwargs["look_for_keys"] = True
+                kwargs["allow_agent"] = True
+
+        client.connect(**kwargs)
+        return client
+
+    def _ssh_exec_simple(self, cmd: str, timeout: int = 180):
+        """Use existing helper (non-streaming)."""
+        s = self._active_settings()
+        ssh = ssh_connect(
+            host=s["pi_host"], user=s["pi_user"],
+            auth=s.get("auth_method", "key"),
+            key_path=s.get("ssh_key_path", ""),
+            password=s.get("password", ""), timeout=20
+        )
+        rc, out, err = ssh_exec(ssh, cmd, timeout=timeout)
+        try:
+            ssh.close()
+        except Exception:
+            pass
+        return rc, out, err
+
+    # -------- Abstract API --------
+    def stream_scan(self) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
+        """
+        Yield tuples of (event_name, payload)
+        Events: 'status', 'pkg', 'done', 'error'
+        """
+        raise NotImplementedError
+
+    def pkg_detail(self, name: str) -> Dict[str, Any]:
+        """
+        Return details for a single package:
+        installed/candidate, repo/suite, security flag,
+        changelog summary/link, CVEs, urgency.
+        """
+        raise NotImplementedError
+
+    def run_action(self, action: str) -> Tuple[int, str, str]:
+        """
+        Optional pass-through for existing actions if needed.
+        (Kept for compatibility; routes can still call shared /updates/run.)
+        """
+        return 0, "", ""

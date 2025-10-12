@@ -3,7 +3,6 @@
 {% block page_title %}Network Overview{% endblock %}
 
 {% block content %}
-<!-- Reuse shared styles + page styles -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/network.css') }}">
 
@@ -14,7 +13,6 @@
 
 <div class="container" id="network-root">
 
-    <!-- Top actions -->
     <div class="toolbar">
         <button id="btn-refresh" class="primary">Refresh</button>
         <button id="btn-scan" class="primary">Scan Wi-Fi</button>
@@ -22,7 +20,6 @@
         <span id="net-status" class="muted right" aria-live="polite"></span>
     </div>
 
-    <!-- Interfaces (grid) -->
     <h3 style="margin:6px 0 8px;">Interfaces</h3>
     <div class="scroll-x">
         <div class="net-grid iface-grid" id="iface-grid">
@@ -43,7 +40,6 @@
         </div>
     </div>
 
-    <!-- Quick connect -->
     <h3 style="margin:16px 0 8px;">Wi-Fi</h3>
     <div class="qc-row">
         <input id="qc-ssid" placeholder="SSID" type="text">
@@ -54,7 +50,6 @@
         <button id="qc-forget" class="danger">Forget</button>
     </div>
 
-    <!-- Wi-Fi scan results (grid) -->
     <div class="scroll-x">
         <div class="net-grid wifi-grid" id="wifi-grid">
             <div class="hdr">
@@ -70,10 +65,131 @@
         </div>
     </div>
 
+    <!-- DNS -->
+    <h3 style="margin:16px 0 8px;">DNS</h3>
+    <div class="card" id="dns-card" style="padding:12px;">
+        <div style="display:grid;grid-template-columns:160px 1fr;gap:8px;">
+            <div><strong>Stub (local)</strong></div>
+            <div id="dns-stub">—</div>
+            <div><strong>Upstream DNS</strong></div>
+            <div id="dns-upstream">—</div>
+            <div><strong>Method</strong></div>
+            <div id="dns-method">—</div>
+            <div><strong>Active iface</strong></div>
+            <div id="dns-iface">—</div>
+            <div><strong>Active connection</strong></div>
+            <div id="dns-conn">—</div>
+        </div>
+
+        <hr style="border-color:#2a2d36;margin:12px 0;">
+
+        <div class="qc-row" style="gap:8px;align-items:center;">
+            <label style="min-width:120px;">Preset</label>
+            <select id="dns-preset">
+                <option value="auto">Auto (from DHCP)</option>
+                <option value="google">Google (8.8.8.8, 8.8.4.4)</option>
+                <option value="cloudflare">Cloudflare (1.1.1.1, 1.0.0.1)</option>
+                <option value="quad9">Quad9 (9.9.9.9, 149.112.112.112)</option>
+                <option value="custom">Custom…</option>
+            </select>
+
+            <input id="dns-custom" placeholder="Custom DNS (space/comma separated e.g. 8.8.8.8 1.1.1.1)"
+                style="flex:1;">
+            <input id="dns-sudo" placeholder="sudo password (if required)" type="password">
+            <button id="dns-apply" class="primary">Apply</button>
+            <button id="dns-reset" class="danger" title="Revert to DHCP/auto">Reset</button>
+        </div>
+
+        <small class="muted">
+            Note: On systems using <code>systemd-resolved</code>, <code>127.0.0.53</code> is a local stub. Upstream DNS
+            are shown above.
+        </small>
+
+        <pre id="dns-log" class="logbox" style="margin-top:10px;display:none;"></pre>
+    </div>
+
     <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/network.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/network.js') }}?v=8"></script>
+<script>
+    (function () {
+        const $ = (s) => document.querySelector(s);
+        const statusEl = document.getElementById('net-status');
+
+        // --- DNS UI refs ---
+        const stubEl = $('#dns-stub'), upEl = $('#dns-upstream'),
+            mEl = $('#dns-method'), ifEl = $('#dns-iface'), cnEl = $('#dns-conn');
+        const preset = $('#dns-preset'), custom = $('#dns-custom'), sudo = $('#dns-sudo');
+        const apply = $('#dns-apply'), reset = $('#dns-reset'), logEl = $('#dns-log');
+
+        function setLog(t) { logEl.style.display = t ? 'block' : 'none'; logEl.textContent = t || ''; }
+
+        function serversFromPreset() {
+            switch (preset.value) {
+                case 'google': return ['8.8.8.8', '8.8.4.4'];
+                case 'cloudflare': return ['1.1.1.1', '1.0.0.1'];
+                case 'quad9': return ['9.9.9.9', '149.112.112.112'];
+                case 'custom':
+                    return (custom.value || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
+                default: return [];
+            }
+        }
+
+        async function loadDns() {
+            statusEl.textContent = 'Loading DNS…';
+            const r = await fetch('{{ url_for("network.dns_status") }}', { cache: 'no-store' });
+            const j = await r.json();
+            if (j.error) { statusEl.textContent = j.error; return; }
+            stubEl.textContent = j.stub || '—';
+            upEl.textContent = (j.upstream && j.upstream.length) ? j.upstream.join(', ') : '—';
+            mEl.textContent = j.method || '—';
+            ifEl.textContent = j.iface || '—';
+            cnEl.textContent = j.connection || '—';
+            statusEl.textContent = '';
+        }
+
+        preset.addEventListener('change', () => {
+            custom.disabled = preset.value !== 'custom';
+            if (preset.value !== 'custom') custom.value = '';
+        });
+        custom.disabled = preset.value !== 'custom';
+
+        apply.addEventListener('click', async () => {
+            setLog('');
+            statusEl.textContent = 'Applying DNS…';
+            const body = {
+                mode: (preset.value === 'auto') ? 'auto' : 'manual',
+                servers: serversFromPreset(),
+                sudo_pw: sudo.value || undefined
+            };
+            const r = await fetch('{{ url_for("network.dns_set") }}', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const j = await r.json();
+            if (j.log) setLog(j.log);
+            statusEl.textContent = j.ok ? 'DNS applied' : 'DNS apply failed';
+            await loadDns();
+        });
+
+        reset.addEventListener('click', async () => {
+            setLog('');
+            statusEl.textContent = 'Reverting DNS…';
+            const r = await fetch('{{ url_for("network.dns_set") }}', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'auto', servers: [], sudo_pw: sudo.value || undefined })
+            });
+            const j = await r.json();
+            if (j.log) setLog(j.log);
+            statusEl.textContent = j.ok ? 'DNS reverted to auto' : 'DNS revert failed';
+            preset.value = 'auto'; custom.value = ''; custom.disabled = true;
+            await loadDns();
+        });
+
+        loadDns();
+    })();
+</script>
 {% endblock %}
