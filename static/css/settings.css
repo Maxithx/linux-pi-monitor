@@ -189,7 +189,8 @@ a {
 
 /* === Checkmark icon styling === */
 .checkmark {
-  color: #b276ff;
+  /* Replace purple accent with softer blue */
+  color: #8ab4f8;
   font-size: 16px;
   margin-left: 8px;
 }

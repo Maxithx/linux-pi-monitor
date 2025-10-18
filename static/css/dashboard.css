@@ -1,4 +1,17 @@
 /* === GENERAL STYLES === */
+:root {
+    /* Neutral, modern dark palette (Material/Fluent inspired) */
+    --bg: #0f172a;          /* slate-900 */
+    --surface: #111827;     /* gray-900 */
+    --text: #e5e7eb;        /* gray-200 */
+    --muted: #9ca3af;       /* gray-400 */
+    --primary: #2196F3;     /* Google blue */
+    --success: #10b981;     /* emerald-500 */
+    --warning: #f59e0b;     /* amber-500 */
+    --danger: #ef4444;      /* red-500 */
+    --card-border: rgba(255, 255, 255, 0.06);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -7,8 +20,8 @@
 }
 
 body {
-    background-color: #111;
-    color: #fff;
+    background-color: var(--bg);
+    color: var(--text);
 }
 
 /* === MAIN CONTAINER === */
@@ -21,7 +34,7 @@ body {
 /* === MAIN CONTENT AREA (RIGHT OF SIDEBAR) === */
 .home-section {
     position: relative;
-    background: #1d1b31;
+    background: var(--bg);
     min-height: 100vh;
     top: 0;
     padding: 20px;
@@ -39,7 +52,7 @@ body {
 /* === TOP TITLE TEXT === */
 .home-section .text {
     display: inline-block;
-    color: #fff;
+    color: var(--text);
     font-size: 25px;
     font-weight: 500;
     margin: 22px;
@@ -62,10 +75,12 @@ body {
 /* === STATS BOXES AND CHART STYLING === */
 .box,
 .chart-box {
-    background-color: #1e1e1e;
+    background-color: var(--surface);
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 0 10px #000;
+    /* Remove heavy drop shadows for cleaner look */
+    box-shadow: none;
+    border: 1px solid var(--card-border);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -116,20 +131,20 @@ body {
 html,
 body {
     height: 100%;
-    background-color: #1d1b31;
+    background-color: var(--bg);
 }
 
 /* === Ensures correct background and layout depending on sidebar state === */
 .sidebar~.home-section {
     margin-left: 78px;
     width: calc(100% - 78px);
-    background-color: #1d1b31;
+    background-color: var(--bg);
 }
 
 .sidebar.open~.home-section {
     margin-left: 250px;
     width: calc(100% - 250px);
-    background-color: #1d1b31;
+    background-color: var(--bg);
 }
 
 /* ===================================================== */

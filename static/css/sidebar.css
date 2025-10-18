@@ -26,8 +26,9 @@ html.sidebar-closed .sidebar ~ .home-section {
 }
 
 body {
-    background-color: #111;
-    color: #fff;
+    /* Use global theme vars if present */
+    background-color: var(--bg, #0f172a);
+    color: var(--text, #e5e7eb);
     overflow-x: hidden;
 }
 
@@ -41,7 +42,7 @@ body {
 /* === HOME SECTION STYLING === */
 .home-section {
     position: relative;
-    background: #1d1b31;
+    background: var(--bg, #0f172a);
     min-height: 100vh;
     top: 0;
     transition: all 0.5s ease;
@@ -68,10 +69,11 @@ body {
 
 .box,
 .chart-box {
-    background-color: #1e1e1e;
+    background-color: var(--surface, #111827);
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 0 10px #000;
+    box-shadow: none; /* align with dashboard.css */
+    border: 1px solid var(--card-border, rgba(255,255,255,.06));
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -273,7 +275,7 @@ html.sidebar-open .sidebar li .tooltip {
     left: 0;
     bottom: -8px;
     padding: 10px 14px;
-    background: #1d1b31;
+    background: var(--bg, #0f172a);
     transition: all 0.5s ease;
     overflow: hidden;
 }
@@ -314,7 +316,7 @@ html.sidebar-open .sidebar li.profile {
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    background: #1d1b31;
+    background: var(--bg, #0f172a);
     width: 100%;
     height: 60px;
     line-height: 60px;

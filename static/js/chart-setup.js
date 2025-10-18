@@ -129,7 +129,7 @@ const cpuChart = createPercentChart(
   document.getElementById('cpuChart').getContext('2d'), 'CPU %', '#2196F3'
 );
 const ramChart = createPercentChart(
-  document.getElementById('ramChart').getContext('2d'), 'RAM %', '#9C27B0'
+  document.getElementById('ramChart').getContext('2d'), 'RAM %', '#00BCD4'
 );
 const diskChart = createPercentChart(
   document.getElementById('diskChart').getContext('2d'), 'Disk %', '#FF9800'
