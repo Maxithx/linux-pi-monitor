@@ -15,6 +15,13 @@ const btnInstallSec = document.getElementById('btn-install-security');
 const btnFull = document.getElementById('btn-full') || document.querySelector('[data-action="full_noob_update"]');
 const btnToggleAdvanced = document.getElementById('btn-toggle-advanced');
 const advancedBox = document.getElementById('advanced-actions');
+// Logs panel
+const logsPanel = document.getElementById('logs-panel');
+const logsToggle = document.getElementById('logs-toggle');
+const logsList = document.getElementById('logs-list');
+const logsCount = document.getElementById('logs-count');
+// Output collapse
+const btnToggleOutput = document.getElementById('btn-toggle-output');
 
 const searchBox = document.getElementById('search-indicator');
 const searchText = document.getElementById('search-text');
@@ -47,6 +54,10 @@ const PHASING_MARKER = 'deferred due to phasing';
 
 let tickTimer = null;
 let tickProgress = null;
+let pollProgressTimer = null;
+let pollLogTimer = null;
+let currentRunId = null;
+let lastLogTextLen = 0;
 
 // Track counts so we only enable actions when enrichment is 100% done
 let totalExpected = 0;
@@ -102,8 +113,16 @@ async function run(action) {
             append('Error: ' + (j.error || 'unknown'));
             return;
         }
-        const text = `${(j.stdout || '').trim()}\n${(j.stderr ? '\n[stderr]\n' + j.stderr : '')}\n\n[exit ${j.rc}]`;
-        append(text);
+        if (j.run_id) {
+            currentRunId = j.run_id;
+            window.localStorage.setItem('upd.run_id', currentRunId);
+            lastLogTextLen = 0;
+            startProgressPolling(currentRunId);
+            startLogPolling(currentRunId);
+        } else {
+            const text = `${(j.stdout || '').trim()}\n${(j.stderr ? '\n[stderr]\n' + j.stderr : '')}\n\n[exit ${j.rc}]`;
+            append(text);
+        }
     } catch (e) {
         append('Network error: ' + e);
     } finally {
@@ -169,7 +188,7 @@ function rowDetail(pkg) {
 
     return `
   <tr class="detail">
-    <td colspan="4" style="background:#0f111b; border-top:1px solid #22263a; padding:12px;">
+    <td colspan="5" style="background:#0f111b; border-top:1px solid #22263a; padding:12px;">
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
         <div><strong>Installed → Candidate:</strong> ${escapeHTML(verLine)}</div>
         <div><strong>Repo/Suite:</strong> ${escapeHTML(repo)}</div>
@@ -445,6 +464,186 @@ btnToggleAdvanced?.addEventListener('click', () => {
     btnToggleAdvanced.textContent = open ? 'Show advanced options' : 'Hide advanced options';
 });
 
+// Output collapse toggle and restore
+btnToggleOutput?.addEventListener('click', () => {
+    const key = 'upd.output.collapsed';
+    const isCollapsed = out.style.display === 'none';
+    if (isCollapsed) {
+        out.style.display = '';
+        btnToggleOutput.textContent = 'Collapse';
+        localStorage.setItem(key, 'false');
+    } else {
+        out.style.display = 'none';
+        btnToggleOutput.textContent = 'Expand';
+        localStorage.setItem(key, 'true');
+    }
+});
+(function restoreOutputCollapse(){
+    const key = 'upd.output.collapsed';
+    if (localStorage.getItem(key) === 'true') {
+        out.style.display = 'none';
+        if (btnToggleOutput) btnToggleOutput.textContent = 'Expand';
+    }
+})();
+
+// Logs panel state + list rendering
+logsToggle?.addEventListener('click', () => {
+    const open = logsPanel.classList.contains('is-open');
+    logsPanel.classList.toggle('is-open', !open);
+    localStorage.setItem('upd.logs.expanded', String(!open));
+});
+
+function fmtBytes(n) {
+    if (n == null) return '';
+    const kb = 1024, mb = kb*1024;
+    if (n >= mb) return (n/mb).toFixed(1) + ' MB';
+    if (n >= kb) return (n/kb).toFixed(1) + ' kB';
+    return n + ' B';
+}
+
+async function refreshLogsList() {
+    try {
+        const r = await fetch('/updates/logs', { cache: 'no-store' });
+        const j = await r.json();
+        const items = (j.items || []);
+        if (logsCount) logsCount.textContent = String(items.length);
+        if (!logsList) return;
+        logsList.innerHTML = items.map(it => `
+          <div class="log-item" data-id="${it.id}">
+            <code>${it.id}</code>
+            <span class="muted">${fmtBytes(it.size)}</span>
+            <span class="spacer"></span>
+            <button class="btn small ghost" data-view>View</button>
+            <a class="btn small" href="/updates/logs/${encodeURIComponent(it.id)}?download=1">Download</a>
+            <button class="btn small warn" data-del>Delete</button>
+          </div>`).join('');
+        logsList.querySelectorAll('.log-item').forEach(row => {
+            const id = row.getAttribute('data-id');
+            row.querySelector('[data-view]')?.addEventListener('click', async () => {
+                const r2 = await fetch(`/updates/logs/${encodeURIComponent(id)}`);
+                const txt = await r2.text();
+                showLogViewer(id, txt);
+            });
+            row.querySelector('[data-del]')?.addEventListener('click', async () => {
+                if (!confirm('Delete log ' + id + '?')) return;
+                await fetch(`/updates/logs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                refreshLogsList();
+            });
+        });
+    } catch (e) { /* ignore */ }
+}
+
+function showLogViewer(id, txt) {
+    if (!logsList) return;
+    const existing = logsList.querySelector('.log-viewer');
+    if (existing) existing.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'log-viewer';
+    wrap.innerHTML = `
+      <div class="hdr">
+        <div><strong>${id}</strong></div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn small" data-copy>Copy</button>
+          <button class="btn small ghost" data-close>Close</button>
+        </div>
+      </div>
+      <pre class="body"></pre>`;
+    wrap.querySelector('.body').textContent = txt;
+    logsList.prepend(wrap);
+    wrap.querySelector('[data-copy]')?.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(txt); } catch (e) {}
+    });
+    wrap.querySelector('[data-close]')?.addEventListener('click', () => wrap.remove());
+}
+
+(function restoreLogsOpen(){
+    const open = localStorage.getItem('upd.logs.expanded') !== 'false';
+    if (open && logsPanel) logsPanel.classList.add('is-open');
+    refreshLogsList();
+})();
+
+// Progress polling and rendering
+function renderProgressCell(tr, pkg) {
+    let td = tr.querySelector('td[data-prog]');
+    if (!td) {
+        td = document.createElement('td');
+        td.setAttribute('data-prog', '');
+        tr.appendChild(td);
+    }
+    const pct = Math.max(0, Math.min(100, parseInt(pkg.percent || 0)));
+    const phase = pkg.phase || '';
+    const done = pct >= 100;
+    const cls = ['progress'];
+    if (done) cls.push('is-done');
+    td.innerHTML = `
+      <div class="progress ${cls.join(' ')}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" title="${phase}">
+        <div class="bar" style="width:${pct}%"></div>
+        <span class="label">${pct}% — ${phase || (done ? 'Done' : 'Installing')}</span>
+      </div>`;
+}
+
+function renderProgressSnapshot(snap) {
+    const arr = snap.packages || [];
+    arr.forEach(pkg => {
+        const name = String(pkg.name || '');
+        const tr = bodyEl.querySelector(`tr.pkg[data-name="${CSS.escape(name)}"]`);
+        if (tr) renderProgressCell(tr, pkg);
+    });
+    if (snap.done) {
+        setBusy(false);
+        if (snap.requires_reboot) {
+            if (badgeReboot) badgeReboot.style.display = 'inline-block';
+            if (btnReboot) btnReboot.disabled = false;
+        }
+    }
+}
+
+async function pollProgressOnce(run_id) {
+    try {
+        const r = await fetch(`/updates/progress/${encodeURIComponent(run_id)}`, { cache: 'no-store' });
+        if (!r.ok) return null;
+        const j = await r.json();
+        renderProgressSnapshot(j);
+        return j;
+    } catch (e) { return null; }
+}
+
+function startProgressPolling(run_id) {
+    if (pollProgressTimer) { clearInterval(pollProgressTimer); pollProgressTimer = null; }
+    pollProgressTimer = setInterval(async () => {
+        const j = await pollProgressOnce(run_id);
+        if (j && j.done) {
+            clearInterval(pollProgressTimer); pollProgressTimer = null;
+            window.localStorage.removeItem('upd.run_id');
+            refreshLogsList();
+        }
+    }, 1000);
+}
+
+async function pollLogOnce(run_id) {
+    try {
+        const r = await fetch(`/updates/logs/${encodeURIComponent(run_id)}`, { cache: 'no-store' });
+        if (!r.ok) return;
+        const txt = await r.text();
+        if (lastLogTextLen < txt.length) {
+            out.textContent = txt;
+            out.scrollTop = out.scrollHeight;
+            lastLogTextLen = txt.length;
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function startLogPolling(run_id) {
+    if (pollLogTimer) { clearInterval(pollLogTimer); pollLogTimer = null; }
+    pollLogTimer = setInterval(async () => {
+        await pollLogOnce(run_id);
+        const j = await pollProgressOnce(run_id);
+        if (j && j.done) {
+            clearInterval(pollLogTimer); pollLogTimer = null;
+        }
+    }, 1000);
+}
+
 // Connection/OS line
 async function showConnectionInfo() {
     // profiles -> Connected user@host
@@ -478,3 +677,13 @@ async function showConnectionInfo() {
 showConnectionInfo();
 checkReboot();
 startSSEScan();
+// Resume active run if present
+(async () => {
+    const rid = localStorage.getItem('upd.run_id');
+    if (rid) {
+        currentRunId = rid;
+        startProgressPolling(rid);
+        startLogPolling(rid);
+        setBusy(true);
+    }
+})();

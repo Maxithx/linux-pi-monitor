@@ -87,9 +87,27 @@
 
     <!-- Output: moved UP under primary actions -->
     <div class="card" style="background:#0f111b; border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
-        <div style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600;">Output</div>
+        <div class="out-hdr" style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600; display:flex; align-items:center; justify-content:space-between;">
+            <span>Output</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="btn-toggle-output" class="btn small ghost">Collapse</button>
+            </div>
+        </div>
         <pre id="out"
             style="margin:0; padding:14px; max-height:420px; overflow:auto; background:#0b0d17; color:#e0e0e0; font-family:'Cascadia Mono', 'Fira Code', Consolas, monospace; font-size:13px; white-space:pre-wrap;"></pre>
+    </div>
+
+    <!-- Logs (collapsible) -->
+    <div id="logs-panel" class="card collapsible" style="background:#0f1220; border-radius:10px; margin-bottom:14px;">
+        <div class="hdr" id="logs-toggle">
+            <div style="font-weight:600;">Logs</div>
+            <div style="opacity:.85; font-size:.92rem;">
+                <span id="logs-count">0</span> saved
+            </div>
+        </div>
+        <div class="body">
+            <div id="logs-list"></div>
+        </div>
     </div>
 
     <!-- Available updates -->

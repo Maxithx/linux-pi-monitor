@@ -4,10 +4,17 @@
 from __future__ import annotations
 import json
 import shlex
-from flask import render_template, request, jsonify, Response, stream_with_context
+import os
+import re
+import threading
+import time
+from datetime import datetime, timezone
+from typing import Dict, Any
+from flask import render_template, request, jsonify, Response, stream_with_context, send_file, make_response
 
 from routes.settings import _get_active_ssh_settings, _is_configured, test_ssh_connection
 from routes.common.ssh_utils import ssh_connect, ssh_exec
+from routes.common.fs import append_log, make_log_path, list_logs, read_log, delete_log
 
 # Drivers now live under routes/drivers
 from routes.drivers.os_debian import DebianDriver  # type: ignore
@@ -93,7 +100,7 @@ def _wrap_with_password(cmd: str, sudo_password: str) -> str:
     return f"printf -- %s\\\\n {shlex.quote(sudo_password)} | {wrapper}"
 
 
-@updates_bp.post("/updates/run")
+@updates_bp.post("/updates/run_sync")
 def updates_run():
     try:
         data = request.get_json(force=True) or {}
@@ -214,3 +221,309 @@ def updates_pkg_detail(name: str):
         return jsonify(data), status
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------
+# Update runs: state, progress, logs (async)
+# ---------------------------------------------------------------------
+_RUNS: Dict[str, Dict[str, Any]] = {}
+
+_RX_DOWNLOAD = re.compile(r"^Get:\d+\s+.*\s([a-z0-9\-\+\.]+)\s.*\[(\d+(?:\.\d+)?\s*(?:kB|MB))\]", re.IGNORECASE)
+_RX_UNPACK = re.compile(r"^Unpacking\s+([a-z0-9\-\+\.]+)\s", re.IGNORECASE)
+_RX_SETUP = re.compile(r"^Setting up\s+([a-z0-9\-\+\.]+)\s", re.IGNORECASE)
+_RX_TRIGGERS = re.compile(r"^Processing triggers for\s+([a-z0-9\-\+\.]+)\s", re.IGNORECASE)
+
+PHASE_WEIGHTS = {
+    'Download': 25,
+    'Unpacking': 35,
+    'Setting up': 35,
+    'Triggers': 5,
+}
+
+
+def _new_run() -> str:
+    ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H-%M-%SZ')
+    short = hex(int(time.time()*1000))[-6:]
+    run_id = f"{ts}_{short}"
+    _RUNS[run_id] = {
+        'started_ts': time.time(),
+        'ended_ts': None,
+        'overall': {'percent': 0, 'phase': 'Starting'},
+        'packages': {},
+        'active_iface': '',
+        'requires_reboot': False,
+        'done': False,
+        'exit_code': None,
+        'error': None,
+        'action': None,
+    }
+    append_log(run_id, f"=== Update run {run_id} started {datetime.utcnow().isoformat()}Z ===\n")
+    return run_id
+
+
+def _pkg_progress_entry(name: str) -> Dict[str, Any]:
+    return {'name': name, 'version': '', 'phase': 'Queued', 'percent': 0}
+
+
+def _recompute_overall(state: Dict[str, Any]) -> None:
+    pkgs = list(state['packages'].values())
+    if not pkgs:
+        state['overall'] = {'percent': state['overall'].get('percent', 0), 'phase': state['overall'].get('phase', 'Idle')}
+        return
+    p = sum(max(0, min(100, x.get('percent', 0))) for x in pkgs) / max(1, len(pkgs))
+    phase = 'Done' if p >= 100 else (state['overall'].get('phase') or 'Installing')
+    state['overall'] = {'percent': int(p), 'phase': phase}
+
+
+def _apply_line_to_state(state: Dict[str, Any], line: str) -> None:
+    line = (line or '').rstrip('\n')
+    if not line:
+        return
+    m = _RX_DOWNLOAD.search(line)
+    if m:
+        name = m.group(1)
+        pkg = state['packages'].setdefault(name, _pkg_progress_entry(name))
+        pkg['phase'] = 'Downloading'
+        pkg['percent'] = max(int(pkg.get('percent', 0)), PHASE_WEIGHTS['Download'])
+        _recompute_overall(state)
+        return
+    m = _RX_UNPACK.search(line)
+    if m:
+        name = m.group(1)
+        pkg = state['packages'].setdefault(name, _pkg_progress_entry(name))
+        pkg['phase'] = 'Unpacking'
+        base = PHASE_WEIGHTS['Download']
+        pkg['percent'] = max(int(pkg.get('percent', 0)), base + PHASE_WEIGHTS['Unpacking'])
+        _recompute_overall(state)
+        return
+    m = _RX_SETUP.search(line)
+    if m:
+        name = m.group(1)
+        pkg = state['packages'].setdefault(name, _pkg_progress_entry(name))
+        pkg['phase'] = 'Setting up'
+        base = PHASE_WEIGHTS['Download'] + PHASE_WEIGHTS['Unpacking']
+        pkg['percent'] = max(int(pkg.get('percent', 0)), base + PHASE_WEIGHTS['Setting up'])
+        _recompute_overall(state)
+        return
+    m = _RX_TRIGGERS.search(line)
+    if m:
+        name = m.group(1)
+        pkg = state['packages'].setdefault(name, _pkg_progress_entry(name))
+        pkg['phase'] = 'Triggers'
+        base = PHASE_WEIGHTS['Download'] + PHASE_WEIGHTS['Unpacking'] + PHASE_WEIGHTS['Setting up']
+        pkg['percent'] = max(int(pkg.get('percent', 0)), min(100, base + PHASE_WEIGHTS['Triggers']))
+        _recompute_overall(state)
+        return
+
+
+def _finish_state(state: Dict[str, Any], exit_code: int) -> None:
+    if int(exit_code or 0) == 0:
+        for pkg in state['packages'].values():
+            pkg['percent'] = 100
+            pkg['phase'] = 'Done'
+        state['overall'] = {'percent': 100, 'phase': 'Done'}
+    else:
+        state['overall'] = {'percent': int(state['overall'].get('percent', 0)), 'phase': 'Failed'}
+    state['done'] = True
+    state['exit_code'] = int(exit_code or 0)
+    state['ended_ts'] = time.time()
+
+
+def _run_streaming(ssh, cmd: str, run_id: str, state: Dict[str, Any]) -> int:
+    try:
+        run_cmd = f"sh -lc {shlex.quote(cmd)}"
+        stdin, stdout, stderr = ssh.exec_command(run_cmd, timeout=3600, get_pty=False)
+        exit_code = None
+        while True:
+            line = stdout.readline()
+            if line:
+                append_log(run_id, line)
+                _apply_line_to_state(state, line)
+            else:
+                if stdout.channel.exit_status_ready():
+                    exit_code = stdout.channel.recv_exit_status()
+                    break
+                if stderr.channel.recv_ready():
+                    try:
+                        err_chunk = stderr.read(4096).decode(errors='replace')
+                        if err_chunk:
+                            append_log(run_id, err_chunk)
+                    except Exception:
+                        pass
+                time.sleep(0.1)
+        try:
+            rem = stderr.read().decode(errors='replace')
+            if rem:
+                append_log(run_id, rem)
+        except Exception:
+            pass
+        state['exit_code'] = exit_code
+        return int(exit_code or 0)
+    except Exception as e:
+        state['error'] = str(e)
+        append_log(run_id, f"[error] exec failed: {e}\n")
+        state['exit_code'] = 255
+        return 255
+
+
+@updates_bp.post("/updates/run")
+def updates_run_async():
+    """Start an update run asynchronously and return a run_id."""
+    try:
+        data = request.get_json(force=True) or {}
+        action = (data.get("action") or "").strip()
+        sudo_password = data.get("sudo_password") or ""
+        base_cmd = _ACTIONS.get(action)
+        if not base_cmd:
+            return jsonify({"ok": False, "error": f"Unknown action: {action}"}), 400
+
+        s = _get_active_ssh_settings()
+        if not _is_configured(s):
+            return jsonify({"ok": False, "error": "SSH not configured"}), 400
+
+        # Fast-path for lightweight checks to preserve legacy contract
+        if action == 'reboot_required':
+            ssh = ssh_connect(
+                host=s["pi_host"], user=s["pi_user"],
+                auth=s.get("auth_method", "key"),
+                key_path=s.get("ssh_key_path", ""),
+                password=s.get("password", ""), timeout=20
+            )
+            rc, out, err = ssh_exec(ssh, _force_english(base_cmd), timeout=20, shell=True)
+            try:
+                ssh.close()
+            except Exception:
+                pass
+            return jsonify({"ok": True, "rc": rc, "stdout": out, "stderr": err})
+
+        run_id = _new_run()
+        _RUNS[run_id]['action'] = action
+
+        def _bg():
+            state = _RUNS.get(run_id) or {}
+            append_log(run_id, f"Action: {action}\n")
+            try:
+                ssh = ssh_connect(
+                    host=s["pi_host"], user=s["pi_user"],
+                    auth=s.get("auth_method", "key"),
+                    key_path=s.get("ssh_key_path", ""),
+                    password=s.get("password", ""), timeout=20
+                )
+            except Exception as e:
+                state['error'] = str(e)
+                append_log(run_id, f"[error] SSH connect failed: {e}\n")
+                _finish_state(state, 255)
+                return
+
+            try:
+                if action == 'full_noob_update':
+                    apt_cmd = (
+                        "sudo -S -p '' DEBIAN_FRONTEND=noninteractive apt-get -y "
+                        "-o Dpkg::Use-Pty=0 -o Dpkg::Progress-Fancy=0 --with-new-pkgs full-upgrade"
+                    )
+                    if sudo_password:
+                        apt_cmd = _wrap_with_password(apt_cmd, sudo_password)
+                    else:
+                        apt_cmd = _force_english(apt_cmd)
+                    _run_streaming(ssh, apt_cmd, run_id, state)
+
+                    chain = (
+                        "sudo apt autoremove --purge -y && "
+                        "sudo apt autoclean && "
+                        "( command -v flatpak >/dev/null 2>&1 && flatpak update -y || true ) && "
+                        "( command -v snap >/dev/null 2>&1 && sudo snap refresh || true )"
+                    )
+                    if sudo_password:
+                        chain = _wrap_with_password(chain, sudo_password)
+                    else:
+                        chain = _force_english(chain)
+                    rc2, out2, err2 = ssh_exec(ssh, chain, timeout=180, shell=True)
+                    if out2:
+                        append_log(run_id, out2 if not sudo_password else out2.replace(sudo_password, '******'))
+                    if err2:
+                        append_log(run_id, err2 if not sudo_password else err2.replace(sudo_password, '******'))
+                    exit_code = 0 if (_RUNS.get(run_id, {}).get('exit_code') in (None, 0) and rc2 == 0) else (_RUNS.get(run_id, {}).get('exit_code') or 0)
+                else:
+                    cmd = _wrap_with_password(base_cmd, sudo_password) if (action in _NEED_SUDO and sudo_password) else _force_english(base_cmd)
+                    exit_code = _run_streaming(ssh, cmd, run_id, state)
+
+                try:
+                    rc3, out3, _ = ssh_exec(ssh, 'test -f /run/reboot-required && echo REBOOT_REQUIRED || echo NO_REBOOT', timeout=15, shell=True)
+                    state['requires_reboot'] = 'REBOOT_REQUIRED' in (out3 or '')
+                except Exception:
+                    pass
+
+                _finish_state(state, exit_code if isinstance(exit_code, int) else (state.get('exit_code') or 0))
+                append_log(run_id, f"\n=== Update run completed (rc={state.get('exit_code')}) ===\n")
+            finally:
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
+
+        threading.Thread(target=_bg, name=f"upd-{run_id}", daemon=True).start()
+        return jsonify({"ok": True, "run_id": run_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@updates_bp.get('/updates/progress/<run_id>')
+def updates_progress(run_id: str):
+    state = _RUNS.get(run_id)
+    if not state:
+        items = list_logs()
+        if any(x.get('id') == run_id for x in items):
+            txt = read_log(run_id)
+            return jsonify({
+                'overall': {'percent': 100, 'phase': 'Done'},
+                'packages': [],
+                'active_iface': '',
+                'requires_reboot': False,
+                'done': True,
+                'size': len(txt),
+            })
+        return jsonify({'error': 'unknown run_id'}), 404
+    pkgs = [
+        {'name': k, 'version': v.get('version', ''), 'phase': v.get('phase', ''), 'percent': int(v.get('percent', 0))}
+        for k, v in state.get('packages', {}).items()
+    ]
+    return jsonify({
+        'overall': state.get('overall', {'percent': 0, 'phase': 'Idle'}),
+        'packages': pkgs,
+        'active_iface': state.get('active_iface', ''),
+        'requires_reboot': bool(state.get('requires_reboot')),
+        'done': bool(state.get('done')),
+        'exit_code': state.get('exit_code'),
+        'error': state.get('error'),
+    })
+
+
+@updates_bp.get('/updates/logs')
+def updates_logs_list():
+    items = list_logs()
+    for it in items:
+        st = _RUNS.get(it['id'])
+        if st and st.get('started_ts'):
+            end = st.get('ended_ts') or time.time()
+            it['duration'] = int(max(0, end - st['started_ts']))
+    return jsonify({'items': items})
+
+
+@updates_bp.get('/updates/logs/<run_id>')
+def updates_log_read(run_id: str):
+    try:
+        text = read_log(run_id)
+    except FileNotFoundError:
+        return jsonify({'error': 'not found'}), 404
+    if request.args.get('download'):
+        path = make_log_path(run_id)
+        return send_file(path, as_attachment=True, download_name=f'{run_id}.log')
+    resp = make_response(text)
+    resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+    return resp
+
+
+@updates_bp.delete('/updates/logs/<run_id>')
+def updates_log_delete(run_id: str):
+    ok = delete_log(run_id)
+    return jsonify({'ok': bool(ok)})

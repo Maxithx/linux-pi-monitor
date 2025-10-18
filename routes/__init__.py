@@ -48,6 +48,7 @@ def register_routes(app):
     from .settings.views_profiles import profiles_bp
     from .network import network_bp
     from .drivers import drivers_bp
+    from .keepass import keepass_bp
 
 
     # UI blueprints first
@@ -57,6 +58,7 @@ def register_routes(app):
     app.register_blueprint(terminal_bp)        # /terminal
     app.register_blueprint(software_bp)        # /software
     app.register_blueprint(profiles_bp)        # /profiles/*
+    app.register_blueprint(keepass_bp)         # /api/keepass/*
 
     # Admin/system endpoints
     app.register_blueprint(glances_admin_bp)   # /glances/* (install/uninstall/status/log/service/diag)

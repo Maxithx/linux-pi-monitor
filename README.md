@@ -46,28 +46,101 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 
 ---
 
-## Install & Run (Windows)
+## Install & Run
 
-> The app runs locally on your Windows machine and connects to your Linux/Pi host over SSH.
+This project supports two simple ways to run:
+
+- **A. No Conda (works everywhere)** — Recommended for portability (Windows / Linux / Raspbian).
+- **B. With Conda (Windows 10/11)** — Great if you prefer Conda-managed Python on Windows.
+
+### A. Run without Conda (universal)
+
+> Works on Windows 11, Linux Mint, and Raspbian using a plain Python virtual environment (venv).
 
 1) Clone the repository
-```
+```bash
 git clone https://github.com/Maxithx/linux-pi-monitor.git
 cd linux-pi-monitor
 ```
 
-2) Create venv & install dependencies
-```
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
+2) Create & activate venv, install dependencies, run
 
-3) Start the application
-```
+**Windows (CMD/PowerShell)**
+```bat
+py -m venv .venv
+.\.venv\Scriptsctivate
+pip install -r requirements.txt
 python app.py
 ```
-Open: http://127.0.0.1:8080 in your browser.
+
+**Linux (Mint / Raspbian)**
+```bash
+python3 -m venv .venv    # or: python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+Open: http://127.0.0.1:8080
+
+To stop the app: `Ctrl+C`  
+To deactivate the venv: `deactivate`
+
+---
+
+### B. Run with Conda (Windows 10/11)
+
+> Keeps your system Python clean and runs everything inside an isolated Conda environment.
+
+1) Clone the repository
+```bat
+git clone https://github.com/Maxithx/linux-pi-monitor.git
+cd linux-pi-monitor
+```
+
+2) Create & activate Conda environment, install dependencies, run
+```bat
+conda create -n linux-pi-monitor-clean python=3.12 -y
+conda activate linux-pi-monitor-clean
+pip install -r requirements.txt
+python app.py
+```
+
+Open: http://127.0.0.1:8080
+
+**Notes**
+- Always `conda activate linux-pi-monitor-clean` before running `pip` or `python`.
+- Keep channels simple (`conda-forge` + `defaults`).
+- Avoid `prefix:` in `environment.yml` (non-portable), if you later add one.
+
+---
+
+## Optional one-click scripts
+
+> These helpers create `.venv`, install dependencies, and run the app automatically.
+
+**Windows** — create `run-dev.bat`:
+```bat
+@echo off
+setlocal
+py -m venv .venv
+call .venv\Scriptsctivate.bat
+python -m pip install --upgrade pip wheel
+pip install -r requirements.txt
+python app.py
+```
+
+**Linux** — create `run-dev.sh`:
+```bash
+#!/usr/bin/env bash
+set -e
+[ -d ".venv" ] || python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip wheel
+pip install -r requirements.txt
+python app.py
+```
+Make executable: `chmod +x run-dev.sh`
 
 ---
 
@@ -103,85 +176,4 @@ Open: http://127.0.0.1:8080 in your browser.
 
 <a id="update-center"></a>
 ### Update Center
-![Update-Center](docs/screenshots/image-6.png)
-
----
-
-## Tech Stack
-
-- Backend: Python 3, Flask, Paramiko (SSH)
-- Frontend: HTML/CSS/JavaScript, Chart.js, xterm.js
-- System Monitor: Glances (remote), systemd service
-- Modules:
-  - `routes/network/` — modularized DNS, Wi‑Fi, and summary views
-  - `routes/drivers/` — OS driver utilities (updates + drivers page)
-- Platform: Windows 10/11 (Python 3.10+ recommended)
-
----
-
-## Roadmap & Contribution
-
-Future enhancements include:
-- Language switcher (UI localization).
-- Packaging as an executable.
-- Driver auto-update integration.
-- More detailed charts (per-core, disk IO).
-
-Feel free to contribute to the project! See the repository for details.
-
----
-
-## Change Log
-
-### v1.7 – Feature-Folder Routes Refactor
-- Restructured `routes/` into feature packages with clear blueprints:
-  - `routes/settings/` (views_settings, views_profiles, glances_manage, glances, software)
-  - `routes/network/` (unchanged structure)
-  - `routes/updates/` (views_updates)
-  - `routes/drivers/` (views_drivers + OS drivers: `os_base.py`, `os_debian.py`, `os_mint.py`, `os_detect.py`)
-  - `routes/terminal/` (views_terminal) and `routes/logs/` (views_logs)
-  - Shared helpers moved to `routes/common/` (e.g., `ssh_utils.py`)
-- Updated imports across the app to use the new package layout.
-- Blueprints wired centrally; kept all existing URL paths intact to avoid breaking JS/templates.
-- Consolidated OS update drivers under `routes/drivers/` and updated Update Center to import from there.
-- Minor docstrings and comments updated to reflect new structure.
-
-### v1.6 – DNS & Drivers Update
-- Split `network.py` into modular structure:
-  - `helpers.py`, `views_dns.py`, `views_wifi.py`, `views_summary.py`, `dns_helpers.py`.
-- Added live DNS Manager with Google, Cloudflare, Quad9 and custom presets.
-- Added Drivers page (auto-detects Mint/Debian drivers and kernel modules).
-- Improved sudo handling (no `[sudo] password` prompt text in logs).
-- DNS changes now use `nmcli reapply` instead of full reconnect — no more Wi‑Fi disconnects.
-- Added display of Stub + Upstream DNS in network header.
-- Minor UI/UX polish across Network and Drivers pages.
-
-### v1.5 – Update Center Improvements
-- Buttons for Full Update, Security Update, and All Updates are disabled while loading or installing.
-- Prevents accidental double actions.
-- Added `setBusy()` helper in JS + CSS disabled styling.
-- Smoothed loading state and aria-busy support for accessibility.
-
-### v1.4 – System Stability & Glances Integration
-- Improved Glances installation and control.
-- Added retry logic for SSH commands.
-- Enhanced error output and timeout handling.
-
-### v1.3 – Multi-profile SSH & Terminal
-- Multiple profile support with quick-switch dropdown.
-- Added live xterm.js terminal with scroll and custom color scheme.
-- Added saved command overview.
-
-### v1.2 – Core UI Framework
-- Sidebar navigation with persistent state.
-- Unified CSS grid layout for all pages.
-- Base dark theme and responsive structure.
-
-### v1.0 – Initial Release
-- First public release of Linux Pi Monitor.
-- Core Flask structure, SSH connection, system summary, update check.
-
----
-
-© 2025 THXMAN Labs — Developed by Thomas & ChatGPT
-
+![Update Center](docs/screenshots/image-6.png)

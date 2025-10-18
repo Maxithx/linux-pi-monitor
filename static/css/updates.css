@@ -190,3 +190,22 @@ button.is-disabled[disabled],
 .muted {
     opacity: .85;
 }
+
+/* Collapsible logs panel */
+.collapsible { border-radius: 10px; background:#0f1220; }
+.collapsible .hdr { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; cursor:pointer; }
+.collapsible .body { padding:10px 14px; display:none; }
+.collapsible.is-open .body { display:block; }
+
+.log-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #22263a; }
+.log-item .spacer { flex:1; }
+.log-viewer { margin:8px 0 12px; border:1px solid #22263a; border-radius:8px; overflow:hidden; background:#0b0f1f; }
+.log-viewer .hdr { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #22263a; }
+.log-viewer .body { max-height:240px; overflow:auto; padding:10px; white-space:pre; font-family:'Cascadia Mono','Fira Code',Consolas,monospace; font-size:12px; color:#d8dee9; }
+
+/* Per-package progress in table */
+.progress { position:relative; height:10px; background:#22273a; border-radius:6px; overflow:hidden; }
+.progress .bar { height:100%; width:0; transition:width .4s ease; background:#3aa675; }
+.progress .label { margin-left:8px; font-size:12px; color:#b8c1d9; }
+.progress.is-done .bar { background:#2ecc71; }
+.progress.is-error .bar { background:#e74c3c; }
