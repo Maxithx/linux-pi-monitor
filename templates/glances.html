@@ -29,6 +29,11 @@
         style="margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
         Reload
     </button>
+    <button id="btn-open-port" type="button"
+        title="Open TCP 61208 on the remote Pi via UFW/firewalld"
+        style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">
+        Open 61208
+    </button>
 </div>
 
 <div id="glances-wrap" style="position:relative;">
@@ -123,6 +128,7 @@
         var btnProxy = document.getElementById('btn-proxy');
         var btnDirect = document.getElementById('btn-direct');
         var btnReload = document.getElementById('btn-reload');
+        var btnOpenPort = document.getElementById('btn-open-port');
 
         var ovlProxy = document.getElementById('ovl-proxy');
         var ovlDirect = document.getElementById('ovl-direct');
@@ -193,6 +199,21 @@
         btnProxy.addEventListener('click', function () { applyUrl(proxyUrl); });
         btnDirect.addEventListener('click', function () { applyUrl(directUrl); });
         btnReload.addEventListener('click', function () { applyUrl(currentUrl || proxyUrl); });
+
+        btnOpenPort.addEventListener('click', async function () {
+            try {
+                var pw = window.prompt('Enter sudo password if required (leave empty if not):', '');
+                setStatus('Opening firewall...', false);
+                await fetch('/glances/firewall/open', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sudo_pw: (pw || undefined) })
+                }).then(r => r.json());
+                // Give the service a moment and then try direct
+                setTimeout(function () { applyUrl(directUrl); }, 800);
+            } catch (e) {
+                setStatus('Error', true);
+            }
+        });
 
         ovlProxy.addEventListener('click', function () { applyUrl(proxyUrl); });
         ovlDirect.addEventListener('click', function () { applyUrl(directUrl); });

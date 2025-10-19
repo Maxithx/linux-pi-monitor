@@ -164,6 +164,29 @@ def _open_firewall_if_needed(ssh, sudo_pw: str | None):
         timeout=60
     )
 
+def _open_firewall_explicit(ssh, sudo_pw: str | None) -> bool:
+    """Open Glances port 61208 via ufw or firewalld. Returns True on success."""
+    # Try UFW first
+    rc = _ssh_run_logged(
+        ssh,
+        "bash -lc '(command -v ufw >/dev/null 2>&1 && sudo ufw allow 61208/tcp && echo OK) || true'",
+        sudo_pw,
+        timeout=60
+    )
+    # rc is exit code of wrapper; ignore and probe result via ss afterwards
+    # Try firewalld (all active zones)
+    _ssh_run_logged(
+        ssh,
+        "bash -lc 'if command -v firewall-cmd >/dev/null 2>&1; then "
+        "Z=$(sudo firewall-cmd --get-active-zones | awk "'NR%2==1{printf $1"'"'\n'"'"}"); "
+        "for zone in $Z; do sudo firewall-cmd --permanent --zone="$zone" --add-port=61208/tcp || true; done; "
+        "sudo firewall-cmd --reload || true; fi'",
+        sudo_pw,
+        timeout=90
+    )
+    # Verify
+    return _is_port_open_61208(ssh)
+
 # --------------------- STATUS / LOG endpoints ---------------------
 
 def _is_port_open_61208(ssh) -> bool:
@@ -351,6 +374,26 @@ def glances_service_start():
         try: ssh.close()
         except: pass
         return jsonify({"ok": running, "running": running})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@glances_bp.post("/glances/firewall/open")
+def glances_firewall_open():
+    """One-click: open TCP/61208 on the remote host (ufw or firewalld)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        sudo_pw = data.get("sudo_pw") or None
+        s = _active_ssh()
+        ssh = ssh_connect(
+            host=s["pi_host"], user=s["pi_user"],
+            auth=s.get("auth_method","key"),
+            key_path=s.get("ssh_key_path",""),
+            password=s.get("password",""), timeout=25
+        )
+        ok = _open_firewall_explicit(ssh, sudo_pw)
+        try: ssh.close()
+        except: pass
+        return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
