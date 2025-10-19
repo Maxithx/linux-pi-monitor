@@ -46,6 +46,32 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 
 ---
 
+## Theme Palette (UI Recolor)
+
+The UI uses a neutral dark theme with a subtle cyan accent. Core tokens are defined as CSS variables in `static/css/dashboard.css` and reused across pages:
+
+```
+:root {
+  --bg: #0f172a;       /* page background */
+  --surface: #111827;  /* cards and panels */
+  --text: #e5e7eb;     /* primary text */
+  --muted: #9ca3af;    /* secondary text */
+  --primary: #2196F3;  /* actions/links */
+  --card-border: rgba(255,255,255,0.06);
+}
+```
+
+Updates in this recolor:
+- Sidebar background: `#1A1A1A` with cyan hover accents.
+- Dashboard cards: shadows removed; subtle 1px borders.
+- Charts: RAM color changed to cyan; other series keep Google‑like colors.
+- Network/Settings/Updates/Terminal pages: removed purple/indigo tints and aligned cards, tables, and inputs to the neutral palette.
+- Terminal (xterm.js): background `#0b0f1f`, cursor cyan `#00BCD4`.
+
+Guideline: when adding new views, use `var(--surface)` for panels and `var(--card-border)` for borders to keep the look consistent.
+
+---
+
 ## Install & Run
 
 This project supports two simple ways to run:
