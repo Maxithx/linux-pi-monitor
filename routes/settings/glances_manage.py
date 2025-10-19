@@ -165,26 +165,29 @@ def _open_firewall_if_needed(ssh, sudo_pw: str | None):
     )
 
 def _open_firewall_explicit(ssh, sudo_pw: str | None) -> bool:
-    """Open Glances port 61208 via ufw or firewalld. Returns True on success."""
-    # Try UFW first
-    rc = _ssh_run_logged(
+    """Open Glances port 61208 via ufw or firewalld. Returns True on success.
+
+    Uses plain sh -lc commands to avoid nested quoting issues.
+    """
+    # Try UFW (ok if ufw is not present)
+    _ssh_run_logged(
         ssh,
-        "bash -lc '(command -v ufw >/dev/null 2>&1 && sudo ufw allow 61208/tcp && echo OK) || true'",
+        "(command -v ufw >/dev/null 2>&1 && sudo ufw allow 61208/tcp && echo OK) || true",
         sudo_pw,
         timeout=60
     )
-    # rc is exit code of wrapper; ignore and probe result via ss afterwards
-    # Try firewalld (all active zones)
+
+    # Try firewalld across active zones (ok if firewalld is not present)
     _ssh_run_logged(
         ssh,
-        "bash -lc 'if command -v firewall-cmd >/dev/null 2>&1; then "
-        "Z=$(sudo firewall-cmd --get-active-zones | awk "'NR%2==1{printf $1"'"'\n'"'"}"); "
-        "for zone in $Z; do sudo firewall-cmd --permanent --zone="$zone" --add-port=61208/tcp || true; done; "
-        "sudo firewall-cmd --reload || true; fi'",
+        "if command -v firewall-cmd >/dev/null 2>&1; then "
+        "Z=$(sudo firewall-cmd --get-active-zones | awk 'NR%2==1{print $1}'); "
+        "for zone in $Z; do sudo firewall-cmd --permanent --zone=\"$zone\" --add-port=61208/tcp || true; done; "
+        "sudo firewall-cmd --reload || true; fi",
         sudo_pw,
         timeout=90
     )
-    # Verify
+
     return _is_port_open_61208(ssh)
 
 # --------------------- STATUS / LOG endpoints ---------------------
