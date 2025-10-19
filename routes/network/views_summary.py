@@ -98,15 +98,18 @@ def summary():
                     bitrate = m.group(1) if m else ""
 
             # Prefer a clean display speed:
-            #  - Ethernet: ethtool "Speed:" value or "—"
-            #  - Wi‑Fi: use bitrate if ethtool reports empty/Unknown!
+            #  - Treat ethtool "Unknown!" as empty
+            #  - Wi-Fi: fall back to bitrate when empty
+            #  - Others: show "-" if empty
             spd_disp = (spd or "").strip()
+            if spd_disp.lower().startswith("unknown"):
+                spd_disp = ""
             if itype == "wifi":
-                if not spd_disp or spd_disp.lower().startswith("unknown"):
-                    spd_disp = (bitrate or "").strip() or "—"
+                if not spd_disp:
+                    spd_disp = (bitrate or "").strip() or "-"
             else:
                 if not spd_disp:
-                    spd_disp = "—"
+                    spd_disp = "-"
 
             rows.append(
                 {
