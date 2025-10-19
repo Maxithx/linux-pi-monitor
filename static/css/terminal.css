@@ -2,8 +2,8 @@
 #terminal {
   width: 100%;
   height: 420px;
-  background: #0f1123;
-  border: 2px solid #0d0f1d;
+  background: #0b0f1f; /* neutral dark */
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
   border-radius: 8px;
   box-sizing: border-box;
 }
@@ -18,11 +18,11 @@
 }
 
 .card {
-  background: #161728;
-  border: 1px solid #22243a;
+  background: var(--surface, #111827);
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
   border-radius: 10px;
   padding: 14px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  box-shadow: none; /* align with dashboard */
   margin-bottom: 16px;
 }
 
@@ -73,7 +73,7 @@
 
 /* Grid table */
 .cmds-table {
-  border: 1px solid #22243a;
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -87,10 +87,10 @@
 }
 
 .cmds-head {
-  background: #1b1d33;
+  background: var(--surface, #111827);
   font-weight: 600;
   padding: 10px 12px;
-  border-bottom: 1px solid #22243a;
+  border-bottom: 1px solid var(--card-border, rgba(255,255,255,.06));
 }
 
 .cmds-body {
@@ -100,7 +100,7 @@
 
 .cmd-row {
   padding: 10px 12px;
-  border-bottom: 1px solid #22243a;
+  border-bottom: 1px solid var(--card-border, rgba(255,255,255,.06));
 }
 
 .cmd-row:last-child {
@@ -121,7 +121,7 @@
 }
 
 .cmd-command code {
-  background: #12142a;
+  background: #0b0f1f;
   padding: 2px 6px;
   border-radius: 5px;
   cursor: pointer;
@@ -174,9 +174,9 @@
 
 .cmds-form input,
 .cmds-header input {
-  background: #0f1123;
-  border: 1px solid #22243a;
-  color: #e5f4ff;
+  background: #0b0f1f;
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
+  color: var(--text, #e5e7eb);
   border-radius: 6px;
   padding: 8px 10px;
 }
@@ -198,8 +198,8 @@
 #kp-setup .log {
   max-height: 220px;
   overflow: auto;
-  background: #12142a; /* match command code blocks */
-  border: 1px solid #22243a;
+  background: #0b0f1f; /* neutral */
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
   padding: 8px;
   font-size: 12px;
   white-space: pre-wrap;
@@ -215,9 +215,9 @@
 }
 
 #kp-setup .input {
-  background: #0f1123;
-  border: 1px solid #22243a;
-  color: #e5f4ff;
+  background: #0b0f1f;
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
+  color: var(--text, #e5e7eb);
   border-radius: 6px;
   padding: 8px 10px;
   width: 100%;
@@ -255,10 +255,10 @@
 #kp-setup .badge-danger { background: #b32020; color: #fff; }
 
 /* Accordion visuals (match card theme) */
-#kp-setup .accordion-item { border: 1px solid #22243a; border-radius: 8px; margin-bottom: 8px; background: #131527; }
+#kp-setup .accordion-item { border: 1px solid var(--card-border, rgba(255,255,255,.06)); border-radius: 8px; margin-bottom: 8px; background: var(--surface, #111827); }
 #kp-setup .accordion-header { margin: 0; }
-#kp-setup .accordion-button { width: 100%; text-align: left; background: #1b1d33; color: #e5f4ff; border: 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; }
-#kp-setup .accordion-button.collapsed { background: #161a2c; }
+#kp-setup .accordion-button { width: 100%; text-align: left; background: var(--surface, #111827); color: var(--text, #e5e7eb); border: 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; }
+#kp-setup .accordion-button.collapsed { background: var(--surface, #111827); }
 #kp-setup .accordion-body { padding: 12px; }
 
 

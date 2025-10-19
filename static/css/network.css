@@ -7,6 +7,13 @@
     color: #aaa
 }
 
+/* Neutral card styling for DNS section */
+.card {
+    background: var(--surface, #111827);
+    border: 1px solid var(--card-border, rgba(255,255,255,.06));
+    border-radius: 10px;
+}
+
 /* --- Toolbar (Refresh / Scan / Filter) --- */
 .toolbar {
     display: flex;
