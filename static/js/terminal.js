@@ -45,9 +45,9 @@
         bellStyle: "none",
         scrollback: 2000,
         theme: {
-            background: "#0f1123",
-            foreground: "#e5f4ff",
-            cursor: "#66d9ef",
+            background: "#0b0f1f", // neutral dark to match site
+            foreground: "#e5e7eb",
+            cursor: "#00BCD4",
             black: "#000000",
         }
     });
