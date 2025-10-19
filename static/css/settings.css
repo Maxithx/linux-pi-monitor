@@ -127,7 +127,7 @@ a {
   margin-top: 15px;
   border: 0px solid #333;
   border-radius: 6px;
-  background-color: #1c1c2c;
+  background-color: #1A1A1A; /* neutral, no purple tint */
   padding: 10, 0px;
   /* NOTE: existing value kept */
   overflow-x: auto;
@@ -143,7 +143,7 @@ a {
 
 /* Gør kun overskriftsrækken med colspan=4 gennemsigtig */
 .software-table thead tr:first-child th {
-  background-color: rgba(29, 27, 49);
+  background-color: #1A1A1A; /* header bar */
   color: #fff;
   font-weight: bold;
   font-size: 16px;

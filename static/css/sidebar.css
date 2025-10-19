@@ -140,7 +140,8 @@ body {
     left: 0;
     top: 0;
     height: 100%;
-    background: #11101D;
+    /* Neutral dark sidebar (no purple tint) */
+    background: #1A1A1A;
     padding: 6px 14px;
     z-index: 1;
     transition: all 0.5s ease;
@@ -205,7 +206,7 @@ html.sidebar-open .sidebar .logo-details .logo_name {
     align-items: center;
     text-decoration: none;
     transition: all 0.4s ease;
-    background: #11101D;
+    background: transparent;
 }
 
 .sidebar li i {
@@ -215,8 +216,9 @@ html.sidebar-open .sidebar .logo-details .logo_name {
     border-radius: 12px;
 }
 
+/* Hover: keep dark theme and highlight with cyan accent */
 .sidebar li a:hover {
-    background: #fff;
+    background: #222;
 }
 
 .sidebar li a .links_name {
@@ -237,7 +239,7 @@ html.sidebar-open .sidebar li a .links_name {
 .sidebar li a:hover .links_name,
 .sidebar li a:hover i {
     transition: all 0.5s ease;
-    color: #11101D;
+    color: #00BCD4;
 }
 
 /* === TOOLTIP FOR CLOSED SIDEBAR === */
@@ -275,7 +277,7 @@ html.sidebar-open .sidebar li .tooltip {
     left: 0;
     bottom: -8px;
     padding: 10px 14px;
-    background: var(--bg, #0f172a);
+    background: #1A1A1A;
     transition: all 0.5s ease;
     overflow: hidden;
 }
@@ -316,7 +318,7 @@ html.sidebar-open .sidebar li.profile {
     top: 50%;
     right: 0;
     transform: translateY(-50%);
-    background: var(--bg, #0f172a);
+    background: #1A1A1A;
     width: 100%;
     height: 60px;
     line-height: 60px;
