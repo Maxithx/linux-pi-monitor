@@ -21,6 +21,7 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 | Network | Interface overview, Wi-Fi scanning, and live DNS control. | [View Network](#network) |
 | Logs | View service and application logs directly in the browser. | [View Logs](#logs) |
 | Live Monitor | Embedded Glances Web UI for detailed system monitoring. | [View Live Monitor](#live-system-glances) |
+| KeePass Vault | Phased Samba share setup for KeePass vaults + Windows helper. | [View KeePass Vault](#keepass) |
 | Terminal | Full-width xterm.js terminal with saved commands. | [View Terminal](#terminal) |
 | Drivers | Detect Linux drivers per OS (Debian, Mint) and display versions. | [View Drivers](#drivers) |
 | Update Center | Run security and full system upgrades with locked buttons during processing. | [View Update Center](#update-center) |
@@ -31,7 +32,9 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 
 - Multi-profile SSH: Save multiple hosts (Pi, Linux server), switch instantly.
 - Secure Authentication: Generate ed25519 keys and install the public key on the host with one click.
-- Glances Integration: Install, start, stop, and view logs for the Glances service remotely.
+- Glances Integration: Install, start, stop, and view logs for the Glances service remotely. The Live view auto-detects the active profile host for Direct (61208).
+- KeePass Vault Setup: Guided, phased setup to host a local-only SMB share for your KeePassXC vault (deps, share, firewall, verify) with logs and rollback.
+- Windows Mapping Helper: One-click copy of the proper `net use` command and visible share path (e.g. `\\<pi-ip>\keepass`).
 - Network & DNS Manager:
   - View active interfaces, IPv4, MAC, and SSID.
   - Change DNS servers live (Google, Cloudflare, Quad9, or Custom).
@@ -42,6 +45,7 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 - Update Center:
   - Displays available APT updates with severity and details.
   - Buttons are locked while loading or installing, to prevent conflicts.
+- Theme + Navigation: Neutral dark palette, cyan accents, cleaner cards; new sidebar item for KeePass Vault; Terminal focused strictly on shell.
 - Windows Host: The app runs locally on your Windows machine (Python 3.10+ required).
 
 ---
@@ -141,34 +145,7 @@ Open: http://127.0.0.1:8080
 
 ---
 
-## Optional one-click scripts
-
-> These helpers create `.venv`, install dependencies, and run the app automatically.
-
-**Windows** — create `run-dev.bat`:
-```bat
-@echo off
-setlocal
-py -m venv .venv
-call .venv\Scriptsctivate.bat
-python -m pip install --upgrade pip wheel
-pip install -r requirements.txt
-python app.py
-```
-
-**Linux** — create `run-dev.sh`:
-```bash
-#!/usr/bin/env bash
-set -e
-[ -d ".venv" ] || python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip wheel
-pip install -r requirements.txt
-python app.py
-```
-Make executable: `chmod +x run-dev.sh`
-
----
+<!-- Optional one-click scripts section removed (not used) -->
 
 ## Screenshots
 
@@ -203,3 +180,7 @@ Make executable: `chmod +x run-dev.sh`
 <a id="update-center"></a>
 ### Update Center
 ![Update Center](docs/screenshots/image-6.png)
+
+<a id="keepass"></a>
+### KeePass Vault
+Screenshot coming soon. This page provides a guided, phased setup to host a local‑only Samba share for your KeePass vault, plus a Windows mapping helper.
