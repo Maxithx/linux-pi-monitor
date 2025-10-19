@@ -65,7 +65,7 @@ def summary():
                 timeout=3,
             )
 
-            # Link speed (best effort)
+            # Link speed (best effort) — ethtool may say "Unknown!" for Wi‑Fi/virtual ifaces
             _, spd, _ = ssh_exec(
                 ssh,
                 f"(command -v ethtool >/dev/null 2>&1 && "
@@ -97,13 +97,24 @@ def summary():
                     m = _re.search(r"tx bitrate:\s*([0-9.]+ [^\s\n]+)", link)
                     bitrate = m.group(1) if m else ""
 
+            # Prefer a clean display speed:
+            #  - Ethernet: ethtool "Speed:" value or "—"
+            #  - Wi‑Fi: use bitrate if ethtool reports empty/Unknown!
+            spd_disp = (spd or "").strip()
+            if itype == "wifi":
+                if not spd_disp or spd_disp.lower().startswith("unknown"):
+                    spd_disp = (bitrate or "").strip() or "—"
+            else:
+                if not spd_disp:
+                    spd_disp = "—"
+
             rows.append(
                 {
                     "iface": dev,
                     "type": itype,
                     "mac": (mac or "").strip(),
                     "ipv4": (ip4 or "").strip(),
-                    "speed": (spd or "").strip(),
+                    "speed": spd_disp,
                     "ssid": (ssid or "").strip(),
                     "signal": (signal or "").strip(),
                     "bitrate": (bitrate or "").strip(),
