@@ -132,7 +132,7 @@
         var helpBody = document.getElementById('help-body');
 
         // Sources
-        var proxyUrl = '/glances-proxy'; // raw proxy response, no template
+        var proxyUrl = '/glances-proxy'; // compat shim (may redirect)
         var directUrl = (iframe.dataset.glancesUrl && iframe.dataset.glancesUrl.trim().length > 0)
             ? iframe.dataset.glancesUrl.trim()
             : 'http://127.0.0.1:61208/';
@@ -172,7 +172,7 @@
                     setStatus('Error', true);
                     showOverlay('Failed to load via Proxy and Direct. Ensure Glances is running and the proxy route works.');
                 }
-            }, 3500);
+            }, 8000); // give Glances more time to boot the web UI
         }
 
         function applyUrl(url) {
@@ -205,8 +205,8 @@
             helpToggle.textContent = open ? 'Show' : 'Hide';
         });
 
-        // Start with proxy
-        applyUrl(proxyUrl);
+        // Start with direct; proxy is only a fallback/compat
+        applyUrl(directUrl);
     })();
 </script>
 
