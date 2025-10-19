@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}KeePass Vault Setup{% endblock %}
+
+{% block content %}
+<h1 class="terminal-title">KeePass Vault Setup</h1>
+
+<section class="card" id="kp-setup">
+  <div class="card-header flex items-center justify-between" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" data-toggle="collapse" data-target="#kp-setup-body">
+    <h3 class="card-title">KeePass Vault Setup</h3>
+    <div class="kp-right" style="display:flex;align-items:center;gap:8px;">
+      <button id="kp-expand-toggle" class="btn btn-link" type="button">Expand</button>
+      <span id="kp-status-badge" class="badge badge-secondary">Not started</span>
+    </div>
+  </div>
+  <div id="kp-setup-body" class="collapse" style="display:none;">
+    <p class="mt-2 text-sm text-muted">Provision a local-only SMB share on your Raspberry Pi for storing a KeePassXC .kdbx vault. Runs in safe, small phases with logs and rollback.</p>
+
+    <div class="accordion mt-3" id="kp-phase-accordion">
+      <!-- Phase 1 -->
+      <div class="accordion-item">
+        <h4 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#kp-phase1">Phase 1 – Deps &amp; User &amp; Folder</button>
+        </h4>
+        <div id="kp-phase1" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <div class="grid grid-cols-2 gap-3 mb-2" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+              <label class="text-sm">LAN_SUBNET
+                <input id="kp-lan-subnet" type="text" class="input" value="192.168.1.0/24">
+                <div id="kp-lan-hint" class="text-xs text-muted"></div>
+              </label>
+              <label class="text-sm">SMB_PASS (required for Phase 2)
+                <input id="kp-smb-pass" type="password" class="input" placeholder="Required to run Phase 2">
+                <div class="text-xs" style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button id="kp-smb-gen" type="button" class="btn btn-secondary btn-sm">Generate</button>
+                  <button id="kp-smb-copy" type="button" class="btn btn-link btn-sm">Copy</button>
+                  <button id="kp-smb-toggle" type="button" class="btn btn-link btn-sm">Show</button>
+                  <label class="text-xs" style="display:flex;gap:6px;align-items:center;">
+                    Length
+                    <select id="kp-smb-len" class="input" style="width:84px;padding:2px 6px;">
+                      <option>8</option>
+                      <option>12</option>
+                      <option selected>16</option>
+                      <option>24</option>
+                      <option>32</option>
+                      <option>48</option>
+                      <option>64</option>
+                    </select>
+                  </label>
+                  <span id="kp-smb-hint" class="text-xs text-muted"></span>
+                </div>
+              </label>
+              <label class="text-sm">Confirm SMB_PASS
+                <input id="kp-smb-pass2" type="password" class="input" placeholder="Re-enter SMB password">
+              </label>
+              <label class="text-sm" title="If your Pi user is not configured for passwordless sudo, enter the sudo password so setup can install packages and configure services.">SUDO_PASS (optional)
+                <input id="kp-sudo-pass" type="password" class="input" placeholder="Needed if sudo prompts">
+                <div class="text-xs text-muted">Phases 1, 2, 3 and Rollback may require sudo. Leave empty if your user has passwordless sudo (NOPASSWD). If required, you will be prompted.</div>
+              </label>
+            </div>
+            <button id="kp-run-phase1" class="btn btn-primary">Run Phase 1</button>
+            <span id="kp-phase1-result" class="ml-2 text-sm"></span>
+            <pre id="kp-log-phase1" class="log mt-2"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="accordion-item">
+        <h4 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#kp-phase2">Phase 2 – Samba Share</button>
+        </h4>
+        <div id="kp-phase2" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <button id="kp-run-phase2" class="btn btn-primary">Run Phase 2</button>
+            <span id="kp-phase2-result" class="ml-2 text-sm"></span>
+            <pre id="kp-log-phase2" class="log mt-2"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="accordion-item">
+        <h4 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#kp-phase3">Phase 3 – Firewall for LAN</button>
+        </h4>
+        <div id="kp-phase3" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <label class="text-sm" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input id="kp-open-glances" type="checkbox" checked>
+              Open Glances web port 61208 (LAN-only)
+            </label>
+            <button id="kp-run-phase3" class="btn btn-primary">Run Phase 3</button>
+            <span id="kp-phase3-result" class="ml-2 text-sm"></span>
+            <pre id="kp-log-phase3" class="log mt-2"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 4 -->
+      <div class="accordion-item">
+        <h4 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#kp-phase4">Phase 4 – Verify</button>
+        </h4>
+        <div id="kp-phase4" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <button id="kp-run-phase4" class="btn btn-primary">Run Phase 4</button>
+            <span id="kp-phase4-result" class="ml-2 text-sm"></span>
+            <pre id="kp-log-phase4" class="log mt-2"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rollback -->
+      <div class="accordion-item">
+        <h4 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#kp-rollback">Rollback</button>
+        </h4>
+        <div id="kp-rollback" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <button id="kp-run-rollback" class="btn btn-outline-danger">Rollback Samba config</button>
+            <span id="kp-rollback-result" class="ml-2 text-sm"></span>
+            <pre id="kp-log-rollback" class="log mt-2"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Windows helper -->
+    <div class="mt-4" style="margin-top:16px;">
+      <button class="btn btn-link p-0" data-bs-toggle="collapse" data-bs-target="#kp-windows-helper">Windows mapping helper</button>
+      <div id="kp-windows-helper" class="collapse" style="margin-top:8px;">
+        <div class="text-sm text-muted" style="margin-bottom:8px;">Map the SMB share on Windows 11. Share path and command are shown below.</div>
+        <div id="kp-share-path" class="text-sm" style="margin-bottom:6px;"></div>
+        <pre id="kp-win-ps" class="log" style="margin-bottom:8px;"></pre>
+        <button id="kp-copy-ps" class="btn btn-secondary">Copy</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Sudo password prompt modal -->
+<div id="kp-sudo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;">
+  <div style="width:min(520px,92vw);background:#1f2330;color:#e6e6e6;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;">
+    <div style="padding:12px 16px;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;">
+      <h5 style="margin:0;">Sudo password required</h5>
+      <button id="kp-sudo-close" class="btn btn-outline" style="padding:4px 8px;">Close</button>
+    </div>
+    <div style="padding:12px 16px;">
+      <p style="margin:0 0 8px;opacity:.95;">This phase needs sudo. Enter the sudo password to continue, or cancel.</p>
+      <input id="kp-sudo-modal-input" type="password" class="input" placeholder="sudo password" style="width:100%;margin-top:6px;">
+      <div id="kp-sudo-err" class="text-xs" style="color:#ffb3b3;margin-top:6px;display:none;">Wrong password. Please try again.</div>
+    </div>
+    <div style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #333;">
+      <button id="kp-sudo-cancel" class="btn btn-outline">Cancel</button>
+      <button id="kp-sudo-ok" class="btn btn-primary">Run with sudo</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function(){
+    // Collapse & remember
+    const header = document.querySelector('#kp-setup .card-header');
+    const body = document.getElementById('kp-setup-body');
+    const toggleBtn = document.getElementById('kp-expand-toggle');
+    const LS_KEY = 'kpSetupExpanded';
+    let expanded = true;
+    function setExpanded(v){
+      expanded = !!v; body.style.display = expanded ? 'block' : 'none';
+      if (toggleBtn) toggleBtn.textContent = expanded ? 'Collapse' : 'Expand';
+      try { localStorage.setItem(LS_KEY, expanded ? '1':'0'); } catch {}
+    }
+    try { const v = localStorage.getItem(LS_KEY); if (v==='1') expanded=true; else if (v==='0') expanded=false; } catch {}
+    setExpanded(expanded);
+    if (header && body) header.addEventListener('click', (e)=>{ const t=e.target; const isToggle = !!(t && (t.id==='kp-expand-toggle' || (t.closest && t.closest('#kp-expand-toggle')))); if (isToggle) return; setExpanded(!expanded); });
+
+    // Helpers
+    const randInt = (n)=>Math.floor(Math.random()*n);
+    const shuffle = (a)=>{ for(let i=a.length-1;i>0;i--){const j=randInt(i+1); [a[i],a[j]]=[a[j],a[i]];} return a; };
+    function passwordStrengthMsg(p){
+      if(!p||p.length<8) return 'Weak: too short';
+      const cats=[/[a-z]/,/[A-Z]/,/[0-9]/,/[^\w]/]; let c=0; cats.forEach(rx=>{if(rx.test(p))c++;});
+      if(p.length>=16 && c>=3) return 'Strong password';
+      return c>=3? 'Okay password' : 'Weak: use more variety';
+    }
+    function genPassword(len){
+      const pools=['abcdefghjkmnpqrstuvwxyz','ABCDEFGHJKLMNPQRSTUVWXYZ','23456789','!@#$%^&*()_+-='];
+      const out=[]; for(const p of pools) out.push(p[randInt(p.length)]); const all=pools.join(''); while(out.length<len) out.push(all[randInt(all.length)]); return shuffle(out).join('');
+    }
+    const genBtn=document.getElementById('kp-smb-gen'); const pwdCopyBtn=document.getElementById('kp-smb-copy'); const pwdToggleBtn=document.getElementById('kp-smb-toggle'); const lenSel=document.getElementById('kp-smb-len');
+    if(genBtn){ genBtn.onclick=()=>{ let L=parseInt(lenSel?.value||'16',10); if(!Number.isFinite(L))L=16; if(L<8)L=8; if(L>64)L=64; const v=genPassword(L); const p1=document.getElementById('kp-smb-pass'); const p2=document.getElementById('kp-smb-pass2'); if(p1)p1.value=v; if(p2)p2.value=v; const hint=document.getElementById('kp-smb-hint'); if(hint) hint.textContent=passwordStrengthMsg(v); }; }
+    if(pwdCopyBtn){ pwdCopyBtn.onclick=async()=>{ const v=(document.getElementById('kp-smb-pass')?.value||'').trim(); if(!v) return; try{ await navigator.clipboard.writeText(v);}catch{} } }
+    if(pwdToggleBtn){ pwdToggleBtn.onclick=()=>{ const p1=document.getElementById('kp-smb-pass'); const p2=document.getElementById('kp-smb-pass2'); const shown=p1?.type==='text'; if(p1) p1.type=shown?'password':'text'; if(p2) p2.type=shown?'password':'text'; pwdToggleBtn.textContent=shown?'Show':'Hide'; } }
+
+    // Simple sudo modal helpers
+    let kpRetry = null;
+    function showSudoPrompt(onOk){
+      const m = document.getElementById('kp-sudo-modal');
+      const inp = document.getElementById('kp-sudo-modal-input');
+      const err = document.getElementById('kp-sudo-err');
+      const btnOk = document.getElementById('kp-sudo-ok');
+      const btnCancel = document.getElementById('kp-sudo-cancel');
+      const btnClose = document.getElementById('kp-sudo-close');
+      err.style.display = 'none';
+      m.style.display = 'flex';
+      setTimeout(()=>{ try { inp.focus(); } catch{} }, 10);
+      function cleanup(){ btnOk.onclick = btnCancel.onclick = btnClose.onclick = null; }
+      btnCancel.onclick = btnClose.onclick = ()=>{ cleanup(); m.style.display='none'; onOk(null); };
+      btnOk.onclick = ()=>{ const v=(inp.value||'').trim(); if(!v){ err.style.display='block'; return; } cleanup(); m.style.display='none'; onOk(v); };
+    }
+
+    async function runPhase(phase, body, logEl, resultEl){
+      resultEl.textContent='Running...'; logEl.textContent='';
+      const res = await fetch(`/api/keepass/setup/${phase}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}) });
+      if(!res.ok){ let msg=`HTTP ${res.status}`; try{ const e=await res.json(); if(e&&e.error) msg=`Error: ${e.error}`;}catch{} resultEl.textContent=msg; return; }
+      const data = await res.json(); const { run_id } = data; let finished=false, exit_code=null, pd=null;
+      while(!finished){ const pr=await fetch(`/api/keepass/setup/progress/${run_id}`); pd=await pr.json(); logEl.textContent=pd.log||''; try{ logEl.scrollTop=logEl.scrollHeight; }catch{} finished=!!pd.finished; exit_code=pd.exit_code; if(!finished) await new Promise(r=>setTimeout(r,800)); }
+      if(exit_code===0){ resultEl.textContent='OK'; } else { const emsg = (pd&&pd.error)? String(pd.error):''; if(emsg==='sudo_requires_password' && !(body&&body.env&&body.env.SUDO_PASS)){ kpRetry={phase,body,logEl,resultEl}; showSudoPrompt(async (pw)=>{ if(!pw){ resultEl.textContent='Cancelled'; kpRetry=null; return; } try{ const b=JSON.parse(JSON.stringify(kpRetry.body||{})); b.env=Object.assign({}, b.env||{}, { SUDO_PASS: pw }); await runPhase(kpRetry.phase, b, kpRetry.logEl, kpRetry.resultEl); } finally{ kpRetry=null; } }); return; } else { resultEl.textContent = emsg? `Error: ${emsg}` : `Exit ${exit_code}`; } }
+      const badge=document.getElementById('kp-status-badge');
+      if(phase==='phase4' && exit_code===0){ badge.textContent='Ready'; badge.className='badge badge-success'; }
+      else if(exit_code!==0){ badge.textContent='Error'; badge.className='badge badge-danger'; } else { badge.textContent='Not started'; badge.className='badge badge-secondary'; }
+    }
+
+    const g=(id)=>document.getElementById(id);
+    // Build Windows mapping helper (fetch host from active profile)
+    (async () => {
+      try {
+        const profs = await fetch('/profiles/list', { cache: 'no-store' }).then(r=>r.json());
+        const pid = profs.active_profile_id || profs.default_profile_id;
+        const prof = (profs.profiles||[]).find(p=>p.id===pid) || {};
+        const host = (prof.pi_host||'').trim();
+        const share = host ? `\\\\${host}\\keepass` : `\\\\<pi-host>\\keepass`;
+        const line1 = `Share: ${share}`;
+        const line2 = `net use Z: ${share} /user:keepass`;
+        const pre = g('kp-win-ps');
+        const sp = g('kp-share-path');
+        if (sp) sp.textContent = line1;
+        if (pre) pre.textContent = line2 + '\n\nTip: You will be prompted for the SMB password you set in Phase 2.';
+        const copyBtn = g('kp-copy-ps');
+        if (copyBtn) copyBtn.onclick = async () => {
+          try { await navigator.clipboard.writeText(line2); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1200);} catch {}
+        };
+
+        // Auto-detect LAN_SUBNET from profile host and persist selection
+        const lanInput = g('kp-lan-subnet');
+        const lanHint = g('kp-lan-hint');
+        function net24(ip){
+          const p=(ip||'').split('.'); if(p.length!==4) return '';
+          return `${p[0]}.${p[1]}.${p[2]}.0/24`;
+        }
+        // Prefer previously chosen value from localStorage
+        let saved = null; try { saved = localStorage.getItem('kpLAN'); } catch {}
+        if (lanInput){
+          if (saved && /^\d+\.\d+\.\d+\.\d+\/\d+$/.test(saved)){
+            lanInput.value = saved;
+            if (lanHint) lanHint.textContent = `Using saved value (${saved})`;
+          } else {
+            const guess = net24(host);
+            if (guess){
+              // Only override the factory default to avoid clobbering a user-entered value
+              if (lanInput.value === '192.168.1.0/24') lanInput.value = guess;
+              if (lanHint) lanHint.textContent = `Detected from profile host ${host} → ${guess}`;
+            }
+          }
+          lanInput.addEventListener('input', ()=>{ try { localStorage.setItem('kpLAN', lanInput.value.trim()); } catch {} });
+        }
+      } catch {}
+    })();
+    if(g('kp-run-phase1')) g('kp-run-phase1').onclick=()=> runPhase('phase1', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SMB_PASS: g('kp-smb-pass').value || '', SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase1'), g('kp-phase1-result'));
+    if(g('kp-run-phase2')) g('kp-run-phase2').onclick=()=>{
+      const pwd=(g('kp-smb-pass').value||'').trim(); const pwd2=(g('kp-smb-pass2')?.value||'').trim(); const resEl=g('kp-phase2-result');
+      if(!pwd){ resEl.textContent='SMB_PASS is required for Phase 2'; g('kp-smb-pass').focus(); return; }
+      if(pwd2 && pwd!==pwd2){ resEl.textContent='Passwords do not match'; g('kp-smb-pass2').focus(); return; }
+      const msg=passwordStrengthMsg(pwd); if(msg.startsWith('Weak')){ resEl.textContent=msg; g('kp-smb-pass').focus(); return; }
+      runPhase('phase2', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SMB_PASS: pwd, SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase2'), resEl);
+    };
+    if(g('kp-run-phase3')) g('kp-run-phase3').onclick=()=>{
+      const openGl = g('kp-open-glances')?.checked ? '1' : '0';
+      runPhase('phase3', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SUDO_PASS: g('kp-sudo-pass').value || '', KP_OPEN_GLANCES: openGl } }, g('kp-log-phase3'), g('kp-phase3-result'));
+    };
+    if(g('kp-run-phase4')) g('kp-run-phase4').onclick=()=> runPhase('phase4', {}, g('kp-log-phase4'), g('kp-phase4-result'));
+    if(g('kp-run-rollback')) g('kp-run-rollback').onclick=()=> runPhase('rollback', {}, g('kp-log-rollback'), g('kp-rollback-result'));
+  })();
+</script>
+{% endblock %}

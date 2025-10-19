@@ -85,7 +85,21 @@ rm -f "$TMP"
 
 echo "[*] Set SMB password for user '${VAULT_USER}' (empty SMB_PASS -> interactive)"
 if [ -n "${SMB_PASS:-}" ]; then
-  (echo "${SMB_PASS}"; echo "${SMB_PASS}") | sudo smbpasswd -a -s "$VAULT_USER"
+  # If SUDO_PASS was provided via the UI, avoid mixing it into the same stdin pipe as smbpasswd.
+  # Use a secure temp file for the SMB password and feed sudo separately.
+  if [ -n "${SUDO_PASS:-}" ]; then
+    TMPP=$(mktemp)
+    chmod 600 "$TMPP"
+    # Use printf to avoid any echo interpretation issues
+    printf '%s\n%s\n' "${SMB_PASS}" "${SMB_PASS}" > "$TMPP"
+    # Bypass any shell sudo() function by calling command sudo explicitly
+    # Pass SUDO_PASS to sudo via stdin (-S) and redirect the SMB password file to smbpasswd
+    echo "${SUDO_PASS}" | command sudo -S -p "" bash -lc 'smbpasswd -a -s "$1" < "$2"' bash "$VAULT_USER" "$TMPP"
+    command sudo bash -lc 'rm -f "$1"' bash "$TMPP" || rm -f "$TMPP"
+  else
+    # Passwordless sudo path
+    printf '%s\n%s\n' "${SMB_PASS}" "${SMB_PASS}" | sudo smbpasswd -a -s "$VAULT_USER"
+  fi
 else
   sudo smbpasswd -a "$VAULT_USER"
 fi

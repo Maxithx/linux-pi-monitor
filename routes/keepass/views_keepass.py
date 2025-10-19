@@ -6,7 +6,7 @@ import shlex
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from flask import request, jsonify
+from flask import request, jsonify, render_template
 
 from . import keepass_bp
 from routes.settings import _get_active_ssh_settings, _is_configured
@@ -349,3 +349,6 @@ def kp_progress(run_id: str):
     except Exception:
         txt = ''
     return jsonify({'log': txt, 'finished': bool(st.get('finished')), 'exit_code': st.get('exit_code'), 'error': st.get('error')})
+@keepass_bp.get('/keepass')
+def keepass_page():
+    return render_template('keepass.html')
