@@ -43,7 +43,7 @@ const ACTIONS_REQUIRE_SUDO = new Set([
 ]);
 
 // Session sudo cache (memory only; cleared on reload)
-let SUDO_PW_CACHE = null;
+\n\n// Remember packages installed this session (to grey out buttons after rescan)\nlet INSTALLED_SET = new Set();
 // Ensure a progress bar exists inside indicator
 let prog = searchBox.querySelector('.progress');
 if (!prog) {
@@ -379,10 +379,7 @@ function startSSEScan() {
                 tr.setAttribute('data-arch', data.arch || '');
                 wireToggle(tr);
                 // Enrich row in background
-                enrichAsync(name, tr);
-            }
-
-            // Progress during scanning phase
+                \n            // If this package was installed earlier in this session, grey out its button\n            try {\n                if (INSTALLED_SET.has(name.toLowerCase())) {\n                    const b = tr.querySelector('[data-install]');\n                    if (b) { b.disabled = true; b.textContent = 'Installed'; b.classList.add('is-disabled'); }\n                }\n            } catch (e) { }
             searchText.textContent = `Scanning… (${discoveredCount})`;
             setProgress(Math.min(90, 40 + discoveredCount * 2));
         } catch (e) { }
@@ -704,4 +701,5 @@ bodyEl.addEventListener('click', (e) => {
   if (!name) return;
   installPackage(name);
 });
+
 
