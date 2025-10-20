@@ -1,4 +1,4 @@
-import re
+﻿import re
 from shlex import quote
 from flask import jsonify, request
 
@@ -34,10 +34,15 @@ def scan():
 
         # ---------- aktiv forbindelse (BSSID/SSID) ----------
         active_bssid, active_ssid = _active_bss(ssh)
+        active_nm_conn = ""
 
         # Sørg for radio ON & iface UP
         iface = _iface_detect(ssh)
         _nm_radio_on(ssh, iface, sudo_pw)  # Sender sudo_pw med
+        if _has_nmcli(ssh) and nmcli_bin:
+            _, _nm, _ = ssh_exec(ssh, f"{nmcli_bin} -t -f GENERAL.CONNECTION dev show {quote(iface)} 2>/dev/null | sed 's/GENERAL.CONNECTION://'", timeout=3)
+            active_nm_conn = (_nm or "").strip()
+
 
         # ---------- nmcli (primær / bedst) ----------
         def _scan_nmcli() -> list:
@@ -49,6 +54,8 @@ def scan():
             # Vi fjerner redirect og || true for at SE FEJLEN.
             rescan_cmd = _sudo_cmd(sudo_pw, f"{nmcli_bin} device wifi rescan ifname {iface_q}")
             rc_r, out_r, err_r = ssh_exec(ssh, rescan_cmd, timeout=8)
+            # allow nmcli to refresh cache
+            ssh_exec(ssh, "sleep 1", timeout=2)
 
             # Hvis rescan fejler, gemmer vi fejlen, men prøver stadig at liste fra cache.
             # Fejlen vil blive rapporteret i slutningen af scan(), hvis der ikke findes netværk.
@@ -59,6 +66,8 @@ def scan():
 
             # Prøv at liste netværk UDEN sudo (NetworkManager cacher resultatet)
             cmds_try = [
+                f"{nmcli_bin} -t --separator '|' -e yes -f IN-USE,BSSID,SSID,SIGNAL,SECURITY device wifi list ifname {iface_q} --rescan yes || true",
+                f"{nmcli_bin} -t -e yes -f IN-USE,BSSID,SSID,SIGNAL,SECURITY device wifi list ifname {iface_q} --rescan yes || true",
                 f"{nmcli_bin} -t --separator '|' -e yes -f IN-USE,BSSID,SSID,SIGNAL,SECURITY device wifi list ifname {iface_q} || true",
                 f"{nmcli_bin} -t -e yes -f IN-USE,BSSID,SSID,SIGNAL,SECURITY device wifi list ifname {iface_q} || true",
             ]
@@ -77,6 +86,23 @@ def scan():
                 if rc_r != 0 and err_r.strip():
                     raise RuntimeError(f"Scan returned 0 networks. Rescan command failed: {err_r.strip()}")
                 return []
+
+            # Retry while result looks incomplete (scan warming up)
+            attempts = 0
+            def _count_lines(txt: str) -> int:
+                return len([ln for ln in (txt or '').splitlines() if ln.strip()])
+            while (not out_all or _count_lines(out_all) <= 1) and attempts < 3:
+                ssh_exec(ssh, "sleep 1", timeout=2)
+                out_try = ""
+                for cmd in cmds_try:
+                    _, out, _ = ssh_exec(ssh, cmd, timeout=15)
+                    out = (out or "").strip()
+                    if out and re.match(r'^(\*|yes|no|[01]|([0-9a-fA-F]{2}:){5})', out.lower()):
+                        out_try = out
+                        break
+                if out_try:
+                    out_all = out_try
+                attempts += 1
 
             nets = []
             for raw in out_all.splitlines():
@@ -100,15 +126,19 @@ def scan():
                     elif not ssid:
                         continue
 
-                    nets.append(
-                        {
-                            "in_use": inuse_raw in ("yes", "true", "1", "*"),
-                            "bssid": bssid,
-                            "ssid": ssid,
-                            "signal": sig,
-                            "security": sec,
-                        }
+                    is_connected = (
+                        inuse_raw in ("yes", "true", "1", "*")
+                        or (active_bssid and bssid and bssid == active_bssid)
+                        or (active_ssid and ssid and ssid.strip().lower() == active_ssid.strip().lower())
+                        or (active_nm_conn and ssid and ssid.strip().lower() == active_nm_conn.strip().lower())
                     )
+                    nets.append({
+                        "in_use": bool(is_connected),
+                        "bssid": bssid,
+                        "ssid": ssid,
+                        "signal": sig,
+                        "security": sec,
+                    })
             return nets
 
         # ---------- wpa_cli (sekundær) ----------
@@ -265,11 +295,14 @@ def scan():
                     v["in_use"] = True
                     if active_ssid and not v.get("ssid"):
                         v["ssid"] = active_ssid
+        if active_nm_conn:
+            for v in nets:
+                if (v.get("ssid") or "").strip().lower() == (active_nm_conn or "").strip().lower():
+                    v["in_use"] = True
         if active_ssid:
             for v in nets:
-                if v.get("ssid") == active_ssid:
+                if (v.get("ssid") or "").strip().lower() == (active_ssid or "").strip().lower():
                     v["in_use"] = True
-
         nets.sort(key=lambda x: ((0 if x.get("in_use") else 1), -(x.get("signal") or 0)))
 
         try:
@@ -407,3 +440,17 @@ def forget():
         return jsonify({"ok": ok, "message": msg.strip()})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+

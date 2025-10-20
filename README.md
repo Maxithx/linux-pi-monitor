@@ -1,4 +1,4 @@
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+﻿![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/Flask-2.x-black)
 ![Version](https://img.shields.io/badge/version-v1.7-blue)
@@ -115,6 +115,12 @@ Open: http://127.0.0.1:8080
 
 To stop the app: `Ctrl+C`  
 To deactivate the venv: `deactivate`
+### Dev quick tip: restart after backend edits
+
+If you edit backend Python files (routes, helpers, or templates used by Flask) while the server is running, restart the process to ensure changes load cleanly. In development you can also enable Flask's reloader, but a manual restart avoids stale compiled state.
+
+- Restart the Python app (Ctrl+C, then `python app.py`).
+- Hard refresh the browser (Ctrl+F5) so updated JS is loaded.
 
 ---
 
@@ -184,3 +190,12 @@ Open: http://127.0.0.1:8080
 <a id="keepass"></a>
 ### KeePass Vault
 Screenshot coming soon. This page provides a guided, phased setup to host a local‑only Samba share for your KeePass vault, plus a Windows mapping helper.
+
+
+---
+
+## Recent changes
+
+- Wi‑Fi scan: improve first‑scan results and connected detection (Oct 2025)
+  - Avoid needing two clicks: after triggering nmcli rescan, the backend briefly retries the list while NetworkManager warms up its cache.
+  - Connected marking is more robust: considers nmcli IN‑USE, active BSSID/SSID (case-insensitive), and the active nmcli connection name.

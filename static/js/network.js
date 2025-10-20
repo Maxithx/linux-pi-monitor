@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
     const $ = s => document.querySelector(s);
     const ifaceGrid = $('#iface-grid');
     const wifiGrid = $('#wifi-grid');
@@ -55,7 +55,11 @@
         }
         const rows = list.map(i => {
             const star = i.default_route ? '★' : '';
-            const p = sigPercent(i.signal ? parseInt(i.signal, 10) : 0);
+            const isWifi = (i.type || '').toLowerCase() === 'wifi';
+            const p = isWifi ? sigPercent(i.signal ? parseInt(i.signal, 10) : 0) : 0;
+            const sigCell = isWifi
+              ? `<div class="sigwrap"><div class="sigbar"><div class="fill" style="width:${p}%"></div></div><span class="cell-muted">${esc(i.signal || '')}</span></div>`
+              : `<div>-</div>`;
             return `
       <div class="row">
         <div style="text-align:center">${star}</div>
@@ -65,11 +69,7 @@
         <div><code>${esc(i.mac || '')}</code></div>
         <div>${esc(i.speed || '')}</div>
         <div>${esc(i.ssid || '')}</div>
-        <div class="sigwrap">
-          <div class="sigbar"><div class="fill" style="width:${p}%"></div></div>
-          <span class="cell-muted">${esc(i.signal || '')}</span>
-        </div>
-        <div>${esc(i.bitrate || '')}</div>
+        ${sigCell}
       </div>`;
         }).join('');
         ifaceGrid.insertAdjacentHTML('beforeend', rows);
@@ -92,7 +92,7 @@
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'scan failed');
             const nets = (j.networks || [])
-                .sort((a, b) => (b.in_use ? 1 : 0) - (a.in_use ? 1 : 0) || (b.signal || 0) - (a.signal || 0));
+                .sort((a, b) => (a.in_use === b.in_use ? 0 : (a.in_use ? -1 : 1)) || ((b.signal || 0) - (a.signal || 0)));
             renderWifi(nets);
             setStatus(`Found ${nets.length} network${nets.length === 1 ? '' : 's'}.`);
         } catch (e) {
@@ -193,3 +193,4 @@
     // Init
     loadSummary();
 })();
+
