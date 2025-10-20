@@ -72,6 +72,9 @@ def summary():
                 f" ethtool {dev_q} 2>/dev/null | awk -F': ' '/Speed:/{{print $2; exit}}') || true",
                 timeout=3,
             )
+            # Link-state hints (ethernet): operstate/carrier
+            _, operstate, _ = ssh_exec(ssh, f"cat /sys/class/net/{dev_q}/operstate 2>/dev/null", timeout=2)
+            _, carrier, _ = ssh_exec(ssh, f"cat /sys/class/net/{dev_q}/carrier 2>/dev/null", timeout=2)
 
             # Wi-Fi ekstra (SSID, signal, bitrate)
             ssid = signal = bitrate = ""
@@ -107,6 +110,10 @@ def summary():
             if itype == "wifi":
                 if not spd_disp:
                     spd_disp = (bitrate or "").strip() or "-"
+            elif itype == "ethernet":
+                link_up = ((operstate or "").strip() == "up") and ((carrier or "").strip() == "1")
+                if not link_up or not spd_disp:
+                    spd_disp = "-"
             else:
                 if not spd_disp:
                     spd_disp = "-"

@@ -75,6 +75,76 @@ def _nmcli_bin_path(ssh) -> str:
     return _which_bin(ssh, ["nmcli", "/usr/bin/nmcli", "/bin/nmcli"])
 
 
+# ---- Link speed helpers -----------------------------------------------------
+
+def read_sysfs_speed(ssh, iface: str):
+    """Read /sys/class/net/<iface>/speed and return int Mb/s or None.
+    Returns None on -1, empty, or errors."""
+    iface_q = quote(iface)
+    try:
+        _, out, _ = ssh_exec(ssh, f"cat /sys/class/net/{iface_q}/speed 2>/dev/null", timeout=1)
+        s = (out or "").strip()
+        if not s:
+            return None
+        try:
+            val = int(s)
+            return None if val < 0 else val
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+def parse_ethtool(ssh, iface: str):
+    """Parse ethtool Speed and Duplex. Returns (speed_mbps:int|None, duplex:str|None)."""
+    _, out, _ = ssh_exec(
+        ssh,
+        f"(command -v ethtool >/dev/null 2>&1 && ethtool {quote(iface)}) || true",
+        timeout=1,
+    )
+    if not (out or "").strip():
+        return (None, None)
+    import re as _re
+    spd = None
+    dup = None
+    for ln in out.splitlines():
+        if "Speed:" in ln:
+            m = _re.search(r"Speed:\s*([0-9]+)\s*Mb/s", ln, _re.I)
+            if m:
+                try:
+                    spd = int(m.group(1))
+                except Exception:
+                    spd = None
+        if "Duplex:" in ln:
+            m = _re.search(r"Duplex:\s*(full|half)", ln, _re.I)
+            if m:
+                dup = m.group(1).lower()
+    return (spd, dup)
+
+
+def parse_iw_link(ssh, iface: str):
+    """Parse iw dev <iface> link for tx/rx bitrate. Returns (tx_mbps:float|None, rx_mbps:float|None)."""
+    _, out, _ = ssh_exec(ssh, f"iw dev {quote(iface)} link 2>/dev/null || true", timeout=1)
+    if not (out or "").strip():
+        return (None, None)
+    import re as _re
+    def _mbps(txt: str):
+        m = _re.search(r"([0-9]+(?:\.[0-9]+)?)\s*([MG]Bit/s)", txt)
+        if not m:
+            return None
+        val = float(m.group(1))
+        unit = m.group(2)
+        if unit.startswith('GBit'):
+            return val * 1000.0
+        return val
+    tx = None
+    rx = None
+    for ln in out.splitlines():
+        if 'tx bitrate' in ln:
+            tx = _mbps(ln)
+        if 'rx bitrate' in ln:
+            rx = _mbps(ln)
+    return (tx, rx)
 def _active_bss(ssh) -> tuple[str, str]:
     """Finder aktivt BSSID og SSID via wpa_cli eller iw link."""
     iface = _iface_detect(ssh)
