@@ -694,11 +694,13 @@ startSSEScan();
 async function installPackage(name) {
   try {
     setBusy(true);
-    const r = await fetch('/updates/install_package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    let sudo_password = window.prompt("Enter sudo password (if required):", "");
+    if (sudo_password === null) { setBusy(false); return; }
+    const r = await fetch("/updates/install_package", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, sudo_password }) });
     const j = await r.json();
-    if (!j.ok) { append('Error: ' + (j.error || 'failed')); setBusy(false); return; }
-    if (j.run_id) { currentRunId = j.run_id; localStorage.setItem('upd.run_id', currentRunId); lastLogTextLen = 0; startProgressPolling(currentRunId); startLogPolling(currentRunId); }
-  } catch (e) { append('Network error: ' + e); setBusy(false); }
+    if (!j.ok) { append("Error: " + (j.error || "failed")); setBusy(false); return; }
+    if (j.run_id) { currentRunId = j.run_id; localStorage.setItem("upd.run_id", currentRunId); lastLogTextLen = 0; startProgressPolling(currentRunId); startLogPolling(currentRunId); }
+  } catch (e) { append("Network error: " + e); setBusy(false); }
 }
 
 bodyEl.addEventListener('click', (e) => {

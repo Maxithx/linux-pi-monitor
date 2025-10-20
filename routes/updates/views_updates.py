@@ -529,16 +529,20 @@ def updates_log_delete(run_id: str):
     return jsonify({'ok': bool(ok)})
 
 @updates_bp.post("/updates/install_package")
+@updates_bp.post("/updates/install_package")
 def updates_install_package():
     """Install a single package by name and stream progress like other runs.
-    Body: {"name": "pkg-name"}
+    Body: {"name": "pkg-name", "sudo_password": "optional"}
     """
     try:
         data = request.get_json(force=True) or {}
         name = (data.get("name") or "").strip()
+        sudo_password = data.get("sudo_password") or ""
         if not name:
             return jsonify({"ok": False, "error": "Missing package name"}), 400
 
+        # Capture active SSH settings before starting the background thread
+        s = _get_active_ssh_settings()
         run_id = _new_run()
         _RUNS[run_id]['action'] = 'install_package'
         append_log(run_id, f"Action: install_package {name}\n")
@@ -546,7 +550,6 @@ def updates_install_package():
         def _bg():
             state = _RUNS.get(run_id)
             try:
-                s = _get_active_ssh_settings()
                 ssh = ssh_connect(
                     host=s["pi_host"], user=s["pi_user"],
                     auth=s.get("auth_method", "key"), key_path=s.get("ssh_key_path", ""),
@@ -559,9 +562,9 @@ def updates_install_package():
                 return
 
             try:
-                # Use apt-get install; keep it simple and noninteractive
                 pkg = shlex.quote(name)
-                cmd = f"sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y -- {pkg}"
+                base_cmd = f"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -- {pkg}"
+                cmd = _wrap_with_password(base_cmd, sudo_password) if sudo_password else _force_english(base_cmd)
                 exit_code = _run_streaming(ssh, cmd, run_id, state)
 
                 try:
@@ -573,10 +576,14 @@ def updates_install_package():
                 _finish_state(state, exit_code if isinstance(exit_code, int) else (state.get('exit_code') or 0))
                 append_log(run_id, f"\n=== Update run completed (rc={state.get('exit_code')}) ===\n")
             finally:
-                try: ssh.close()
-                except Exception: pass
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
 
         threading.Thread(target=_bg, name=f"upd-inst-{run_id}", daemon=True).start()
         return jsonify({"ok": True, "run_id": run_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
