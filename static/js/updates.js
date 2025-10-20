@@ -581,25 +581,14 @@ function renderProgressCell(tr, pkg) {
     const done = pct >= 100;
     const cls = ['progress'];
     if (done) cls.push('is-done');
-    td.innerHTML = 
+    td.innerHTML = `
       <div class="progress ${cls.join(' ')}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" title="${phase}">
         <div class="bar" style="width:${pct}%"></div>
         <span class="label">${pct}% — ${phase || (done ? 'Done' : 'Installing')}</span>
-      </div>;\n    if (done && tr) { const btn = tr.querySelector('[data-install]'); if (btn) { btn.disabled = true; btn.textContent = 'Installed'; btn.classList.add('is-disabled'); } }\n}
-
-function renderProgressSnapshot(snap) {
-    const arr = snap.packages || [];
-    arr.forEach(pkg => {
-        const name = String(pkg.name || '');
-        const tr = bodyEl.querySelector(`tr.pkg[data-name="${CSS.escape(name)}"]`);
-        if (tr) renderProgressCell(tr, pkg);
-    });
-    if (snap.done) {
-        setBusy(false);
-        if (snap.requires_reboot) {
-            if (badgeReboot) badgeReboot.style.display = 'inline-block';
-            if (btnReboot) btnReboot.disabled = false;
-        \n        startSSEScan();\n    }
+      </div>`;
+    if (done && tr) {
+        const btn = tr.querySelector('[data-install]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Installed'; btn.classList.add('is-disabled'); }
     }
 }
 
