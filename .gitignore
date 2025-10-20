@@ -35,3 +35,4 @@ installer/
 app.py.log
 glances_install.log
 
+patch_min.diff
