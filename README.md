@@ -1,7 +1,7 @@
 ﻿![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/Flask-2.x-black)
-![Version](https://img.shields.io/badge/version-v1.7-blue)
+![Version](https://img.shields.io/badge/version-v0.5.1-blue)
 ![OS](https://img.shields.io/badge/Supported%20OS-Windows%2010%2F11%20%7C%20Linux%20Mint-green)
 
 # Linux Pi Monitor
@@ -199,3 +199,4 @@ Screenshot coming soon. This page provides a guided, phased setup to host a loca
 - Wi‑Fi scan: improve first‑scan results and connected detection (Oct 2025)
   - Avoid needing two clicks: after triggering nmcli rescan, the backend briefly retries the list while NetworkManager warms up its cache.
   - Connected marking is more robust: considers nmcli IN‑USE, active BSSID/SSID (case-insensitive), and the active nmcli connection name.
+
