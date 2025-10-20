@@ -7,7 +7,7 @@ This format follows “Keep a Changelog” and the project aims to follow Semant
 ## [Unreleased]
 - Add entries here under: Added, Changed, Fixed, Removed, Deprecated, Security.
 
-## [1.7.1] - 2025-10-20
+## [0.5.1] - 2025-10-20
 
 ### Fixed
 - Wi‑Fi scan sometimes required two clicks; backend now retries the nmcli list briefly after a rescan so the first scan returns the full set.
@@ -20,3 +20,6 @@ This format follows “Keep a Changelog” and the project aims to follow Semant
 ### Added
 - Helpers to parse link speed/bitrate (ethtool/iw) for future use in the summary.
 - README note about restarting the app after backend edits and hard‑refreshing the browser in development.
+
+[Unreleased]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.0-keepass-glances...v0.5.1
