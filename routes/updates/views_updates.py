@@ -1,4 +1,4 @@
-# routes/updates.py
+﻿# routes/updates.py
 # Main updates blueprint using OS-specific drivers.
 
 from __future__ import annotations
@@ -527,3 +527,56 @@ def updates_log_read(run_id: str):
 def updates_log_delete(run_id: str):
     ok = delete_log(run_id)
     return jsonify({'ok': bool(ok)})
+
+@updates_bp.post("/updates/install_package")
+def updates_install_package():
+    """Install a single package by name and stream progress like other runs.
+    Body: {"name": "pkg-name"}
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"ok": False, "error": "Missing package name"}), 400
+
+        run_id = _new_run()
+        _RUNS[run_id]['action'] = 'install_package'
+        append_log(run_id, f"Action: install_package {name}\n")
+
+        def _bg():
+            state = _RUNS.get(run_id)
+            try:
+                s = _get_active_ssh_settings()
+                ssh = ssh_connect(
+                    host=s["pi_host"], user=s["pi_user"],
+                    auth=s.get("auth_method", "key"), key_path=s.get("ssh_key_path", ""),
+                    password=s.get("password", ""), timeout=20,
+                )
+            except Exception as e:
+                state['error'] = str(e)
+                append_log(run_id, f"[error] SSH connect failed: {e}\n")
+                _finish_state(state, 255)
+                return
+
+            try:
+                # Use apt-get install; keep it simple and noninteractive
+                pkg = shlex.quote(name)
+                cmd = f"sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y -- {pkg}"
+                exit_code = _run_streaming(ssh, cmd, run_id, state)
+
+                try:
+                    rc3, out3, _ = ssh_exec(ssh, 'test -f /run/reboot-required && echo REBOOT_REQUIRED || echo NO_REBOOT', timeout=15, shell=True)
+                    state['requires_reboot'] = 'REBOOT_REQUIRED' in (out3 or '')
+                except Exception:
+                    pass
+
+                _finish_state(state, exit_code if isinstance(exit_code, int) else (state.get('exit_code') or 0))
+                append_log(run_id, f"\n=== Update run completed (rc={state.get('exit_code')}) ===\n")
+            finally:
+                try: ssh.close()
+                except Exception: pass
+
+        threading.Thread(target=_bg, name=f"upd-inst-{run_id}", daemon=True).start()
+        return jsonify({"ok": True, "run_id": run_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500

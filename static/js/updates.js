@@ -1,4 +1,4 @@
-// static/js/updates.js
+﻿// static/js/updates.js
 // Incremental "Software Updates" rendering using SSE + per-package enrichment
 // Buttons remain disabled until ALL items are found AND enriched.
 
@@ -423,12 +423,7 @@ function startSSEScan() {
     });
 }
 
-function disableInstallButtons(disabled) {
-    if (btnInstallAll) btnInstallAll.disabled = !!disabled;
-    if (btnInstallSec) btnInstallSec.disabled = !!disabled; // re-enable logic happens after enrichment
-    if (btnFull) btnFull.disabled = !!disabled;
-}
-
+function disableInstallButtons(disabled) {\n    if (btnInstallAll) btnInstallAll.disabled = !!disabled;\n    if (btnInstallSec) btnInstallSec.disabled = !!disabled;\n    if (btnFull) btnFull.disabled = !!disabled;\n    const rows = bodyEl ? bodyEl.querySelectorAll('[data-install]') : [];\n    rows.forEach(b => { try { b.disabled = !!disabled; } catch (e) {} });\n}\n
 function maybeEnableSecurityButton() {
     // Enable security button only after ALL enriched AND at least one sec=true
     if (btnInstallSec && btnInstallSec.disabled && totalExpected > 0 && enrichedCount >= totalExpected) {
@@ -687,3 +682,24 @@ startSSEScan();
         setBusy(true);
     }
 })();
+
+
+// Per-package install action (event delegation)
+async function installPackage(name) {
+  try {
+    setBusy(true);
+    const r = await fetch('/updates/install_package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const j = await r.json();
+    if (!j.ok) { append('Error: ' + (j.error || 'failed')); setBusy(false); return; }
+    if (j.run_id) { currentRunId = j.run_id; localStorage.setItem('upd.run_id', currentRunId); lastLogTextLen = 0; startProgressPolling(currentRunId); startLogPolling(currentRunId); }
+  } catch (e) { append('Network error: ' + e); setBusy(false); }
+}
+
+bodyEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-install]');
+  if (!btn) return;
+  e.stopPropagation();
+  const name = btn.getAttribute('data-name') || btn.closest('tr')?.getAttribute('data-name') || '';
+  if (!name) return;
+  installPackage(name);
+});

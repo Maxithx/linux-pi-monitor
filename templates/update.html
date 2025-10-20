@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Updates{% endblock %}
 
 {% block content %}
@@ -132,10 +132,7 @@
                         <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Name</th>
                         <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Version</th>
                         <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Severity</th>
-                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Details</th>
-                        <!-- NEW: per-package install progress -->
-                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Installing
-                            Update</th>
+                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Details</th>\n                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Action</th>\n                        <th style="text-align:left; padding:10px 12px; border-bottom:1px solid #22263a;">Installing Update</th>
                     </tr>
                 </thead>
                 <tbody id="updates-body"></tbody>
@@ -183,3 +180,4 @@
 
 <script defer src="{{ url_for('static', filename='js/updates.js') }}"></script>
 {% endblock %}
+
