@@ -33,8 +33,17 @@ const connUserHost = document.getElementById('conn-userhost');
 const connOS = document.getElementById('conn-os');
 
 // Hvilke UI-handlinger kræver sudo (på Mint m.fl.)
-\n\n// Session sudo cache (memory only; cleared on reload)\nlet SUDO_PW_CACHE = null;
+// Hvilke UI-handlinger kræver sudo (på Mint m.fl.)
+const ACTIONS_REQUIRE_SUDO = new Set([
+    'apt_update',
+    'apt_upgrade',
+    'apt_full_upgrade',
+    'full_noob_update',
+    'snap_refresh'
+]);
 
+// Session sudo cache (memory only; cleared on reload)
+let SUDO_PW_CACHE = null;
 // Ensure a progress bar exists inside indicator
 let prog = searchBox.querySelector('.progress');
 if (!prog) {
@@ -89,9 +98,15 @@ async function run(action) {
     setBusy(true);
 
     // Evt. sudo password prompt (kun for bestemte handlinger)
-    let sudo_password = '';    if (ACTIONS_REQUIRE_SUDO.has(action)) {\n        if (SUDO_PW_CACHE == null) {\n            const typed = window.prompt('Enter sudo password (will not be stored):', '');\n            if (typed === null) { append('Cancelled.'); setBusy(false); return; }\n            SUDO_PW_CACHE = typed;\n        }\n        sudo_password = SUDO_PW_CACHE;\n    }\n        sudo_password = typed;
+    let sudo_password = '';
+    if (ACTIONS_REQUIRE_SUDO.has(action)) {
+        if (SUDO_PW_CACHE == null) {
+            const typed = window.prompt('Enter sudo password (will not be stored):', '');
+            if (typed === null) { append('Cancelled.'); setBusy(false); return; }
+            SUDO_PW_CACHE = typed;
+        }
+        sudo_password = SUDO_PW_CACHE;
     }
-
     try {
         const r = await fetch('/updates/run', {
             method: 'POST',
