@@ -215,7 +215,6 @@ function pkgRowSkeleton(name, candidate, arch, i) {
     <td><button class="btn small" data-install data-name="${escapeAttr(clean)}" disabled>Install</button></td>
   </tr>`;
 }
-}
 
 // Enrich skeleton row
 function enrichRow(tr, pkg) {
