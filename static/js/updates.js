@@ -188,7 +188,7 @@ function rowDetail(pkg) {
 
     return `
   <tr class="detail">
-    <td colspan="5" style="background:#0f111b; border-top:1px solid #22263a; padding:12px;">
+    <td colspan="6" style="background:#0f111b; border-top:1px solid #22263a; padding:12px;">
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
         <div><strong>Installed → Candidate:</strong> ${escapeHTML(verLine)}</div>
         <div><strong>Repo/Suite:</strong> ${escapeHTML(repo)}</div>
@@ -204,15 +204,17 @@ function rowDetail(pkg) {
 // Skeleton row
 function pkgRowSkeleton(name, candidate, arch, i) {
     const clean = stripAnsi(name);
-    const version = candidate || '-';
-    const sum = 'Loading details…';
+    const version = candidate || "-";
+    const sum = "Loading details…";
     return `
   <tr class="pkg" data-idx="${i}" data-name="${escapeAttr(clean)}" style="cursor:pointer;">
     <td>${escapeHTML(clean)}</td>
     <td>${escapeHTML(version)}</td>
     <td><span class="pill muted">…</span></td>
     <td title="${escapeAttr(sum)}">${escapeHTML(sum)}</td>
+    <td><button class="btn small" data-install data-name="${escapeAttr(clean)}" disabled>Install</button></td>
   </tr>`;
+}
 }
 
 // Enrich skeleton row
@@ -422,8 +424,13 @@ function startSSEScan() {
         }
     });
 }
-
-function disableInstallButtons(disabled) {\n    if (btnInstallAll) btnInstallAll.disabled = !!disabled;\n    if (btnInstallSec) btnInstallSec.disabled = !!disabled;\n    if (btnFull) btnFull.disabled = !!disabled;\n    const rows = bodyEl ? bodyEl.querySelectorAll('[data-install]') : [];\n    rows.forEach(b => { try { b.disabled = !!disabled; } catch (e) {} });\n}\n
+function disableInstallButtons(disabled) {
+    if (btnInstallAll) btnInstallAll.disabled = !!disabled;
+    if (btnInstallSec) btnInstallSec.disabled = !!disabled;
+    if (btnFull) btnFull.disabled = !!disabled;
+    const rows = bodyEl ? bodyEl.querySelectorAll('[data-install]') : [];
+    rows.forEach(b => { try { b.disabled = !!disabled; } catch (e) {} });
+}
 function maybeEnableSecurityButton() {
     // Enable security button only after ALL enriched AND at least one sec=true
     if (btnInstallSec && btnInstallSec.disabled && totalExpected > 0 && enrichedCount >= totalExpected) {
