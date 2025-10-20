@@ -33,13 +33,7 @@ const connUserHost = document.getElementById('conn-userhost');
 const connOS = document.getElementById('conn-os');
 
 // Hvilke UI-handlinger kræver sudo (på Mint m.fl.)
-const ACTIONS_REQUIRE_SUDO = new Set([
-    'apt_update',
-    'apt_upgrade',
-    'apt_full_upgrade',
-    'full_noob_update',
-    'snap_refresh'
-]);
+\n\n// Session sudo cache (memory only; cleared on reload)\nlet SUDO_PW_CACHE = null;
 
 // Ensure a progress bar exists inside indicator
 let prog = searchBox.querySelector('.progress');
@@ -95,11 +89,7 @@ async function run(action) {
     setBusy(true);
 
     // Evt. sudo password prompt (kun for bestemte handlinger)
-    let sudo_password = '';
-    if (ACTIONS_REQUIRE_SUDO.has(action)) {
-        const typed = window.prompt('Enter sudo password (will not be stored):', '');
-        if (typed === null) { append('Cancelled.'); return; }
-        sudo_password = typed;
+    let sudo_password = '';    if (ACTIONS_REQUIRE_SUDO.has(action)) {\n        if (SUDO_PW_CACHE == null) {\n            const typed = window.prompt('Enter sudo password (will not be stored):', '');\n            if (typed === null) { append('Cancelled.'); setBusy(false); return; }\n            SUDO_PW_CACHE = typed;\n        }\n        sudo_password = SUDO_PW_CACHE;\n    }\n        sudo_password = typed;
     }
 
     try {
@@ -576,12 +566,11 @@ function renderProgressCell(tr, pkg) {
     const done = pct >= 100;
     const cls = ['progress'];
     if (done) cls.push('is-done');
-    td.innerHTML = `
+    td.innerHTML = 
       <div class="progress ${cls.join(' ')}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" title="${phase}">
         <div class="bar" style="width:${pct}%"></div>
         <span class="label">${pct}% — ${phase || (done ? 'Done' : 'Installing')}</span>
-      </div>`;
-}
+      </div>;\n    if (done && tr) { const btn = tr.querySelector('[data-install]'); if (btn) { btn.disabled = true; btn.textContent = 'Installed'; btn.classList.add('is-disabled'); } }\n}
 
 function renderProgressSnapshot(snap) {
     const arr = snap.packages || [];
@@ -595,7 +584,7 @@ function renderProgressSnapshot(snap) {
         if (snap.requires_reboot) {
             if (badgeReboot) badgeReboot.style.display = 'inline-block';
             if (btnReboot) btnReboot.disabled = false;
-        }
+        \n        startSSEScan();\n    }
     }
 }
 
@@ -711,3 +700,4 @@ bodyEl.addEventListener('click', (e) => {
   if (!name) return;
   installPackage(name);
 });
+
