@@ -389,8 +389,8 @@ function startSSEScan() {
                         const b = tr.querySelector('[data-install]');
                         if (b) { b.disabled = true; b.textContent = 'Installed'; b.classList.add('is-disabled'); }
                     }
-                } catch (e) { }\n            searchText.textContent = `Scanning… (${discoveredCount})`;
-            setProgress(Math.min(90, 40 + discoveredCount * 2));
+                } catch (e) { }
+            searchText.textContent = `Scanning… (${discoveredCount})`;
         } catch (e) { }
     });
 
@@ -710,6 +710,9 @@ bodyEl.addEventListener('click', (e) => {
   if (!name) return;
   installPackage(name);
 });
+
+
+
 
 
 
