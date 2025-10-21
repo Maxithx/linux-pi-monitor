@@ -51,8 +51,14 @@
   async function fetchStatus(){
     const r = await fetch('/network/firewall/status', { cache:'no-store' });
     try { return await r.json(); } catch (e) {
-      try { const txt = await r.text(); return { ok:false, error: txt.slice(0,400) }; } catch { return { ok:false, error: 'Invalid response' }; }
+      try {
+        const txt = await r.text();
+        return { ok:false, error: (txt && txt.trim()) ? txt.slice(0,400) : 'No supported firewall or service inactive' };
+      } catch {
+        return { ok:false, error: 'No supported firewall or service inactive' };
+      }
     }
+  }
   }
 
   function pill(el, enabled){
@@ -109,24 +115,25 @@
     const cont = document.getElementById('fw-content');
     const btn = document.getElementById('fw-refresh');
 
-    async function load(){
+    async function doLoad(){
       try {
         const j = await fetchStatus();
-        if (!j || !j.ok){ cont.innerHTML = `<div class="card" style="padding:10px; color:#b91c1c;">Error: ${escapeHtml(j && j.error || 'unknown')}</div>`; return; }
+        if (!j || !j.ok){ cont.innerHTML = `<div class="card" style="padding:10px; color:#b91c1c;">\$\{escapeHtml\(j && j\.error \|\| 'No supported firewall or service inactive'\)\}</div>`; return; }
         pill(pillEl, !!j.enabled);
         fwEl.textContent = j.framework && j.framework !== 'none' ? `Framework: ${j.framework}` : 'Framework: not detected';
         subEl.textContent = j.framework === 'ufw' && j.defaults
-          ? `Incoming: ${j.defaults.incoming || '-'} â€¢ Outgoing: ${j.defaults.outgoing || '-'}`
+          ? `Incoming: ${j.defaults.incoming || '-'} • Outgoing: ${j.defaults.outgoing || '-'}`
           : '';
         if (j.framework === 'ufw') cont.innerHTML = renderUfw(j);
         else if (j.framework === 'firewalld') cont.innerHTML = renderFirewalld(j);
         else cont.innerHTML = `<div class="card" style="padding:10px;">No supported firewall detected (UFW/firewalld)</div>`;
         loaded = true;
       } catch(e){
-        cont.innerHTML = `<div class="card" style="padding:10px; color:#b91c1c;">${escapeHtml(String(e))}</div>`;
+        cont.innerHTML = `<div class="card" style="padding:10px; color:#b91c1c;">No supported firewall or service inactive</div>`;
       }
     }
-    if (btn) btn.onclick = load;
-    await load();
+    if (btn) btn.onclick = doLoad;
+    await doLoad();
   }
 })();
+
