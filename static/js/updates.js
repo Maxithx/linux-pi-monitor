@@ -20,8 +20,11 @@ const logsPanel = document.getElementById('logs-panel');
 const logsToggle = document.getElementById('logs-toggle');
 const logsList = document.getElementById('logs-list');
 const logsCount = document.getElementById('logs-count');
+const logsToggleBtn = document.getElementById('btn-toggle-logs');
 // Output collapse
 const btnToggleOutput = document.getElementById('btn-toggle-output');
+const outCard = document.getElementById('out-card');
+const outHdr = document.getElementById('out-hdr');
 
 const searchBox = document.getElementById('search-indicator');
 const searchText = document.getElementById('search-text');
@@ -88,6 +91,7 @@ function append(text) {
     if (!out) return;
     out.textContent = text;
     out.scrollTop = out.scrollHeight;
+    try { localStorage.setItem('upd.output.text', String(text || '')); } catch (e) {}
     const low = (text || '').toLowerCase();
     const warn = document.getElementById('apt-warning-note');
     const phase = document.getElementById('phasing-note');
@@ -390,6 +394,7 @@ function startSSEScan() {
                         if (b) { b.disabled = true; b.textContent = 'Installed'; b.classList.add('is-disabled'); }
                     }
                 } catch (e) { }
+            }
             searchText.textContent = `Scanning… (${discoveredCount})`;
         } catch (e) { }
     });
@@ -476,25 +481,31 @@ btnToggleAdvanced?.addEventListener('click', () => {
     btnToggleAdvanced.textContent = open ? 'Show advanced options' : 'Hide advanced options';
 });
 
-// Output collapse toggle and restore
-btnToggleOutput?.addEventListener('click', () => {
+function toggleOutputCollapse() {
     const key = 'upd.output.collapsed';
     const isCollapsed = out.style.display === 'none';
     if (isCollapsed) {
         out.style.display = '';
-        btnToggleOutput.textContent = 'Collapse';
+        if (outCard) outCard.classList.add('is-open');
         localStorage.setItem(key, 'false');
     } else {
         out.style.display = 'none';
-        btnToggleOutput.textContent = 'Expand';
+        if (outCard) outCard.classList.remove('is-open');
         localStorage.setItem(key, 'true');
     }
-});
+}
+
+// Output collapse toggle and restore (icon chevron + header click)
+btnToggleOutput?.addEventListener('click', (e) => { e.stopPropagation(); toggleOutputCollapse(); });
+outHdr?.addEventListener('click', () => toggleOutputCollapse());
 (function restoreOutputCollapse(){
     const key = 'upd.output.collapsed';
-    if (localStorage.getItem(key) === 'true') {
+    const collapsed = localStorage.getItem(key) === 'true';
+    if (collapsed) {
         out.style.display = 'none';
-        if (btnToggleOutput) btnToggleOutput.textContent = 'Expand';
+        if (outCard) outCard.classList.remove('is-open');
+    } else {
+        if (outCard) outCard.classList.add('is-open');
     }
 })();
 
@@ -503,6 +514,7 @@ logsToggle?.addEventListener('click', () => {
     const open = logsPanel.classList.contains('is-open');
     logsPanel.classList.toggle('is-open', !open);
     localStorage.setItem('upd.logs.expanded', String(!open));
+    if (logsToggleBtn) logsToggleBtn.classList.toggle('is-open', !open);
 });
 
 function fmtBytes(n) {
@@ -571,6 +583,7 @@ function showLogViewer(id, txt) {
 (function restoreLogsOpen(){
     const open = localStorage.getItem('upd.logs.expanded') !== 'false';
     if (open && logsPanel) logsPanel.classList.add('is-open');
+    if (logsToggleBtn) logsToggleBtn.classList.toggle('is-open', open);
     refreshLogsList();
 })();
 
@@ -629,6 +642,7 @@ async function pollLogOnce(run_id) {
             out.textContent = txt;
             out.scrollTop = out.scrollHeight;
             lastLogTextLen = txt.length;
+            try { localStorage.setItem('upd.output.text', String(txt || '')); } catch (e) {}
         }
     } catch (e) { /* ignore */ }
 }
@@ -674,6 +688,17 @@ async function showConnectionInfo() {
 }
 
 // ---- Initial load ----
+// Restore last output text (persisted between refreshes)
+(function restoreOutputText(){
+    try {
+        const t = localStorage.getItem('upd.output.text');
+        if (out && t) {
+            out.textContent = t;
+            out.scrollTop = out.scrollHeight;
+            lastLogTextLen = t.length;
+        }
+    } catch (e) {}
+})();
 showConnectionInfo();
 checkReboot();
 startSSEScan();
@@ -745,6 +770,7 @@ async function installPackage(name, btnEl) {
     setBusy(false);
   }
 }
+ 
 
 bodyEl.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-install]');
@@ -764,12 +790,6 @@ bodyEl.addEventListener('click', (e) => {
     }
   });
 });
-
-
-
-
-
-
 
 
 

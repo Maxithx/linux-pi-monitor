@@ -1,11 +1,7 @@
 /* === GENERAL PAGE STYLES === */
 /* Uses similar styles to dashboard.css */
 
-body {
-    background-color: #111;
-    color: #fff;
-    font-family: 'Segoe UI', sans-serif;
-}
+body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; }
 
 /* === MAIN CONTAINER === */
 .container {
@@ -24,8 +20,8 @@ body {
 
 /* === DASHBOARD BUTTON AS LINK === */
 .button-link {
-    background-color: #2196F3;
-    color: white;
+    background-color: var(--accent, #2563eb);
+    color: #fff;
     padding: 10px 18px;
     border-radius: 6px;
     font-size: 16px;
@@ -36,17 +32,10 @@ body {
     transition: background-color 0.3s ease;
 }
 
-.button-link:hover {
-    background-color: #0d8ae3;
-}
+.button-link:hover { filter: brightness(1.05); }
 
 /* === LOG LIST CONTAINER === */
-.logs-container {
-    background-color: #1e1e1e;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px #000;
-}
+.logs-container { background-color: var(--surface); padding: 20px; border-radius: 10px; border:1px solid var(--card-border); box-shadow:none; }
 
 /* === INDIVIDUAL LOG ENTRIES === */
 #logs-list {
@@ -55,13 +44,7 @@ body {
     margin: 0;
 }
 
-#logs-list li {
-    background-color: #333;
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 5px;
-    color: #ccc;
-}
+#logs-list li { background-color: var(--surface-muted, #f8fafc); margin: 10px 0; padding: 10px; border-radius: 8px; color: var(--text); border:1px solid var(--card-border); }
 
 /* === RESPONSIVE STYLES === */
 @media (max-width: 768px) {

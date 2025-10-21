@@ -1,11 +1,6 @@
 /* === GENERAL === */
 /* Basic layout and colors */
-body {
-  background-color: #111;
-  color: #fff;
-  font-family: 'Segoe UI', sans-serif;
-  padding: 0;
-}
+body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 0; }
 
 /* === CONTAINER === */
 .container {
@@ -26,15 +21,15 @@ select {
   padding: 8px;
   margin: 10px 0;
   border-radius: 6px;
-  background-color: #222;
-  border: 1px solid #444;
-  color: #fff;
+  background-color: var(--surface, #fff);
+  border: 1px solid var(--card-border, rgba(17,24,39,.12));
+  color: var(--text);
 }
 
 /* === BUTTONS (base) === */
 button {
-  background-color: #2196F3;
-  color: white;
+  background-color: var(--accent, #2563eb);
+  color: #fff;
   padding: 12px 20px;
   border: none;
   border-radius: 6px;
@@ -42,9 +37,7 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  background-color: #0d8ae3;
-}
+button:hover { filter: brightness(1.05); }
 
 /* === LINKS === */
 a {
@@ -125,67 +118,53 @@ a {
 /* === TERMINAL SOFTWARE INSTALLATION GRID === */
 .software-grid-box {
   margin-top: 15px;
-  border: 0px solid #333;
-  border-radius: 6px;
-  background-color: #1A1A1A; /* neutral, no purple tint */
-  padding: 10, 0px;
-  /* NOTE: existing value kept */
+  border: 1px solid var(--card-border, rgba(17,24,39,.12));
+  border-radius: 10px;
+  background-color: var(--surface, #fff);
+  padding: 0;
   overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(16,24,40,.06);
 }
 
 /* === Software table design === */
 .software-table {
   width: 100%;
-  border-collapse: collapse;
-  color: #fff;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text, #111827);
   font-size: 15px;
 }
 
 /* Gør kun overskriftsrækken med colspan=4 gennemsigtig */
 .software-table thead tr:first-child th {
-  background-color: #1A1A1A; /* header bar */
-  color: #fff;
-  font-weight: bold;
+  background-color: var(--surface, #fff);
+  color: var(--text);
+  font-weight: 700;
   font-size: 16px;
   text-align: left;
+  padding: 14px 16px;
 }
 
 .software-table th,
 .software-table td {
-  padding: 12px;
+  padding: 12px 14px;
   text-align: left;
-  border: 1px solid #333;
+  border-bottom: 1px solid var(--card-border, rgba(17,24,39,.12));
 }
 
-.software-table th {
-  background-color: #2a2a2a;
-  font-weight: 600;
-}
+.software-table th { background-color: var(--surface-2, #eef2f7); font-weight: 600; }
 
-.software-table td:nth-child(1) {
-  width: 40px;
-  text-align: center;
-  background-color: #202020;
-  font-weight: bold;
-  color: #ccc;
-}
+.software-table td:nth-child(1) { width: 40px; text-align: center; color: var(--muted, #475569); }
 
 .software-table td:nth-child(2) {
   font-weight: 500;
 }
 
-.software-table td:nth-child(3) {
-  color: lightgreen;
-  font-weight: 600;
-}
+.software-table td:nth-child(3) { color: #166534; font-weight: 600; }
 
-.software-table td.installed {
-  color: lightgreen;
-}
+.software-table td.installed { color: #166534; }
 
-.software-table td.not-installed {
-  color: #ccc;
-}
+.software-table td.not-installed { color: var(--muted, #475569); }
 
 /* === Checkmark icon styling === */
 .checkmark {
@@ -206,7 +185,16 @@ pre.logbox {
   white-space: pre-wrap;
   word-break: break-word;
   border-radius: 6px;
+  background: var(--surface-muted, #f8fafc);
+  border: 1px solid var(--card-border, rgba(17,24,39,.12));
+  color: var(--text);
 }
+
+/* Force light design for inline-styled pre elements on Drivers/Settings */
+#wifi-out { background: var(--surface-muted, #f8fafc) !important; border-color: var(--card-border, rgba(17,24,39,.12)) !important; color: var(--text) !important; }
+
+/* Zebra rows */
+.software-table tbody tr:nth-child(even) { background: var(--surface-muted, #f8fafc); }
 
 /* Profiles bar */
 .profiles-bar {

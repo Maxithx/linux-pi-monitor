@@ -8,11 +8,7 @@
 }
 
 /* Neutral card styling for DNS section */
-.card {
-    background: var(--surface, #111827);
-    border: 1px solid var(--card-border, rgba(255,255,255,.06));
-    border-radius: 10px;
-}
+.card { background: var(--surface, #fff); border: 1px solid var(--card-border, rgba(17,24,39,.12)); border-radius: 10px; }
 
 /* --- Toolbar (Refresh / Scan / Filter) --- */
 .toolbar {
@@ -42,13 +38,7 @@
 }
 
 /* --- Generic grid table --- */
-.net-grid {
-    display: grid;
-    grid-auto-rows: minmax(40px, auto);
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
-    background: #121212
-}
+.net-grid { display: grid; grid-auto-rows: minmax(40px, auto); border: 1px solid var(--card-border); border-radius: 8px; background: var(--surface); }
 
 .net-grid .hdr,
 .net-grid .row {
@@ -57,21 +47,11 @@
     border-bottom: 1px solid #1a1a1a
 }
 
-.net-grid .row:nth-child(even) {
-    background: #141414
-}
+.net-grid .row:nth-child(even) { background: var(--surface-muted, #f8fafc) }
 
-.net-grid .row:hover {
-    background: #181818
-}
+.net-grid .row:hover { background: rgba(16,24,40,.04) }
 
-.net-grid .hdr {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #151515;
-    font-weight: 600
-}
+.net-grid .hdr { position: sticky; top: 0; z-index: 1; background: var(--surface-2, #eef2f7); font-weight: 600 }
 
 /* --- Interfaces columns --- */
 .iface-grid .hdr,
@@ -81,9 +61,7 @@
     padding: 8px 12px
 }
 
-.iface-grid code {
-    color: #9fd
-}
+.iface-grid code { color: #2d7be1 }
 
 /* --- Wi-Fi columns --- */
 .wifi-grid .hdr,
@@ -101,17 +79,9 @@
     font-size: 12px
 }
 
-.chip.sec {
-    background: #222;
-    color: #d5d5d5;
-    border: 1px solid #333
-}
+.chip.sec { background: var(--surface-muted); color: var(--text); border: 1px solid var(--card-border) }
 
-.chip.used {
-    background: #19361f;
-    color: #9cffb5;
-    border: 1px solid #214b2b
-}
+.chip.used { background: #e7f0fe; color: #2d7be1; border: 1px solid #c5dafb }
 
 /* --- Signal bar --- */
 .sigwrap {
@@ -120,19 +90,9 @@
     gap: 8px
 }
 
-.sigbar {
-    width: 100px;
-    height: 8px;
-    background: #222;
-    border-radius: 4px;
-    overflow: hidden
-}
+.sigbar { width: 100px; height: 8px; background: var(--surface-2, #eef2f7); border-radius: 4px; overflow: hidden }
 
-.sigbar .fill {
-    height: 100%;
-    background: #47c55a;
-    width: 0%
-}
+.sigbar .fill { height: 100%; background: #2d7be1; width: 0% }
 
 /* --- Small helper text cell --- */
 .cell-muted {

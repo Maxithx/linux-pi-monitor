@@ -1,0 +1,38 @@
+/* Global Light Theme Variables and foundational UI tokens */
+
+:root {
+  /* Surfaces */
+  --bg: #f5f7fb;              /* page background */
+  --surface: #ffffff;          /* cards, panels */
+  --surface-muted: #f8fafc;    /* subtle containers, indicators */
+  --surface-2: #eef2f7;        /* table headers / secondary */
+
+  /* Text */
+  --text: #111827;             /* primary text */
+  --muted: #475569;            /* secondary text */
+
+  /* Borders & outlines */
+  --card-border: rgba(17,24,39,.12);
+
+  /* Accent */
+  --accent: #2563eb;
+  --accent-weak: #c7d2fe;
+
+  /* Icons (chevron etc) */
+  --chev: #374151;
+}
+
+/* Normalize common containers to use theme variables */
+body { background: var(--bg); color: var(--text); }
+
+/* Force cards to the themed surface even if inline styles exist */
+.card { background: var(--surface) !important; color: var(--text); border: 1px solid var(--card-border); }
+
+/* Table headers and subtle sections */
+thead th { background: var(--surface-2); color: var(--text); }
+
+/* Buttons inherit existing styles from page css; ensure text legible on light */
+.btn, button { color: inherit; }
+
+/* Targeted overrides for lingering dark inline blocks */
+#wifi-out { background: var(--surface-muted) !important; border: 1px solid var(--card-border) !important; color: var(--text) !important; }

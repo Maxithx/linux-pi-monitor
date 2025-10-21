@@ -3,13 +3,13 @@
 
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/updates.css') }}">
-<div class="container" style="padding: 22px 24px; color: #eaeaea;">
-    <h1 style="margin:0 0 14px;">Software Updates</h1>
+<div class="container" style="padding: 22px 24px;">
+    <h1 style="margin:0 0 14px; text-align:left;">Software Updates</h1>
 
     <!-- Status + Connection (no shortcuts) -->
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:16px;">
         <!-- Status -->
-        <div class="card" style="background:#1A1A1A; border-radius:10px; padding:16px;">
+        <div class="card" style="border-radius:10px; padding:16px;">
             <div style="display:flex; align-items:center; justify-content:space-between;">
                 <div style="font-weight:600;">Status</div>
                 <div style="display:flex; gap:8px; align-items:center;">
@@ -29,7 +29,7 @@
         </div>
 
         <!-- Connection (user@host + OS) -->
-        <div class="card" style="background:#1A1A1A; border-radius:10px; padding:16px;">
+        <div class="card" style="border-radius:10px; padding:16px;">
             <div style="font-weight:600; margin-bottom:10px;">Connection</div>
             <div id="conn-line" style="display:flex; flex-direction:column; gap:6px; font-size:.95rem;">
                 <div id="conn-userhost" style="opacity:.95;">Connected</div>
@@ -42,7 +42,7 @@
     </div>
 
     <!-- Primary action -->
-    <div class="card" style="background:#1A1A1A; border-radius:10px; padding:14px; margin-bottom:14px;">
+    <div class="card" style="border-radius:10px; padding:14px; margin-bottom:14px;">
         <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;">
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button id="btn-full" class="btn success" data-action="full_noob_update" disabled
@@ -56,6 +56,23 @@
                 <button id="btn-install-all" class="btn" disabled>Install all updates</button>
                 <button id="btn-toggle-advanced" class="btn ghost">Show advanced options</button>
             </div>
+        </div>
+        
+        <!-- Help: moved under the primary buttons -->
+        <div style="margin-top:10px;">
+            <details>
+                <summary style="list-style:none; padding:8px 0; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <span style="font-weight:600;">What do these buttons do?</span>
+                    <span class="icon-chev" aria-hidden="true"></span>
+                </summary>
+                <div style="padding-top:8px; border-top:1px solid #22263a; line-height:1.5; opacity:.95;">
+                    <ul style="margin-left: 18px;">
+                        <li><strong>Full Update:</strong> apt full-upgrade + cleanup, then Flatpak/Snap updates.</li>
+                        <li><strong>Security updates:</strong> installs only packages flagged as security.</li>
+                        <li><strong>Install all:</strong> applies all available updates.</li>
+                    </ul>
+                </div>
+            </details>
         </div>
 
         <!-- Advanced options -->
@@ -85,33 +102,8 @@
         </div>
     </div>
 
-    <!-- Output: moved UP under primary actions -->
-    <div class="card" style="background:#1A1A1A; border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
-        <div class="out-hdr" style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600; display:flex; align-items:center; justify-content:space-between;">
-            <span>Output</span>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <button id="btn-toggle-output" class="btn small ghost">Collapse</button>
-            </div>
-        </div>
-        <pre id="out"
-            style="margin:0; padding:14px; max-height:420px; overflow:auto; background:#0b0d17; color:#e0e0e0; font-family:'Cascadia Mono', 'Fira Code', Consolas, monospace; font-size:13px; white-space:pre-wrap;"></pre>
-    </div>
-
-    <!-- Logs (collapsible) -->
-    <div id="logs-panel" class="card collapsible" style="background:#0b0f1f; border-radius:10px; margin-bottom:14px;">
-        <div class="hdr" id="logs-toggle">
-            <div style="font-weight:600;">Logs</div>
-            <div style="opacity:.85; font-size:.92rem;">
-                <span id="logs-count">0</span> saved
-            </div>
-        </div>
-        <div class="body">
-            <div id="logs-list"></div>
-        </div>
-    </div>
-
     <!-- Available updates -->
-    <div class="card" style="background:#1A1A1A; border-radius:10px; padding:14px; margin-bottom:14px;">
+    <div class="card" style="border-radius:10px; padding:14px; margin-bottom:14px;">
         <div style="display:flex; align-items:center; justify-content:space-between;">
             <div style="font-weight:600; display:flex; align-items:center; gap:10px;">
                 <span>Available updates</span>
@@ -142,10 +134,23 @@
             <div id="updates-empty" style="display:none; opacity:.8; padding:12px;">No updates available.</div>
         </div>
     </div>
+    
+    <!-- Output (below Available updates) -->
+    <div id="out-card" class="card expander" style="border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
+        <div class="out-hdr" id="out-hdr" style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+            <span>Output</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="btn-toggle-output" class="btn small ghost icon-only" aria-label="Collapse or expand output">
+                    <span class="icon-chev" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <pre id="out" style="margin:0; padding:14px; max-height:420px; overflow:auto; color:#e0e0e0; font-family:'Cascadia Mono', 'Fira Code', Consolas, monospace; font-size:13px; white-space:pre-wrap;"></pre>
+    </div>
 
     <!-- Notes -->
     <div id="apt-warning-note" class="card"
-        style="display:none; background:#1A1A1A; border-radius:10px; padding:12px; margin-bottom:14px;">
+        style="display:none; border-radius:10px; padding:12px; margin-bottom:14px;">
         <div style="font-weight:600; margin-bottom:6px;">About the APT warning</div>
         <div style="opacity:.9; font-size:.95rem; line-height:1.45;">
             You may see: <code>apt does not have a stable CLI interface. Use with caution in scripts.</code><br>
@@ -163,24 +168,25 @@
         </div>
     </div>
 
-    <!-- Help -->
-    <div class="card" style="background:#1A1A1A; border-radius:10px; padding:0; overflow:hidden;">
-        <details>
-            <summary style="list-style:none; padding:14px; cursor:pointer; user-select:none;">
-                <span style="font-weight:600;">What do these buttons do?</span>
-            </summary>
-            <div style="padding:14px; border-top:1px solid #22263a; line-height:1.5; opacity:.95;">
-                <ul style="margin-left: 18px;">
-                    <li><strong>Full Update:</strong> apt full-upgrade + cleanup, then Flatpak/Snap updates.</li>
-                    <li><strong>Security updates:</strong> installs only packages flagged as security.</li>
-                    <li><strong>Install all:</strong> applies all available updates.</li>
-                </ul>
+    
+
+    <!-- Logs (collapsible, bottom of page) -->
+    <div id="logs-panel" class="card collapsible" style="border-radius:10px; margin-bottom:14px;">
+        <div class="hdr" id="logs-toggle">
+            <div style="font-weight:600;">Logs</div>
+            <div style="display:flex; gap:8px; align-items:center; opacity:.85; font-size:.92rem;">
+                <span><span id="logs-count">0</span> saved</span>
+                <button id="btn-toggle-logs" class="btn small ghost icon-only" type="button" aria-label="Collapse or expand logs">
+                    <span class="icon-chev" aria-hidden="true"></span>
+                </button>
             </div>
-        </details>
+        </div>
+        <div class="body">
+            <div id="logs-list"></div>
+        </div>
     </div>
+
 </div>
 
 <script defer src="{{ url_for('static', filename='js/updates.js') }}"></script>
 {% endblock %}
-
-

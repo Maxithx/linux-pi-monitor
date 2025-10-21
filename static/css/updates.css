@@ -61,9 +61,10 @@ button.is-disabled[disabled],
 }
 
 .badge.green {
-    background: rgba(57, 217, 138, .12);
-    border-color: rgba(57, 217, 138, .35);
-    color: #d6ffea;
+    /* Use blue for Connected to improve readability on light theme */
+    background: #e7f0fe;
+    border-color: #c5dafb;
+    color: #2d7be1;
 }
 
 .badge.warn {
@@ -80,8 +81,8 @@ button.is-disabled[disabled],
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    background: #1A1A1A;
-    border: 1px solid var(--card-border, rgba(255,255,255,.06));
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--card-border, rgba(17,24,39,.12));
     border-radius: 10px;
     padding: 6px 10px;
     user-select: none;
@@ -108,8 +109,8 @@ button.is-disabled[disabled],
     width: 140px;
     height: 6px;
     border-radius: 999px;
-    background: #1A1A1A;
-    border: 1px solid var(--card-border, rgba(255,255,255,.06));
+    background: var(--surface-muted, #f8fafc);
+    border: 1px solid var(--card-border, rgba(17,24,39,.12));
     overflow: hidden;
 }
 
@@ -161,23 +162,19 @@ button.is-disabled[disabled],
     display: inline-block;
     padding: 3px 10px;
     border-radius: 999px;
-    border: 1px solid var(--card-border, rgba(255,255,255,.06));
-    background: #1A1A1A;
+    border: 1px solid var(--card-border, rgba(17,24,39,.12));
+    background: var(--surface-muted, #f8fafc);
     font-size: .82rem;
-    color: #d6e2ff;
+    color: var(--muted, #475569);
 }
 
-.pill.sec {
-    border-color: #5b3d28;
-    background: #332018;
-    color: #ffe3d0;
-}
+.pill.sec { border-color: #f59e0b; background: #fff7ed; color: #92400e; }
 
 /* Output pane */
 #out {
     max-height: 420px;
     overflow: auto;
-    background: #0b0d17;
+    background: #0f172a;
     color: #e0e0e0;
     font-family: 'Cascadia Mono', 'Fira Code', Consolas, monospace;
     font-size: 13px;
@@ -190,20 +187,44 @@ button.is-disabled[disabled],
 }
 
 /* Collapsible logs panel */
-.collapsible { border-radius: 10px; background:#0b0f1f; }
+.collapsible { border-radius: 10px; background:#0f172a; }
 .collapsible .hdr { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; cursor:pointer; }
 .collapsible .body { padding:10px 14px; display:none; }
 .collapsible.is-open .body { display:block; }
 
 .log-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #22263a; }
 .log-item .spacer { flex:1; }
-.log-viewer { margin:8px 0 12px; border:1px solid #22263a; border-radius:8px; overflow:hidden; background:#0b0f1f; }
+.log-viewer { margin:8px 0 12px; border:1px solid #22263a; border-radius:8px; overflow:hidden; background:#0f172a; }
 .log-viewer .hdr { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #22263a; }
 .log-viewer .body { max-height:240px; overflow:auto; padding:10px; white-space:pre; font-family:'Cascadia Mono','Fira Code',Consolas,monospace; font-size:12px; color:#d8dee9; }
 
 /* Per-package progress in table */
 .progress { position:relative; height:10px; background:#22273a; border-radius:6px; overflow:hidden; }
-.progress .bar { height:100%; width:0; transition:width .4s ease; background:#3aa675; }
+.progress .bar { height:100%; width:0; transition:width .4s ease; background:#2d7be1; }
 .progress .label { margin-left:8px; font-size:12px; color:#b8c1d9; }
-.progress.is-done .bar { background:#2ecc71; }
+.progress.is-done .bar { background:#1e5fb9; }
 .progress.is-error .bar { background:#e74c3c; }
+
+/* Small chevron icon button and summary chevron */
+.icon-only { width:30px; height:30px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
+.icon-chev { display:inline-block; width: 0; height: 0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid var(--chev, #374151); transition: transform .2s ease; }
+
+/* Rotate when open/expanded */
+.is-open .icon-chev { transform: rotate(180deg); }
+details[open] .icon-chev { transform: rotate(180deg); }
+
+/* Expander card header hover to mirror desired design */
+.expander .out-hdr:hover, .collapsible .hdr:hover { background: rgba(255,255,255,.03); }
+
+/* Ensure chevron buttons have no background/border */
+.card .btn.icon-only,
+.btn.icon-only,
+button.icon-only {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit;
+}
+.card .btn.icon-only:hover,
+.btn.icon-only:hover,
+button.icon-only:hover { filter: none; background: transparent !important; }

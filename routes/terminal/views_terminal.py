@@ -66,6 +66,42 @@ def handle_connect():
     except Exception as e:
         emit("output", f"Connection error: {e}")
 
+# === SOCKETIO: Init PTY size from client (first event after connect) ===
+@socketio.on("start")
+def handle_start(data):
+    """Set initial PTY size so remote shell wraps like the browser.
+
+    Expects { cols: int, rows: int } from the client.
+    """
+    global shell_channel
+    try:
+        cols = int((data or {}).get("cols", 80))
+        rows = int((data or {}).get("rows", 24))
+    except Exception:
+        cols, rows = 80, 24
+    with shell_lock:
+        if shell_channel:
+            try:
+                shell_channel.resize_pty(width=cols, height=rows)
+            except Exception as e:
+                emit("output", f"[resize error] {e}")
+
+# === SOCKETIO: Resize PTY on window changes ===
+@socketio.on("resize")
+def handle_resize(data):
+    global shell_channel
+    try:
+        cols = int((data or {}).get("cols", 80))
+        rows = int((data or {}).get("rows", 24))
+    except Exception:
+        return
+    with shell_lock:
+        if shell_channel:
+            try:
+                shell_channel.resize_pty(width=cols, height=rows)
+            except Exception as e:
+                emit("output", f"[resize error] {e}")
+
 # === BACKGROUND LOOP: Read output from SSH and emit to browser ===
 def read_output_loop():
     global shell_channel

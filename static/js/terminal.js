@@ -27,10 +27,12 @@
     // ---- DOM ----------------------------------------------------------------
     const $termHost = document.getElementById("terminal");
     const $stopBtn = document.getElementById("stop-process-btn");
+    const $pasteBtn = document.getElementById("paste-btn");
     const $list = document.getElementById("command-list");
     const $search = document.getElementById("search-box");
     const $form = document.getElementById("add-command-form");
     const $count = document.getElementById("cmd-count");
+    const $status = document.getElementById("term-status");
 
     if (!$termHost) { console.error("terminal.js: #terminal not found."); return; }
 
@@ -44,8 +46,9 @@
         fontSize: 14,
         bellStyle: "none",
         scrollback: 2000,
+        convertEol: true,
         theme: {
-            background: "#0b0f1f", // neutral dark to match site
+            background: "#1A1A1A", // match sidebar
             foreground: "#e5e7eb",
             cursor: "#00BCD4",
             black: "#000000",
@@ -55,15 +58,42 @@
     term.loadAddon(fitAddon);
     term.loadAddon(canvasAddon);
     term.open($termHost);
+    function enableWrap() {
+        try { term.write('\x1b[?7h'); } catch {}
+    }
+    // Ensure wraparound mode (DECSET 7) so long lines wrap to the next row
+    enableWrap();
     term.focus();
     safeFit();
+
+    // ---- Persist size + debounce --------------------------------------------
+    const LS_SIZE_KEY = "term.size.v1";
+    function loadSavedSize(){
+        try { const j = JSON.parse(localStorage.getItem(LS_SIZE_KEY)||"null"); if(j && j.cols && j.rows) return j; } catch{} return null;
+    }
+    function saveSize(cols, rows){
+        try { localStorage.setItem(LS_SIZE_KEY, JSON.stringify({cols, rows})); } catch{}
+    }
+    let resizeTimer = null;
+    function emitResizeDebounced(){
+        if(resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            const payload = { cols: term.cols, rows: term.rows };
+            saveSize(payload.cols, payload.rows);
+            emitAll(socket, EV.resize, payload);
+        }, 140);
+    }
+    term.onResize(({cols, rows}) => saveSize(cols, rows));
 
     // ---- Socket.IO ----------------------------------------------------------
     const socket = window.io();
 
     socket.on("connect", () => {
-        emitAll(socket, EV.start, { cols: term.cols, rows: term.rows });
-        emitAll(socket, EV.resize, { cols: term.cols, rows: term.rows });
+        const saved = loadSavedSize();
+        const payload = saved && saved.cols && saved.rows ? saved : { cols: term.cols, rows: term.rows };
+        emitAll(socket, EV.start, payload);
+        emitAll(socket, EV.resize, payload);
+        enableWrap();
     });
 
     socket.on("connect_error", (err) => {
@@ -72,11 +102,19 @@
     });
 
     onAll(socket, EV.output, (chunk) => {
-        if (typeof chunk === "string" && chunk.length) term.write(chunk);
+        enableWrap();
+        if (typeof chunk === "string" && chunk.length) {
+            if (chunk.startsWith("[resize error]")) {
+                if ($status) { $status.textContent = chunk; $status.style.display = 'block'; setTimeout(() => { $status.style.display = 'none'; }, 2500); }
+                console.warn(chunk);
+                return;
+            }
+            term.write(chunk);
+        }
         else if (chunk && chunk.data && typeof chunk.data === "string") term.write(chunk.data);
     });
 
-    onAll(socket, EV.welcome, (msg) => { if (msg) term.writeln(msg); });
+    onAll(socket, EV.welcome, (msg) => { enableWrap(); if (msg) term.writeln(msg); });
 
     socket.on("disconnect", () => {
         term.writeln("\r\n\x1b[33m[Socket.IO] Disconnected.\x1b[0m");
@@ -89,12 +127,22 @@
     function safeFit() {
         try {
             fitAddon.fit();
-            if (socket && socket.connected) emitAll(socket, EV.resize, { cols: term.cols, rows: term.rows });
+            if (socket && socket.connected) emitResizeDebounced();
+            else saveSize(term.cols, term.rows);
         } catch { }
     }
     new ResizeObserver(() => safeFit()).observe($termHost);
     window.addEventListener("resize", safeFit);
     window.addEventListener("orientationchange", safeFit);
+
+    // Mobile focus + paste button
+    $termHost.addEventListener('click', () => { term.focus(); term.scrollToBottom(); });
+    $termHost.addEventListener('touchstart', () => { term.focus(); term.scrollToBottom(); });
+    async function doPaste(){
+        try { const txt = await navigator.clipboard.readText(); if (txt) term.paste(txt); }
+        catch(e){ console.warn('Paste failed', e); if ($status){ $status.textContent='Clipboard permission denied'; $status.style.display='block'; setTimeout(()=>{ $status.style.display='none'; }, 2000);} }
+    }
+    if ($pasteBtn) $pasteBtn.addEventListener('click', doPaste);
 
     // ---- Commands store -----------------------------------------------------
     function getSavedCmds() {

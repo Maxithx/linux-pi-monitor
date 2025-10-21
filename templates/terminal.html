@@ -5,13 +5,15 @@
 
 <!-- Terminal block -->
 <section class="card term-card">
-  <div id="terminal"></div>
+  <div id="terminal" tabindex="0"></div>
   <div class="term-toolbar">
     <button id="stop-process-btn">🛑 Stop active process (Ctrl + C)</button>
+    <button id="paste-btn" class="btn small ghost" type="button" title="Paste from clipboard">Paste</button>
     <span class="terminal-hint">
       Use <strong>Ctrl + C</strong> to stop. Use <strong>Ctrl + Shift + V</strong> to paste.
     </span>
   </div>
+  <div id="term-status" class="muted" style="margin-top:6px; display:none;"></div>
 </section>
 
 <!-- KeePass setup moved to dedicated page under Sidebar: KeePass Vault -->

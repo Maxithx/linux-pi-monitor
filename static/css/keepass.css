@@ -1,0 +1,90 @@
+/* KeePass Vault page specific styles */
+
+/* Log output areas */
+#kp-setup .log {
+  max-height: 220px;
+  overflow: auto;
+  background: #1A1A1A; /* match sidebar */
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
+  padding: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: #eaeaea;
+}
+
+/* Header layout */
+#kp-setup .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 10px 4px;
+}
+
+/* Inputs */
+#kp-setup .input {
+  background: #1A1A1A; /* match sidebar */
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
+  color: #eaeaea;
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 100%;
+}
+#kp-setup .input::placeholder { color: rgba(234,234,234,.7); }
+
+/* Dark select styling so selected value is readable */
+#kp-setup select.input {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  background: #1A1A1A;
+  color: #eaeaea !important;
+}
+#kp-setup select.input option { background: #1A1A1A; color: #eaeaea; }
+#kp-setup select.input:focus { outline: none; border-color: #384062; box-shadow: 0 0 0 2px rgba(45,123,225,.25); }
+
+/* Buttons */
+#kp-setup .btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: #2b3245;
+  color: #e6e6e6;
+  height: auto;
+  line-height: 1.2;
+  font-weight: 600;
+}
+#kp-setup .btn:hover { filter: brightness(1.06); }
+#kp-setup .btn-primary { background: #2a63e8; color: #fff; }
+#kp-setup .btn-secondary { background: #384062; color: #fff; }
+#kp-setup .btn-danger { background: #b32020; color: #fff; }
+#kp-setup .btn-link { background: transparent; color: #2a63e8; border-color: transparent; padding: 0; }
+#kp-setup .btn-outline-danger { background: transparent; color: #ff6b6b; border-color: #b32020; }
+
+/* Badges */
+#kp-setup .badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid #2a2d46;
+}
+#kp-setup .badge-success { background: #2a9d43; color: #fff; }
+#kp-setup .badge-secondary { background: #384062; color: #e6e6e6; }
+#kp-setup .badge-danger { background: #b32020; color: #fff; }
+
+/* Accordion visuals */
+#kp-setup .accordion-item { border: 1px solid var(--card-border, rgba(255,255,255,.06)); border-radius: 8px; margin-bottom: 8px; background: var(--surface, #ffffff); }
+#kp-setup .accordion-header { margin: 0; }
+#kp-setup .accordion-button { width: 100%; text-align: left; background: var(--surface, #ffffff); color: var(--text, #111827); border: 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; }
+
+/* Windows mapping helper: share path + command blocks */
+#kp-setup #kp-share-path,
+#kp-setup #kp-win-ps {
+  background: #1A1A1A; /* match sidebar */
+  color: #eaeaea;
+  border: 1px solid var(--card-border, rgba(255,255,255,.06));
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}

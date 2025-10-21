@@ -8,44 +8,44 @@
 <p style="margin-bottom:10px">Below is the <strong>Glances</strong> real-time system monitor (CPU, RAM, network, disks, etc.).</p>
 
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-  <span id="status-chip" style="padding:4px 10px;border-radius:12px;background:#333;color:#ddd;border:1px solid #444;">
+  <span id="status-chip" style="padding:4px 10px;border-radius:12px;background:var(--surface-muted,#f8fafc);color:var(--text);border:1px solid var(--card-border);">
     Status: <strong id="status-text">…</strong>
   </span>
 
   <span style="opacity:.85;margin-left:10px;">Source:</span>
-  <button id="btn-proxy" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Proxy (/glances-proxy)</button>
-  <button id="btn-direct" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Direct (61208)</button>
+  <button id="btn-proxy" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Proxy (/glances-proxy)</button>
+  <button id="btn-direct" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Direct (61208)</button>
 
-  <button id="btn-reload" type="button" style="margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Reload</button>
-  <button id="btn-open-port" type="button" title="Open TCP 61208 on the remote Pi via UFW/firewalld" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Open 61208</button>
+  <button id="btn-reload" type="button" style="margin-left:auto;padding:6px 10px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Reload</button>
+  <button id="btn-open-port" type="button" title="Open TCP 61208 on the remote Pi via UFW/firewalld" style="padding:6px 10px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Open 61208</button>
 </div>
 
 <div id="glances-wrap" style="position:relative;">
-  <iframe id="glances-frame" data-glances-url="{{ glances_url or '' }}" title="Glances System Monitor" width="100%" height="640" style="border:2px solid #333;border-radius:8px;background:#111"></iframe>
+  <iframe id="glances-frame" data-glances-url="{{ glances_url or '' }}" title="Glances System Monitor" width="100%" height="640" style="border:1px solid var(--card-border);border-radius:8px;background:var(--surface);"></iframe>
 
   <!-- Error overlay -->
-  <div id="glances-overlay" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#111;">
-    <div style="max-width:620px;margin:0 16px;padding:18px;border:1px solid #444;border-radius:8px;background:#181818;color:#ddd;">
+  <div id="glances-overlay" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(255,255,255,.8);">
+    <div style="max-width:620px;margin:0 16px;padding:18px;border:1px solid var(--card-border);border-radius:8px;background:var(--surface);color:var(--text);">
       <h3 style="margin:0 0 8px;">Could not load Glances</h3>
       <p id="overlay-msg" style="margin:0 0 12px;">Try switching source or reloading.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="ovl-proxy" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Use Proxy</button>
-        <button id="ovl-direct" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Use Direct</button>
-        <button id="ovl-reload" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Reload</button>
+        <button id="ovl-proxy" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Use Proxy</button>
+        <button id="ovl-direct" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Use Direct</button>
+        <button id="ovl-reload" type="button" style="padding:8px 12px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Reload</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Glances help / key bindings -->
-<div style="margin-top:16px; border:1px solid #2d2d2d; border-radius:8px; background:#141414; color:#ddd;">
+<div style="margin-top:16px; border:1px solid var(--card-border); border-radius:8px; background:var(--surface); color:var(--text);">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;">
     <strong>How to navigate Glances</strong>
-    <button id="help-toggle" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#222;color:#ddd;cursor:pointer;">Show</button>
+    <button id="help-toggle" type="button" style="padding:6px 10px;border-radius:6px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);cursor:pointer;">Show</button>
   </div>
   <div id="help-body" style="display:none;padding:0 12px 12px;">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+      <div style="background:var(--surface-muted);border:1px solid var(--card-border);border-radius:6px;padding:10px;">
         <div><strong>General</strong></div>
         <ul style="margin:6px 0 0 18px;">
           <li><code>q</code> — Quit Glances</li>
@@ -56,7 +56,7 @@
           <li><code>4</code> — Toggle Sensors</li>
         </ul>
       </div>
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+      <div style="background:var(--surface-muted);border:1px solid var(--card-border);border-radius:6px;padding:10px;">
         <div><strong>Views / Sorting</strong></div>
         <ul style="margin:6px 0 0 18px;">
           <li><code>c</code> — Sort by CPU</li>
@@ -66,7 +66,7 @@
           <li><code>r</code> — Reset filters/sort</li>
         </ul>
       </div>
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+      <div style="background:var(--surface-muted);border:1px solid var(--card-border);border-radius:6px;padding:10px;">
         <div><strong>Processes</strong></div>
         <ul style="margin:6px 0 0 18px;">
           <li><code>UP/DOWN</code> — Select process</li>
@@ -76,7 +76,7 @@
           <li><code>/</code> — Search process</li>
         </ul>
       </div>
-      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;">
+      <div style="background:var(--surface-muted);border:1px solid var(--card-border);border-radius:6px;padding:10px;">
         <div><strong>Tips</strong></div>
         <ul style="margin:6px 0 0 18px;">
           <li>Use the mouse in the Web UI to scroll tables.</li>
@@ -172,9 +172,9 @@
 </script>
 
 <style>
-#toast { position: fixed; right: 18px; top: 18px; z-index: 2000; display: none; padding: 10px 12px; border-radius: 8px; border: 1px solid #444; background: #1a1a1a; color: #eaeaea; box-shadow: 0 2px 10px rgba(0,0,0,.35) }
-#toast.ok { border-color: #1e7f42; color: #d6ffea }
-#toast.err { border-color: #7f1e1e; color: #ffd9d9 }
+#toast { position: fixed; right: 18px; top: 18px; z-index: 2000; display: none; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--surface); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,.06) }
+#toast.ok { border-color: #84cc16; color: #111827 }
+#toast.err { border-color: #ef4444; color: #111827 }
 </style>
 <script>
 (function(){ var t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); window.showToast=function(msg,ok){ t.textContent=msg; t.className= ok?'ok':'err'; t.style.display='block'; setTimeout(function(){ t.style.display='none'; }, 2600); }; })();

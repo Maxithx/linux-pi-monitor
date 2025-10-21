@@ -19,12 +19,7 @@
         gap: 14px;
     }
 
-    .driver-card details {
-        background: #0e0f13;
-        border: 1px solid #2a2d36;
-        border-radius: 12px;
-        padding: 0;
-    }
+    .driver-card details { background: var(--surface); border: 1px solid var(--card-border); border-radius: 12px; padding: 0; }
 
     .driver-card summary {
         cursor: pointer;
@@ -34,32 +29,18 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        border-bottom: 1px solid #222733;
+        border-bottom: 1px solid var(--card-border);
     }
 
     .driver-card summary::-webkit-details-marker {
         display: none;
     }
 
-    .badge {
-        font-size: 12px;
-        padding: 3px 8px;
-        border-radius: 999px;
-        background: #1b2130;
-        border: 1px solid #2a2d36;
-    }
+    .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--surface-muted); border: 1px solid var(--card-border); }
 
-    .badge.ok {
-        background: #14291b;
-        border-color: #1f6b3a;
-        color: #8ff0ae;
-    }
+    .badge.ok { background: #ecfdf5; border-color: #34d399; color: #065f46; }
 
-    .badge.err {
-        background: #2b1519;
-        border-color: #7d2a36;
-        color: #ff9aa9;
-    }
+    .badge.err { background: #fef2f2; border-color: #fca5a5; color: #7f1d1d; }
 
     .driver-body {
         padding: 12px 14px;
@@ -87,9 +68,9 @@
         margin-left: auto;
         width: 28px;
         height: 28px;
-        border: 1px solid #2a2d36;
+        border: 1px solid var(--card-border);
         border-radius: 8px;
-        background: #11141b;
+        background: var(--surface);
         cursor: pointer;
         position: relative;
     }
