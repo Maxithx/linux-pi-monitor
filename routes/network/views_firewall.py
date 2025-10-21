@@ -6,29 +6,21 @@ from routes.common.ssh_utils import ssh_exec
 
 
 def _detect_framework(ssh):
-    # Prefer firewalld when running; otherwise use UFW if present
+    """Detect firewall framework with safe, minimal logic.
+    - firewalld only when service is active
+    - else UFW if binary exists (service may be inactive)
+    - else none
+    """
     try:
-        rc, out, _ = ssh_exec(ssh, "systemctl is-active firewalld 2>/dev/null || true", timeout=3)
+        _, out, _ = ssh_exec(ssh, "systemctl is-active firewalld 2>/dev/null || true", timeout=3)
         if (out or "").strip() == "active":
             return "firewalld"
     except Exception:
         pass
     try:
-        rc, out, _ = ssh_exec(ssh, "command -v ufw >/dev/null 2>&1 && systemctl is-active ufw 2>/dev/null || true", timeout=3)
-        # Some systems report 'active' only when enabled
-        if (out or "").strip() in ("active", "activating"):
+        rc, _, _ = ssh_exec(ssh, "command -v ufw >/dev/null 2>&1", timeout=3)
+        if rc == 0:
             return "ufw"
-        # If ufw binary exists but service not active, still choose ufw
-        rc2, _, _ = ssh_exec(ssh, "command -v ufw >/dev/null 2>&1", timeout=3)
-        if rc2 == 0:
-            return "ufw"
-    except Exception:
-        pass
-    # Fallback: check for firewalld binary even if service inactive
-    try:
-        rc3, _, _ = ssh_exec(ssh, "command -v firewall-cmd >/dev/null 2>&1", timeout=3)
-        if rc3 == 0:
-            return "firewalld"
     except Exception:
         pass
     return "none"
@@ -38,32 +30,23 @@ def _status_firewalld(ssh):
     # Enabled state
     _, state, _ = ssh_exec(ssh, "firewall-cmd --state 2>/dev/null || true", timeout=3)
     enabled = (state or "").strip() == "running"
-    # Active zones
+    # Active zones (format: zone on one line, "  interfaces: ..." on the next line)
     zones = []
     _, zones_out, _ = ssh_exec(ssh, "firewall-cmd --get-active-zones 2>/dev/null || true", timeout=4)
-    # The format is blocks like: zoneName\n  interfaces: eth0 ...
-    cur = None
-    for ln in (zones_out or "").splitlines():
-        ln = ln.strip()
-        if not ln:
-            continue
-        if ln.endswith(":"):
-            # interfaces: line
-            if cur is not None and ln.startswith("interfaces:"):
-                ifaces = ln.split(":", 1)[1].strip().split()
-                cur["interfaces"] = ifaces
-            continue
-        if "interfaces:" in ln:
-            # Some variants print on same line
-            parts = ln.split()
-            # ignore here; will be captured below
-        else:
-            # Zone name line
-            if cur:
-                zones.append(cur)
-            cur = {"zone": ln.strip(), "interfaces": [], "services": [], "ports": []}
-    if cur:
-        zones.append(cur)
+    if zones_out:
+        lines = zones_out.splitlines()
+        i = 0
+        while i < len(lines):
+            name = lines[i].strip()
+            if not name:
+                i += 1; continue
+            if i+1 < len(lines) and lines[i+1].strip().startswith('interfaces:'):
+                ifaces = lines[i+1].split(':',1)[1].strip().split()
+                zones.append({"zone": name, "interfaces": ifaces, "services": [], "ports": []})
+                i += 2
+            else:
+                zones.append({"zone": name, "interfaces": [], "services": [], "ports": []})
+                i += 1
 
     # If we got no active zones, still show 'public' data if available
     if not zones:
@@ -134,17 +117,29 @@ def _status_ufw(ssh):
 def firewall_status():
     try:
         ssh = _ssh()
+    except Exception:
+        # No SSH configured or unreachable – still return a friendly payload
+        return jsonify({"ok": True, "framework": "none", "enabled": False})
+
+    fw = "none"
+    try:
         fw = _detect_framework(ssh)
-        data = {"framework": fw, "enabled": False}
+    except Exception:
+        fw = "none"
+
+    data = {"framework": fw, "enabled": False}
+    try:
         if fw == "firewalld":
             data = _status_firewalld(ssh)
         elif fw == "ufw":
             data = _status_ufw(ssh)
-        try:
-            ssh.close()
-        except Exception:
-            pass
-        return jsonify({"ok": True, **data})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+    except Exception:
+        # keep default data
+        data = {"framework": fw, "enabled": False}
 
+    try:
+        ssh.close()
+    except Exception:
+        pass
+
+    return jsonify({"ok": True, **data})
