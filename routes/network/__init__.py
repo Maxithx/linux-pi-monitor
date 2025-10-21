@@ -9,4 +9,4 @@ network_bp = Blueprint("network", __name__)
 from . import views_summary  # noqa: F401
 from . import views_dns      # noqa: F401
 from . import views_wifi     # noqa: F401
-
+from . import views_firewall # noqa: F401

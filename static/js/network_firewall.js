@@ -50,7 +50,9 @@
   let loaded = false;
   async function fetchStatus(){
     const r = await fetch('/network/firewall/status', { cache:'no-store' });
-    return r.json();
+    try { return await r.json(); } catch (e) {
+      try { const txt = await r.text(); return { ok:false, error: txt.slice(0,400) }; } catch { return { ok:false, error: 'Invalid response' }; }
+    }
   }
 
   function pill(el, enabled){
@@ -128,4 +130,3 @@
     await load();
   }
 })();
-
