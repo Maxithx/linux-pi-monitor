@@ -94,6 +94,14 @@
 
 .sigbar .fill { height: 100%; background: #2d7be1; width: 0% }
 
+/* Tabs for Network|Firewall */
+.net-tabs { margin-bottom: 8px; }
+.net-tabs-row { display:flex; gap:16px; border-bottom:1px solid var(--card-border); }
+.net-tab { background: transparent; border: 0; padding: 8px 0; font-weight:600; color: var(--text); cursor: pointer; }
+.net-tab.is-active { color: #2d7be1; position: relative; }
+.net-tab.is-active::after { content:""; position:absolute; left:0; right:0; bottom:-1px; height:3px; background:#2d7be1; border-radius:3px 3px 0 0; }
+.chip { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--card-border); background: var(--surface-muted); font-size:12px; }
+
 /* --- Small helper text cell --- */
 .cell-muted {
     color: #888;

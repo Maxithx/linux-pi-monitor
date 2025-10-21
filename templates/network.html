@@ -110,6 +110,30 @@
 
     <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
 </div>
+
+<!-- Injected Firewall view (hidden by default) -->
+<div class="container" id="firewall-root" style="display:none;">
+    <div class="card" style="padding:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <div style="font-size:1.4rem; font-weight:700;">Firewall</div>
+                <div id="fw-sub" class="muted" style="margin-top:4px;"></div>
+            </div>
+            <div>
+                <button id="fw-refresh" class="btn">Refresh</button>
+            </div>
+        </div>
+        <div id="fw-status" style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+            <span id="fw-pill" class="badge">-</span>
+            <span id="fw-framework" class="muted"></span>
+        </div>
+    </div>
+
+    <div id="fw-content"></div>
+</div>
+
+<!-- Tabs injected via JS -->
+<script defer src="{{ url_for('static', filename='js/network_firewall.js') }}"></script>
 {% endblock %}
 
 {% block scripts %}
