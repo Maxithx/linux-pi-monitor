@@ -380,7 +380,16 @@ function startSSEScan() {
             if (tr && tr.classList.contains('pkg')) {
                 tr.setAttribute('data-arch', data.arch || '');
                 wireToggle(tr);
-                // Enrich row in background\n                enrichAsync(name, tr);\n\n                // If this package was installed earlier in this session, grey out its button\n                try {\n                    if (INSTALLED_SET.has(name.toLowerCase())) {\n                        const b = tr.querySelector('[data-install]');\n                        if (b) { b.disabled = true; b.textContent = 'Installed'; b.classList.add('is-disabled'); }\n                    }\n                } catch (e) { }\n            searchText.textContent = `Scanning… (${discoveredCount})`;
+                // Enrich row in background
+                enrichAsync(name, tr);
+
+                // If this package was installed earlier in this session, grey out its button
+                try {
+                    if (INSTALLED_SET.has(name.toLowerCase())) {
+                        const b = tr.querySelector('[data-install]');
+                        if (b) { b.disabled = true; b.textContent = 'Installed'; b.classList.add('is-disabled'); }
+                    }
+                } catch (e) { }\n            searchText.textContent = `Scanning… (${discoveredCount})`;
             setProgress(Math.min(90, 40 + discoveredCount * 2));
         } catch (e) { }
     });
@@ -701,6 +710,8 @@ bodyEl.addEventListener('click', (e) => {
   if (!name) return;
   installPackage(name);
 });
+
+
 
 
 
