@@ -690,25 +690,79 @@ startSSEScan();
 
 
 // Per-package install action (event delegation)
-async function installPackage(name) {
+async function installPackage(name, btnEl) {
   try {
     setBusy(true);
     let sudo_password = window.prompt("Enter sudo password (if required):", "");
     if (sudo_password === null) { setBusy(false); return; }
-    const r = await fetch("/updates/install_package", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, sudo_password }) });
+
+    const r = await fetch('/updates/install_package', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, sudo_password })
+    });
     const j = await r.json();
-    if (!j.ok) { append("Error: " + (j.error || "failed")); setBusy(false); return; }
-    if (j.run_id) { currentRunId = j.run_id; localStorage.setItem("upd.run_id", currentRunId); lastLogTextLen = 0; startProgressPolling(currentRunId); startLogPolling(currentRunId); }
-  } catch (e) { append("Network error: " + e); setBusy(false); }
+
+    if (!j || j.ok !== true) {
+      append('Error: ' + (j && j.error ? j.error : 'failed'));
+      setBusy(false);
+      return;
+    }
+
+    // Hook into logs/progress if provided
+    if (j.run_id) {
+      currentRunId = j.run_id;
+      window.localStorage.setItem('upd.run_id', currentRunId);
+      lastLogTextLen = 0;
+      startProgressPolling(currentRunId);
+      startLogPolling(currentRunId);
+    }
+
+    // Remove the just-installed row from the available-updates table (Plan A)
+    if (btnEl) {
+      const tr = btnEl.closest('tr.pkg');
+      if (tr) {
+        const detail = tr.nextElementSibling && tr.nextElementSibling.classList.contains('detail')
+          ? tr.nextElementSibling : null;
+
+        tr.style.transition = 'opacity .25s ease, height .25s ease';
+        tr.style.opacity = '0.35';
+        // Delay actual removal a tick to show visual feedback
+        setTimeout(() => {
+          if (detail) detail.remove();
+          tr.remove();
+          // If table is empty, show the empty-state
+          const anyRows = document.querySelectorAll('#updates-body tr.pkg').length;
+          const emptyEl = document.getElementById('updates-empty');
+          if (!anyRows && emptyEl) emptyEl.style.display = '';
+        }, 220);
+      }
+    }
+
+  } catch (e) {
+    append('Network error: ' + e);
+  } finally {
+    setBusy(false);
+  }
 }
 
 bodyEl.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-install]');
   if (!btn) return;
   e.stopPropagation();
-  const name = btn.getAttribute('data-name') || btn.closest('tr')?.getAttribute('data-name') || '';
+  const name = btn.getAttribute('data-name');
   if (!name) return;
-  installPackage(name);
+  btn.disabled = true;
+  btn.classList.add('is-disabled');
+  btn.textContent = 'Installing…';
+  installPackage(name, btn).finally(() => {
+    // If row still exists (error), re-enable for retry
+    if (document.body.contains(btn)) {
+      btn.disabled = false;
+      btn.classList.remove('is-disabled');
+      btn.textContent = 'Install';
+    }
+  });
 });
 
 
