@@ -1,0 +1,29 @@
+from typing import Dict, Any, List, Optional
+
+
+class IFirewallManager:
+    def __init__(self, ssh, distro_ops):
+        self.ssh = ssh
+        self.distro = distro_ops
+
+    def status(self) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def apply_preset(self, app_port: int, extras: Dict[str, List[str]], sudo_pw: Optional[str]) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def enable(self, sudo_pw: Optional[str]) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def disable(self, sudo_pw: Optional[str]) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def allow_port(self, port: int, proto: str = 'tcp', sudo_pw: Optional[str] = None) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def allow_service(self, name: str, sudo_pw: Optional[str] = None) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def delete_rule(self, selector: Dict[str, Any], sudo_pw: Optional[str] = None) -> Dict[str, Any]:
+        raise NotImplementedError
+

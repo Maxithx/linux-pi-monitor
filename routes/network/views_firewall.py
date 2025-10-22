@@ -1,7 +1,7 @@
 from flask import jsonify
 
 from . import network_bp
-from .helpers import _ssh
+from services import firewall_service
 from routes.common.ssh_utils import ssh_exec
 
 
@@ -115,31 +115,51 @@ def _status_ufw(ssh):
 
 @network_bp.get("/network/firewall/status")
 def firewall_status():
-    try:
-        ssh = _ssh()
-    except Exception:
-        # No SSH configured or unreachable – still return a friendly payload
-        return jsonify({"ok": True, "framework": "none", "enabled": False})
+    data = firewall_service.get_status()
+    return jsonify(data)
 
-    fw = "none"
-    try:
-        fw = _detect_framework(ssh)
-    except Exception:
-        fw = "none"
 
-    data = {"framework": fw, "enabled": False}
+@network_bp.post("/network/firewall/apply_preset")
+def firewall_apply_preset():
     try:
-        if fw == "firewalld":
-            data = _status_firewalld(ssh)
-        elif fw == "ufw":
-            data = _status_ufw(ssh)
-    except Exception:
-        # keep default data
-        data = {"framework": fw, "enabled": False}
+        j = (getattr(__import__('flask'), 'request').get_json(silent=True) or {})
+        app_port = int(j.get('app_port', 0))
+        extras = j.get('extras') or {}
+        sudo_pw = j.get('sudo_pw')
+        res = firewall_service.apply_preset(app_port, extras, sudo_pw)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
+
+@network_bp.post("/network/firewall/enable")
+def firewall_enable():
     try:
-        ssh.close()
-    except Exception:
-        pass
+        j = (getattr(__import__('flask'), 'request').get_json(silent=True) or {})
+        sudo_pw = j.get('sudo_pw')
+        res = firewall_service.enable(sudo_pw)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
-    return jsonify({"ok": True, **data})
+
+@network_bp.post("/network/firewall/disable")
+def firewall_disable():
+    try:
+        j = (getattr(__import__('flask'), 'request').get_json(silent=True) or {})
+        sudo_pw = j.get('sudo_pw')
+        res = firewall_service.disable(sudo_pw)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@network_bp.post("/network/firewall/delete_rule")
+def firewall_delete_rule():
+    try:
+        j = (getattr(__import__('flask'), 'request').get_json(silent=True) or {})
+        sudo_pw = j.get('sudo_pw')
+        res = firewall_service.delete_rule(j, sudo_pw)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})

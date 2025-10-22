@@ -11,6 +11,19 @@
     See interfaces, IPs, DNS, default route — and manage Wi-Fi connections.
 </p>
 
+<!-- Simple tabs (Network / Firewall) -->
+<nav id="net-tabs" style="display:flex; gap:8px; margin:0 0 12px; border-bottom:1px solid #2a2d36;">
+    <a id="tab-network" href="#network" class="tab-link"
+        style="padding:8px 12px; border:1px solid transparent; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; text-decoration:none; color:#cbd5e1;">
+        Network
+    </a>
+    <a id="tab-firewall" href="#firewall" class="tab-link"
+        style="padding:8px 12px; border:1px solid transparent; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; text-decoration:none; color:#cbd5e1;">
+        Firewall
+    </a>
+</nav>
+
+<!-- NETWORK VIEW -->
 <div class="container" id="network-root">
 
     <div class="toolbar">
@@ -32,7 +45,6 @@
                 <div>Speed</div>
                 <div>SSID</div>
                 <div>Signal</div>
-                
             </div>
             <div class="row">
                 <div class="cell-muted" style="grid-column:1 / -1">Loading…</div>
@@ -111,7 +123,7 @@
     <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
 </div>
 
-<!-- Injected Firewall view (hidden by default) -->
+<!-- FIREWALL VIEW (hidden by default; same page) -->
 <div class="container" id="firewall-root" style="display:none;">
     <div class="card" style="padding:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -132,12 +144,42 @@
     <div id="fw-content"></div>
 </div>
 
-<!-- Tabs injected via JS -->
+<!-- Firewall logic -->
 <script defer src="{{ url_for('static', filename='js/network_firewall.js') }}"></script>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/network.js') }}?v=8"></script>
+<script>
+    /* Lightweight hash-based tab switching (#network / #firewall) */
+    (function () {
+        const netEl = document.getElementById('network-root');
+        const fwEl = document.getElementById('firewall-root');
+        const tabNet = document.getElementById('tab-network');
+        const tabFw = document.getElementById('tab-firewall');
+
+        function setActive(a, on) {
+            a.style.background = on ? 'rgba(148,163,184,.15)' : 'transparent';
+            a.style.borderColor = on ? '#2a2d36' : 'transparent';
+            a.style.color = on ? '#fff' : '#cbd5e1';
+            a.setAttribute('aria-current', on ? 'page' : 'false');
+        }
+
+        function applyTab() {
+            const h = (location.hash || '#network').toLowerCase();
+            const isFw = (h === '#firewall');
+            netEl.style.display = isFw ? 'none' : 'block';
+            fwEl.style.display = isFw ? 'block' : 'none';
+            setActive(tabNet, !isFw);
+            setActive(tabFw, isFw);
+        }
+
+        window.addEventListener('hashchange', applyTab);
+        document.addEventListener('DOMContentLoaded', applyTab);
+    })();
+</script>
+
+<!-- DNS logic -->
 <script>
     (function () {
         const $ = (s) => document.querySelector(s);
@@ -217,4 +259,3 @@
     })();
 </script>
 {% endblock %}
-
