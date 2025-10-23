@@ -25,6 +25,10 @@ function saveSeries(label, data) {
 
 function createPercentChart(ctx, label, color) {
   const data = loadSeries(label);
+  const h = ctx.canvas.clientHeight || 100;
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, color + '33');
+  g.addColorStop(1, color + '00');
   return new Chart(ctx, {
     type: 'line',
     data: {
@@ -33,41 +37,45 @@ function createPercentChart(ctx, label, color) {
         label,
         data,
         borderColor: color,
-        backgroundColor: color + '33',
+        backgroundColor: g,
         borderWidth: 2,
         pointRadius: 0,
-        tension: 0.4
+        tension: 0.35,
+        fill: true,
+        cubicInterpolationMode: 'monotone'
       }]
     },
     options: {
       responsive: true,
       animation: false,
       maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } },
       scales: {
         y: {
           beginAtZero: true,
           min: 0,
           max: 100,
           ticks: {
-            // no stepSize => let Chart.js space ticks; limit their count instead
-            maxTicksLimit: 6,
+            maxTicksLimit: 5,
             callback: v => v + '%',
-            color: '#ccc',
-            font: { family: "'Segoe UI', sans-serif" }
+            color: '#8fa3b8',
+            font: { family: "'Segoe UI', sans-serif", size: 10 }
           },
-          grid: { color: '#444' }
+          grid: { color: 'rgba(148,163,184,.15)', drawBorder: false }
         },
-        x: {
-          ticks: { display: false },
-          grid: { display: false }
-        }
+        x: { ticks: { display: false }, grid: { display: false } }
       },
       plugins: {
-        legend: {
-          labels: {
-            color: '#ccc',
-            font: { family: "'Segoe UI', sans-serif" }
-          }
+        legend: { display: false },
+        tooltip: {
+          displayColors: false,
+          backgroundColor: 'rgba(17,17,17,.9)',
+          borderColor: 'rgba(148,163,184,.25)',
+          borderWidth: 1,
+          titleColor: '#e5e7eb',
+          bodyColor: '#e5e7eb',
+          padding: 8
         }
       }
     }
@@ -76,6 +84,10 @@ function createPercentChart(ctx, label, color) {
 
 function createNetworkChart(ctx, label, color) {
   const data = loadSeries(label);
+  const h = ctx.canvas.clientHeight || 100;
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, color + '33');
+  g.addColorStop(1, color + '00');
   return new Chart(ctx, {
     type: 'line',
     data: {
@@ -84,39 +96,43 @@ function createNetworkChart(ctx, label, color) {
         label,
         data,
         borderColor: color,
-        backgroundColor: color + '33',
+        backgroundColor: g,
         borderWidth: 2,
         pointRadius: 0,
-        tension: 0.4
+        tension: 0.35,
+        fill: true,
+        cubicInterpolationMode: 'monotone'
       }]
     },
     options: {
       responsive: true,
       animation: false,
       maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' } },
       scales: {
         y: {
           beginAtZero: true,
-          // IMPORTANT: no stepSize here; limit tick count to avoid warnings
           ticks: {
-            maxTicksLimit: 6,
+            maxTicksLimit: 5,
             callback: kbpsFmt,
-            color: '#ccc',
-            font: { family: "'Segoe UI', sans-serif" }
+            color: '#8fa3b8',
+            font: { family: "'Segoe UI', sans-serif", size: 10 }
           },
-          grid: { color: '#444' }
+          grid: { color: 'rgba(148,163,184,.15)', drawBorder: false }
         },
-        x: {
-          ticks: { display: false },
-          grid: { display: false }
-        }
+        x: { ticks: { display: false }, grid: { display: false } }
       },
       plugins: {
-        legend: {
-          labels: {
-            color: '#ccc',
-            font: { family: "'Segoe UI', sans-serif" }
-          }
+        legend: { display: false },
+        tooltip: {
+          displayColors: false,
+          backgroundColor: 'rgba(17,17,17,.9)',
+          borderColor: 'rgba(148,163,184,.25)',
+          borderWidth: 1,
+          titleColor: '#e5e7eb',
+          bodyColor: '#e5e7eb',
+          padding: 8
         }
       }
     }
