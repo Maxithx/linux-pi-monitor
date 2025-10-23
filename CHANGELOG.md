@@ -4,16 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
-- Settings: Passwordless UFW status helper (install/remove/status endpoints) that installs a read-only sudoers rule for `ufw status`/`verbose`/`numbered`. Returns structured step-by-step logs for easy troubleshooting.
-- Settings UI: Firewall Helpers card with live status badge, sudo password Show/Hide, detailed exec log and a Copy log button.
-- Network: UFW rules table rendering (To/Action/From) with routed policy parsing and safe fallbacks when sudo is required.
+- Planned: more network helpers and minor UI polish.
 
 ### Changed
-- Robust UFW detection across Mint/Bookworm by resolving absolute `ufw` path (`/usr/sbin/ufw` fallback) and using non-interactive checks where appropriate.
-- Status flow now re-checks post-install to keep the badge in sync without reloads.
+- Pending: docs refresh and small performance cleanups.
 
 ### Fixed
-- Cases where UFW appeared disabled due to relying on systemd service state; enabled is now derived from `ufw status verbose` and file-based fallbacks when needed.
+- Pending: none.
+
+## [v0.5.3] - 2025-10-23
+
+### Added
+- Dashboard blueprint routes: `/dashboard` and `/metrics`.
+- Metrics enriched with `cpu_freq_current_mhz`, `cpu_freq_max_mhz`, and per-core MHz list for dynamic CPU display.
+
+### Changed
+- Dashboard UI and connection status logic refined to tolerate missing profiles and show clearer states.
+
+### Fixed
+- Global error handler no longer converts HTTP 404 into 500; proper status codes are returned.
+- Initial 500 on `/dashboard` due to missing routes.
 
 ## [v0.5.2] - 2025-10-21
 
@@ -63,5 +73,6 @@ All notable changes to this project will be documented in this file.
 - README note about restarting the app after backend edits and hard‑refreshing the browser in development.
 
 [Unreleased]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.2...HEAD
+[v0.5.3]: https://github.com/Maxithx/linux-pi-monitor/releases/tag/v0.5.3
 [v0.5.2]: https://github.com/Maxithx/linux-pi-monitor/releases/tag/v0.5.2
 [v0.5.1]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.0-keepass-glances...v0.5.1
