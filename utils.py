@@ -177,6 +177,23 @@ def parse_cpu_info():
 
 # --------- CPU usage: /proc/stat (awk) â†’ mpstat â†’ top ---------
 def _cpu_usage_via_procstat() -> float | None:
+    """Compute CPU usage on remote host purely in awk with ~200ms interval."""
+    cmd = (
+        "awk 'BEGIN{"
+        "getline l1 < \"/proc/stat\";"
+        "split(l1,a); t0=0; for(i=2;i<=NF;i++) t0+=a[i]; i0=a[5]+a[6];"
+        "system(\"sleep 0.2\");"
+        "getline l2 < \"/proc/stat\";"
+        "split(l2,b); t1=0; for(i=2;i<=NF;i++) t1+=b[i]; i1=b[5]+b[6];"
+        "u = (1- (i1-i0)/(t1-t0))*100;"
+        "if(u<0)u=0; if(u>100)u=100; printf(\"%.1f\\n\", u);"
+        "}'"
+    )
+    out = ssh_run(cmd)
+    try:
+        return round(float(out.replace(",", ".")), 1)
+    except Exception:
+        return None
 
 def _per_core_mhz_via_sys() -> list[int]:
     try:
@@ -234,24 +251,6 @@ def get_cpu_freq_info() -> dict:
     cur = int(round(sum(per)/len(per))) if per else 0
     mx = _max_mhz_via_lscpu()
     return {"current_mhz": cur, "max_mhz": mx, "per_core": per}
-    """Compute CPU usage on remote host purely in awk with ~200ms interval."""
-    cmd = (
-        "awk 'BEGIN{"
-        "getline l1 < \"/proc/stat\";"
-        "split(l1,a); t0=0; for(i=2;i<=NF;i++) t0+=a[i]; i0=a[5]+a[6];"
-        "system(\"sleep 0.2\");"
-        "getline l2 < \"/proc/stat\";"
-        "split(l2,b); t1=0; for(i=2;i<=NF;i++) t1+=b[i]; i1=b[5]+b[6];"
-        "u = (1- (i1-i0)/(t1-t0))*100;"
-        "if(u<0)u=0; if(u>100)u=100; printf(\"%.1f\\n\", u);"
-        "}'"
-    )
-    out = ssh_run(cmd)
-    try:
-        return round(float(out.replace(",", ".")), 1)
-    except Exception:
-        return None
-
 def _cpu_usage_via_mpstat() -> float | None:
     txt = ssh_run("LC_ALL=C mpstat 1 1 2>/dev/null")
     if not txt: return None
