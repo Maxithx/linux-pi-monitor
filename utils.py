@@ -1,4 +1,4 @@
-# utils.py — robust CPU usage via /proc/stat (awk), SMART via /usr/sbin/smartctl
+﻿# utils.py â€” robust CPU usage via /proc/stat (awk), SMART via /usr/sbin/smartctl
 import os
 import re
 import json
@@ -175,8 +175,65 @@ def parse_cpu_info():
 
     return (name or "Unknown CPU", cores, freq)
 
-# --------- CPU usage: /proc/stat (awk) → mpstat → top ---------
+# --------- CPU usage: /proc/stat (awk) â†’ mpstat â†’ top ---------
 def _cpu_usage_via_procstat() -> float | None:
+
+def _per_core_mhz_via_sys() -> list[int]:
+    try:
+        import glob
+        vals: list[int] = []
+        for p in glob.glob('/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq'):
+            try:
+                vtxt = ssh_run(f"cat {p} 2>/dev/null") or "0"
+                v = int(vtxt)
+                if v > 0:
+                    vals.append(int(round(v/1000)))
+            except Exception:
+                pass
+        return vals
+    except Exception:
+        return []
+
+def _per_core_mhz_via_proc() -> list[int]:
+    try:
+        txt = ssh_run("grep -i 'cpu MHz' /proc/cpuinfo 2>/dev/null")
+        vals: list[int] = []
+        for line in (txt or '').splitlines():
+            try:
+                parts = line.split(':',1)
+                if len(parts) == 2:
+                    v = float(parts[1].strip())
+                    if v > 0:
+                        vals.append(int(round(v)))
+            except Exception:
+                pass
+        return vals
+    except Exception:
+        return []
+
+def _max_mhz_via_lscpu() -> int:
+    try:
+        v = ssh_run("LC_ALL=C lscpu | grep -m1 'CPU max MHz' | awk -F: '{print $2}'")
+        if v:
+            return int(round(float(v.strip())))
+    except Exception:
+        pass
+    try:
+        v2 = ssh_run("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null")
+        if v2:
+            return int(round(int(v2.strip())/1000))
+    except Exception:
+        pass
+    return 0
+
+def get_cpu_freq_info() -> dict:
+    """Return dynamic CPU frequency info: current MHz (avg), max MHz, per-core list."""
+    per = _per_core_mhz_via_sys()
+    if not per:
+        per = _per_core_mhz_via_proc()
+    cur = int(round(sum(per)/len(per))) if per else 0
+    mx = _max_mhz_via_lscpu()
+    return {"current_mhz": cur, "max_mhz": mx, "per_core": per}
     """Compute CPU usage on remote host purely in awk with ~200ms interval."""
     cmd = (
         "awk 'BEGIN{"

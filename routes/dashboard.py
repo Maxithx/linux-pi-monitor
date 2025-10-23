@@ -1,4 +1,4 @@
-# === IMPORTS ===
+﻿# === IMPORTS ===
 import json
 import os
 from flask import Blueprint, render_template, jsonify, current_app, redirect
@@ -107,7 +107,7 @@ def metrics():
         net_raw  = ssh_run("cat /proc/net/dev")
 
         # 3) Parse core metrics
-        cpu_name, cpu_cores, cpu_freq = parse_cpu_info()
+        cpu_name, cpu_cores, cpu_freq = parse_cpu_info()\n        from utils import get_cpu_freq_info\n        freq_info = get_cpu_freq_info()
         cpu_usage = parse_cpu_usage(cpu_raw or "")
         ram_usage, ram_total, ram_free = parse_mem(mem_raw or "")
         disk_usage, disk_total, disk_used, disk_free = parse_disk(disk_raw or "")
@@ -122,7 +122,7 @@ def metrics():
             "cpu_name": cpu_name,
             "cpu_cores": cpu_cores,
             "cpu_freq": cpu_freq,
-            "cpu_temp": cpu_temp,
+            "cpu_temp": cpu_temp,\n            "cpu_freq_current_mhz": int(freq_info.get("current_mhz", 0) or 0),\n            "cpu_freq_max_mhz": int(freq_info.get("max_mhz", 0) or 0),\n            "cpu_per_core_mhz": freq_info.get("per_core", []),
             "ram": ram_usage,
             "ram_total": ram_total,
             "ram_free": ram_free,
@@ -185,3 +185,4 @@ def system_os():
     except Exception as e:
         current_app.logger.warning(f"Error in system_os: {e}")
         return jsonify({"os_name": ""})
+

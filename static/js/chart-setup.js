@@ -184,11 +184,25 @@ function updateProgressBar(id, percent) {
 
 function updateTextValues(data) {
   // CPU
+  const curMHz = safeNum(data.cpu_freq_current_mhz, 0);
+  const maxMHz = safeNum(data.cpu_freq_max_mhz, 0);
+  let freqLine = '';
+  if (curMHz && maxMHz) freqLine = `${curMHz.toFixed(0)} MHz (${maxMHz.toFixed(0)} MHz max)`;
+  else if (curMHz) freqLine = `${curMHz.toFixed(0)} MHz`;
+  else if (maxMHz) freqLine = `${maxMHz.toFixed(0)} MHz max`;
+  else freqLine = data.cpu_freq || '';
+  const per = Array.isArray(data.cpu_per_core_mhz) ? data.cpu_per_core_mhz : [];
+  let perLine = '';
+  if (per.length) {
+    const shown = per.slice(0, 8).map(v => String(Math.round(v))).join(', ');
+    perLine = `Per-core: ${shown}${per.length>8?'…':''} MHz`;
+  }
   document.getElementById('cpuInfo').innerHTML = `
     <div class="title">CPU:</div>
     <div class="value">${safeNum(data.cpu, 0)}%</div>
     <div>${data.cpu_name || 'Unknown CPU'}</div>
-    <div>${(data.cpu_cores ?? '?')} kerner, ${data.cpu_freq || '? / ? GHz'}</div>
+    <div>${(data.cpu_cores ?? '?')} kerner${freqLine?`, ${freqLine}`:''}</div>
+    ${perLine?`<div class="details" style="margin-top:4px">${perLine}</div>`:''}
     <div class="progress-bar"><div class="progress-bar-fill" id="cpuBar"></div></div>`;
   updateProgressBar('cpuBar', data.cpu);
 
