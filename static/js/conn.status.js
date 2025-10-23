@@ -14,9 +14,8 @@
     dot.classList.remove("gc-green", "gc-red");
     spin.style.display = "none";
 
+    // Do not show a visible 'checking' state during background polling
     if (state === "checking") {
-      text.textContent = "Checking connection…";
-      spin.style.display = "";
       return;
     }
     if (state === "ok") {
@@ -36,7 +35,7 @@
 
   async function checkOnce() {
     try {
-      paint("checking");
+      // Silent background check without changing current text
       const r = await fetch("/check-ssh-status", { method: "GET", cache: "no-store" });
       const t = await r.text();
       let data;
@@ -65,4 +64,3 @@
   window.addEventListener("online", checkOnce);
   window.addEventListener("offline", () => paint("down"));
 })();
-
