@@ -208,6 +208,59 @@ def _cpu_usage_via_procstat() -> float | None:
     except Exception:
         return None
 
+
+def _parse_cpu_agg(line: str) -> list[int]:
+    """Parse the aggregated 'cpu ' line into numeric fields.
+
+    Expected order (Linux): user nice system idle iowait irq softirq steal guest guest_nice
+    Some systems omit the last two; we simply read available numeric tokens.
+    """
+    try:
+        parts = line.strip().split()
+        if not parts or parts[0] != 'cpu':
+            return []
+        nums = []
+        for tok in parts[1:]:
+            try:
+                nums.append(int(tok))
+            except Exception:
+                break
+        return nums
+    except Exception:
+        return []
+
+
+def _cpu_usage_via_cat() -> float | None:
+    """Compute CPU usage by reading /proc/stat twice via a single SSH command.
+
+    We cat the file, sleep ~200ms, then cat again and use the first two
+    occurrences of the aggregated 'cpu ' line.
+    """
+    txt = ssh_run("cat /proc/stat; sleep 0.2; cat /proc/stat")
+    if not txt:
+        return None
+    lines = [ln for ln in txt.splitlines() if ln.startswith('cpu ')]
+    if len(lines) < 2:
+        return None
+    a = _parse_cpu_agg(lines[0])
+    b = _parse_cpu_agg(lines[1])
+    if not a or not b:
+        return None
+    # Pad to 10 fields if short
+    def pad10(v):
+        return (v + [0]*10)[:10]
+    a = pad10(a)
+    b = pad10(b)
+    idle0 = a[3] + a[4]
+    idle1 = b[3] + b[4]
+    tot0 = sum(a)
+    tot1 = sum(b)
+    dt = max(1, tot1 - tot0)
+    u = (1.0 - (idle1 - idle0)/dt) * 100.0
+    if u < 0: u = 0.0
+    if u > 100: u = 100.0
+    return round(u, 1)
+
 def _per_core_mhz_via_sys() -> list[int]:
     try:
         import glob
@@ -290,7 +343,7 @@ def _cpu_usage_via_top() -> float | None:
         return None
 
 def get_cpu_usage() -> float:
-    for fn in (_cpu_usage_via_procstat, _cpu_usage_via_mpstat, _cpu_usage_via_top):
+    for fn in (_cpu_usage_via_cat, _cpu_usage_via_procstat, _cpu_usage_via_mpstat, _cpu_usage_via_top):
         v = fn()
         if v is not None:
             return v
