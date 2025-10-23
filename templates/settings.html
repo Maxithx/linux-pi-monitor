@@ -17,8 +17,8 @@
 
 <div class="container" id="settings-root" data-active-profile="{{ active_profile_id|default('') }}">
 
-    <!-- ====== SSH PROFILES (unchanged) ====== -->
-    <h2 style="margin-bottom:6px">SSH Profiles <span class="pill muted">beta</span></h2>
+    <!-- ====== SSH PROFILES ====== -->
+    <h2 style="margin-bottom:6px">SSH Profiles</h2>
     <div class="profiles-bar">
         <select id="ssh_profile_select" class="grow" aria-label="Select SSH profile">
             <option value="__none__" selected disabled>Loading profiles…</option>
@@ -66,13 +66,16 @@
     <div class="alert alert-info" id="status-alert">ℹ️ Already connected.</div>
     {% endif %}
 
-    <!-- ====== SSH FORM (unchanged) ====== -->
+    <!-- ====== SSH FORM ====== -->
     <form id="save-form" onsubmit="return false;">
         <input type="hidden" id="profile_id" name="profile_id" value="" />
+
         <label for="pi_host">Pi Host</label>
         <input type="text" id="pi_host" name="pi_host" value="{{ settings.pi_host }}">
+
         <label for="pi_user">Pi Username</label>
         <input type="text" id="pi_user" name="pi_user" value="{{ settings.pi_user }}">
+
         <label for="auth_method">Authentication Method</label>
         <select id="auth_method" name="auth_method">
             <option value="key" {% if settings.auth_method=='key' %}selected{% endif %}>SSH Key</option>
@@ -90,9 +93,8 @@
                     help</button>
             </div>
             <div class="muted" style="margin-top:6px">
-                Tip: Keys are created as <code>~/.ssh/id_&lt;profilename&gt;</code> (ed25519). “Install key” appends the
-                public
-                key to <code>~/.ssh/authorized_keys</code> on the selected host.
+                Tip: Keys are created as <code>~/.ssh/id_&lt;profilename&gt;</code> (ed25519).
+                “Install key” appends the public key to <code>~/.ssh/authorized_keys</code> on the selected host.
             </div>
         </div>
 
@@ -124,15 +126,10 @@
             <span class="spinner"></span> Installing Glances… <span id="install-timer">00:00</span>
         </div>
 
-        <!-- Buttons row -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-
             <button id="install-glances-btn" {% if not conn_ready %}disabled title="Complete SSH settings first" {%
-                endif %}>
-                Install Glances
-            </button>
+                endif %}>Install Glances</button>
 
-            <!-- New: systemd dropdown button -->
             <div class="dropdown" style="position:relative; display:inline-block;">
                 <button id="glances-systemd-btn" class="secondary" {% if not conn_ready %}disabled
                     title="Complete SSH settings first" {% endif %}>
@@ -147,15 +144,9 @@
             </div>
 
             <button id="view-glances-log-btn" {% if not conn_ready %}disabled title="Complete SSH settings first" {%
-                endif %}>
-                View Glances Log
-            </button>
-
+                endif %}>View Glances Log</button>
             <button id="uninstall-glances" class="uninstall-button" {% if not conn_ready %}disabled
-                title="Complete SSH settings first" {% endif %}>
-                Uninstall Glances
-            </button>
-
+                title="Complete SSH settings first" {% endif %}>Uninstall Glances</button>
             <button id="clear-glances-log-btn" class="secondary">Clear log</button>
         </div>
 
@@ -174,9 +165,46 @@
 
     <hr>
 
-    <!-- Terminal software (unchanged) -->
+    <!-- ====== FIREWALL HELPERS ====== -->
+    <h3 style="margin-top:20px;">Firewall Helpers</h3>
+    <div class="card" style="padding:12px;">
+        <div class="muted" style="margin-bottom:8px;">
+            Enable passwordless read-only UFW status on the remote host (no password prompts for listing rules).
+            Actions like enable/disable still require sudo.
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button id="fw-helper-install" {% if not conn_ready %}disabled title="Complete SSH settings first" {% endif
+                %}>
+                Enable passwordless UFW status
+            </button>
+
+            <button id="fw-helper-remove" class="danger" {% if not conn_ready %}disabled
+                title="Complete SSH settings first" {% endif %}>
+                Remove helper
+            </button>
+
+            <!-- sudo password + show/hide -->
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input id="fw-helper-sudo" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
+                    placeholder="sudo password (if required)" style="min-width:240px;" />
+                <button id="fw-helper-toggle" type="button" class="secondary" aria-pressed="false"
+                    aria-label="Show password">Show</button>
+            </div>
+
+            <!-- Live status badge (opdateres af JS uden refresh) -->
+            <span id="fw-helper-state" class="muted" style="margin-left:6px;" aria-live="polite"></span>
+        </div>
+
+        <pre id="fw-helper-log" class="muted" style="margin-top:10px; white-space:pre-wrap;"></pre>
+    </div>
+
+    <hr>
+
+    <!-- ====== TERMINAL SOFTWARE ====== -->
     <h3 style="margin-top:20px;">Terminal Software</h3>
     <p>Install or remove optional programs on your Raspberry Pi:</p>
+
     <div class="software-grid-box">
         <table class="software-table">
             <thead>
@@ -226,7 +254,7 @@
 <pre id="terminal-software-output" class="logbox"
     style="display:none; background:#000; color:#0f0; padding:10px; margin-top:10px; font-family:monospace;"></pre>
 
-<!-- SSH help modal (unchanged) -->
+<!-- SSH help modal -->
 <div id="sshSetupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sshSetupTitle">
     <div class="modal-card">
         <div class="modal-header">
@@ -261,4 +289,7 @@
 <script src="{{ url_for('static', filename='js/software.js') }}"></script>
 <script src="{{ url_for('static', filename='js/settings.profiles.js') }}?v=8"></script>
 <script src="{{ url_for('static', filename='js/settings.ssh-status.js') }}?v=9"></script>
+
+<!-- VIGTIGT: firewall helper UI/logic -->
+<script src="{{ url_for('static', filename='js/settings.firewall.js') }}"></script>
 {% endblock %}

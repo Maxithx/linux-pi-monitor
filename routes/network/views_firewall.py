@@ -2,7 +2,7 @@ from flask import jsonify
 
 from . import network_bp
 from services import firewall_service
-from routes.common.ssh_utils import ssh_exec
+from routes.common.ssh_utils import ssh_exec, ssh_exec_shell
 
 
 def _detect_framework(ssh):
@@ -12,7 +12,7 @@ def _detect_framework(ssh):
     - else none
     """
     try:
-        _, out, _ = ssh_exec(ssh, "systemctl is-active firewalld 2>/dev/null || true", timeout=3)
+        _, out, _ = ssh_exec_shell(ssh, "systemctl is-active firewalld 2>/dev/null || true", timeout=3)
         if (out or "").strip() == "active":
             return "firewalld"
     except Exception:
@@ -28,11 +28,11 @@ def _detect_framework(ssh):
 
 def _status_firewalld(ssh):
     # Enabled state
-    _, state, _ = ssh_exec(ssh, "firewall-cmd --state 2>/dev/null || true", timeout=3)
+    _, state, _ = ssh_exec_shell(ssh, "firewall-cmd --state 2>/dev/null || true", timeout=3)
     enabled = (state or "").strip() == "running"
     # Active zones (format: zone on one line, "  interfaces: ..." on the next line)
     zones = []
-    _, zones_out, _ = ssh_exec(ssh, "firewall-cmd --get-active-zones 2>/dev/null || true", timeout=4)
+    _, zones_out, _ = ssh_exec_shell(ssh, "firewall-cmd --get-active-zones 2>/dev/null || true", timeout=4)
     if zones_out:
         lines = zones_out.splitlines()
         i = 0
@@ -56,7 +56,7 @@ def _status_firewalld(ssh):
     out_zones = []
     for z in zones:
         name = z.get("zone", "public")
-        _, all_txt, _ = ssh_exec(ssh, f"firewall-cmd --zone={name} --list-all 2>/dev/null || true", timeout=4)
+        _, all_txt, _ = ssh_exec_shell(ssh, f"firewall-cmd --zone={name} --list-all 2>/dev/null || true", timeout=4)
         services = []
         ports = []
         if all_txt:
@@ -82,10 +82,10 @@ def _status_firewalld(ssh):
 
 def _status_ufw(ssh):
     # Enabled?
-    _, stat, _ = ssh_exec(ssh, "ufw status verbose 2>/dev/null || true", timeout=4)
+    _, stat, _ = ssh_exec_shell(ssh, "ufw status verbose 2>/dev/null || true", timeout=4)
     enabled = ("Status: active" in (stat or ""))
     # Rules numbered
-    _, rules_txt, _ = ssh_exec(ssh, "ufw status numbered 2>/dev/null || true", timeout=4)
+    _, rules_txt, _ = ssh_exec_shell(ssh, "ufw status numbered 2>/dev/null || true", timeout=4)
     rules = []
     if rules_txt:
         import re as _re
@@ -117,6 +117,17 @@ def _status_ufw(ssh):
 def firewall_status():
     data = firewall_service.get_status()
     return jsonify(data)
+
+
+@network_bp.post("/network/firewall/status_elevated")
+def firewall_status_elevated():
+    try:
+        j = (getattr(__import__('flask'), 'request').get_json(silent=True) or {})
+        sudo_pw = j.get('sudo_pw')
+        data = firewall_service.get_status_elevated(sudo_pw)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 
 @network_bp.post("/network/firewall/apply_preset")

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from shlex import quote
-from routes.common.ssh_utils import ssh_exec
+from routes.common.ssh_utils import ssh_exec, ssh_exec_shell
 
 
 class FirewalldManager:
@@ -23,10 +23,10 @@ class FirewalldManager:
         enabled = False
         zones = []
         if installed:
-            _, state, _ = ssh_exec(self.ssh, "firewall-cmd --state 2>/dev/null || true", timeout=3)
+            _, state, _ = ssh_exec_shell(self.ssh, "firewall-cmd --state 2>/dev/null || true", timeout=3)
             enabled = (state or '').strip() == 'running'
             # zones (simple)
-            _, z, _ = ssh_exec(self.ssh, "firewall-cmd --get-active-zones 2>/dev/null || true", timeout=4)
+            _, z, _ = ssh_exec_shell(self.ssh, "firewall-cmd --get-active-zones 2>/dev/null || true", timeout=4)
             if z:
                 lines = z.splitlines()
                 i=0
@@ -88,4 +88,3 @@ class FirewalldManager:
         if selector.get('service'):
             return self._run(f"firewall-cmd --remove-service={quote(selector['service'])} --permanent && firewall-cmd --reload", sudo_pw)
         return {"ok": False, "error": "port or service required"}
-

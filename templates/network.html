@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Network{% endblock %}
 {% block page_title %}Network Overview{% endblock %}
 
@@ -6,30 +6,26 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/network.css') }}">
 
-<h1 style="margin-bottom:12px;">Network Overview</h1>
-<p class="muted" style="margin:-6px 0 18px">
+<h1 style="margin-bottom:6px;">Network Overview</h1>
+<p id="os-info" class="muted" style="margin:0 0 14px"></p>
+<p class="muted" style="margin:0 0 18px">
     See interfaces, IPs, DNS, default route — and manage Wi-Fi connections.
 </p>
 
-<!-- Simple tabs (Network / Firewall) -->
-<nav id="net-tabs" style="display:flex; gap:8px; margin:0 0 12px; border-bottom:1px solid #2a2d36;">
-    <a id="tab-network" href="#network" class="tab-link"
-        style="padding:8px 12px; border:1px solid transparent; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; text-decoration:none; color:#cbd5e1;">
-        Network
-    </a>
-    <a id="tab-firewall" href="#firewall" class="tab-link"
-        style="padding:8px 12px; border:1px solid transparent; border-bottom:none; border-top-left-radius:8px; border-top-right-radius:8px; text-decoration:none; color:#cbd5e1;">
-        Firewall
-    </a>
+<!-- Tabs -->
+<nav class="net-tabs">
+    <div class="net-tabs-row">
+        <a id="tab-network" href="#network" class="net-tab">Network</a>
+        <a id="tab-firewall" href="#firewall" class="net-tab">Firewall</a>
+    </div>
 </nav>
 
 <!-- NETWORK VIEW -->
 <div class="container" id="network-root">
-
     <div class="toolbar">
         <button id="btn-refresh" class="primary">Refresh</button>
         <button id="btn-scan" class="primary">Scan Wi-Fi</button>
-        <input id="wifi-filter" placeholder="Filter SSID…">
+        <input id="wifi-filter" placeholder="Filter SSID...">
         <span id="net-status" class="muted right" aria-live="polite"></span>
     </div>
 
@@ -47,7 +43,7 @@
                 <div>Signal</div>
             </div>
             <div class="row">
-                <div class="cell-muted" style="grid-column:1 / -1">Loading…</div>
+                <div class="cell-muted" style="grid-column:1 / -1">Loadingâ€¦</div>
             </div>
         </div>
     </div>
@@ -72,7 +68,7 @@
                 <div>Action</div>
             </div>
             <div class="row">
-                <div class="cell-muted" style="grid-column:1 / -1">Click “Scan Wi-Fi”.</div>
+                <div class="cell-muted" style="grid-column:1 / -1">Here the Scan Wi-Fi list will appear.</div>
             </div>
         </div>
     </div>
@@ -82,15 +78,15 @@
     <div class="card" id="dns-card" style="padding:12px;">
         <div style="display:grid;grid-template-columns:160px 1fr;gap:8px;">
             <div><strong>Stub (local)</strong></div>
-            <div id="dns-stub">—</div>
+            <div id="dns-stub">â€”</div>
             <div><strong>Upstream DNS</strong></div>
-            <div id="dns-upstream">—</div>
+            <div id="dns-upstream">â€”</div>
             <div><strong>Method</strong></div>
-            <div id="dns-method">—</div>
+            <div id="dns-method">â€”</div>
             <div><strong>Active iface</strong></div>
-            <div id="dns-iface">—</div>
+            <div id="dns-iface">â€”</div>
             <div><strong>Active connection</strong></div>
-            <div id="dns-conn">—</div>
+            <div id="dns-conn">â€”</div>
         </div>
 
         <hr style="border-color:#2a2d36;margin:12px 0;">
@@ -102,7 +98,7 @@
                 <option value="google">Google (8.8.8.8, 8.8.4.4)</option>
                 <option value="cloudflare">Cloudflare (1.1.1.1, 1.0.0.1)</option>
                 <option value="quad9">Quad9 (9.9.9.9, 149.112.112.112)</option>
-                <option value="custom">Custom…</option>
+                <option value="custom">Customâ€¦</option>
             </select>
 
             <input id="dns-custom" placeholder="Custom DNS (space/comma separated e.g. 8.8.8.8 1.1.1.1)"
@@ -123,16 +119,18 @@
     <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
 </div>
 
-<!-- FIREWALL VIEW (hidden by default; same page) -->
+<!-- FIREWALL VIEW -->
 <div class="container" id="firewall-root" style="display:none;">
+    <!-- Header/status -->
     <div class="card" style="padding:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between;">
             <div>
                 <div style="font-size:1.4rem; font-weight:700;">Firewall</div>
-                <div id="fw-sub" class="muted" style="margin-top:4px;"></div>
+                <div id="fw-sub" class="muted" style="margin-top:4px;">UFW presets for Mint/Raspbian.</div>
             </div>
-            <div>
+            <div style="display:flex; gap:8px;">
                 <button id="fw-refresh" class="btn">Refresh</button>
+                <button id="fw-refresh-sudo" class="btn" style="display:none;">Refresh with sudo</button>
             </div>
         </div>
         <div id="fw-status" style="margin-top:10px; display:flex; gap:10px; align-items:center;">
@@ -141,7 +139,31 @@
         </div>
     </div>
 
-    <div id="fw-content"></div>
+    <!-- Controls -->
+    <div class="card" style="padding:12px; margin-top:10px;">
+        <div style="display:grid; grid-template-columns: 180px 1fr 180px; gap:10px; align-items:center;">
+            <label for="fw-app-port"><strong>App port</strong> (tcp)</label>
+            <input id="fw-app-port" type="number" min="1" max="65535" value="8080" />
+            <div></div>
+
+            <label for="fw-sudo"><strong>sudo password</strong> (if required)</label>
+            <input id="fw-sudo" type="password" placeholder="" />
+            <div></div>
+
+            <div></div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="fw-apply" class="primary">Apply recommended rules</button>
+                <button id="fw-enable" class="success">Enable UFW</button>
+                <button id="fw-disable" class="danger">Disable UFW</button>
+            </div>
+            <div></div>
+        </div>
+        <pre id="fw-log" class="logbox" style="margin-top:10px; display:none;"></pre>
+        <div id="fw-alert" class="muted" style="color:#b91c1c; margin-top:6px; display:none;"></div>
+    </div>
+
+    <!-- Content -->
+    <div id="fw-content" style="margin-top:10px;"></div>
 </div>
 
 <!-- Firewall logic -->
@@ -149,29 +171,23 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/network.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/network.js') }}?v=10"></script>
+
 <script>
-    /* Lightweight hash-based tab switching (#network / #firewall) */
+    /* Hash-based tab switching (#network / #firewall) using CSS classes */
     (function () {
         const netEl = document.getElementById('network-root');
         const fwEl = document.getElementById('firewall-root');
         const tabNet = document.getElementById('tab-network');
         const tabFw = document.getElementById('tab-firewall');
 
-        function setActive(a, on) {
-            a.style.background = on ? 'rgba(148,163,184,.15)' : 'transparent';
-            a.style.borderColor = on ? '#2a2d36' : 'transparent';
-            a.style.color = on ? '#fff' : '#cbd5e1';
-            a.setAttribute('aria-current', on ? 'page' : 'false');
-        }
-
         function applyTab() {
             const h = (location.hash || '#network').toLowerCase();
             const isFw = (h === '#firewall');
             netEl.style.display = isFw ? 'none' : 'block';
             fwEl.style.display = isFw ? 'block' : 'none';
-            setActive(tabNet, !isFw);
-            setActive(tabFw, isFw);
+            tabNet.classList.toggle('is-active', !isFw);
+            tabFw.classList.toggle('is-active', isFw);
         }
 
         window.addEventListener('hashchange', applyTab);
@@ -179,13 +195,24 @@
     })();
 </script>
 
-<!-- DNS logic -->
+<!-- DNS logic (unchanged) -->
 <script>
     (function () {
         const $ = (s) => document.querySelector(s);
+        // Fetch OS name under the title
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const r = await fetch('/system/os', { cache: 'no-store' });
+                const j = await r.json();
+                if (j && (j.os_name || j.pretty_name)) {
+                    const t = j.pretty_name || j.os_name;
+                    const el = document.getElementById('os-info');
+                    if (el) el.textContent = t;
+                }
+            } catch {}
+        });
         const statusEl = document.getElementById('net-status');
 
-        // --- DNS UI refs ---
         const stubEl = $('#dns-stub'), upEl = $('#dns-upstream'),
             mEl = $('#dns-method'), ifEl = $('#dns-iface'), cnEl = $('#dns-conn');
         const preset = $('#dns-preset'), custom = $('#dns-custom'), sudo = $('#dns-sudo');
@@ -198,22 +225,21 @@
                 case 'google': return ['8.8.8.8', '8.8.4.4'];
                 case 'cloudflare': return ['1.1.1.1', '1.0.0.1'];
                 case 'quad9': return ['9.9.9.9', '149.112.112.112'];
-                case 'custom':
-                    return (custom.value || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
+                case 'custom': return (custom.value || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
                 default: return [];
             }
         }
 
         async function loadDns() {
-            statusEl.textContent = 'Loading DNS…';
+            statusEl.textContent = 'Loading DNSâ€¦';
             const r = await fetch('{{ url_for("network.dns_status") }}', { cache: 'no-store' });
             const j = await r.json();
             if (j.error) { statusEl.textContent = j.error; return; }
-            stubEl.textContent = j.stub || '—';
-            upEl.textContent = (j.upstream && j.upstream.length) ? j.upstream.join(', ') : '—';
-            mEl.textContent = j.method || '—';
-            ifEl.textContent = j.iface || '—';
-            cnEl.textContent = j.connection || '—';
+            stubEl.textContent = j.stub || 'â€”';
+            upEl.textContent = (j.upstream && j.upstream.length) ? j.upstream.join(', ') : 'â€”';
+            mEl.textContent = j.method || 'â€”';
+            ifEl.textContent = j.iface || 'â€”';
+            cnEl.textContent = j.connection || 'â€”';
             statusEl.textContent = '';
         }
 
@@ -224,17 +250,9 @@
         custom.disabled = preset.value !== 'custom';
 
         apply.addEventListener('click', async () => {
-            setLog('');
-            statusEl.textContent = 'Applying DNS…';
-            const body = {
-                mode: (preset.value === 'auto') ? 'auto' : 'manual',
-                servers: serversFromPreset(),
-                sudo_pw: sudo.value || undefined
-            };
-            const r = await fetch('{{ url_for("network.dns_set") }}', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
+            setLog(''); statusEl.textContent = 'Applying DNSâ€¦';
+            const body = { mode: (preset.value === 'auto') ? 'auto' : 'manual', servers: serversFromPreset(), sudo_pw: sudo.value || undefined };
+            const r = await fetch('{{ url_for("network.dns_set") }}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             const j = await r.json();
             if (j.log) setLog(j.log);
             statusEl.textContent = j.ok ? 'DNS applied' : 'DNS apply failed';
@@ -242,12 +260,8 @@
         });
 
         reset.addEventListener('click', async () => {
-            setLog('');
-            statusEl.textContent = 'Reverting DNS…';
-            const r = await fetch('{{ url_for("network.dns_set") }}', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'auto', servers: [], sudo_pw: sudo.value || undefined })
-            });
+            setLog(''); statusEl.textContent = 'Reverting DNSâ€¦';
+            const r = await fetch('{{ url_for("network.dns_set") }}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'auto', servers: [], sudo_pw: sudo.value || undefined }) });
             const j = await r.json();
             if (j.log) setLog(j.log);
             statusEl.textContent = j.ok ? 'DNS reverted to auto' : 'DNS revert failed';

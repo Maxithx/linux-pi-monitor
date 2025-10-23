@@ -3,7 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-Add entries here under: Added, Changed, Fixed, Removed, Deprecated, Security.
+### Added
+- Settings: Passwordless UFW status helper (install/remove/status endpoints) that installs a read-only sudoers rule for `ufw status`/`verbose`/`numbered`. Returns structured step-by-step logs for easy troubleshooting.
+- Settings UI: Firewall Helpers card with live status badge, sudo password Show/Hide, detailed exec log and a Copy log button.
+- Network: UFW rules table rendering (To/Action/From) with routed policy parsing and safe fallbacks when sudo is required.
+
+### Changed
+- Robust UFW detection across Mint/Bookworm by resolving absolute `ufw` path (`/usr/sbin/ufw` fallback) and using non-interactive checks where appropriate.
+- Status flow now re-checks post-install to keep the badge in sync without reloads.
+
+### Fixed
+- Cases where UFW appeared disabled due to relying on systemd service state; enabled is now derived from `ufw status verbose` and file-based fallbacks when needed.
 
 ## [v0.5.2] - 2025-10-21
 
