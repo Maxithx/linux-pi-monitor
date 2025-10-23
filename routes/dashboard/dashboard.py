@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, redirect, jsonify
 
 from .profiles import get_active_profile
 from .collector import collect_metrics
-import utils as _utils  # reuse existing background cache if running
+import utils as _utils  # only for first_cached_metrics one-shot
 
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
@@ -31,28 +31,29 @@ def dashboard():
 
 @dashboard_bp.route("/metrics")
 def metrics():
-    # Prefer existing background cache if present
-    data = {}
+    # Serve the very first cached sample once, then always compute fresh.
     try:
         if getattr(_utils, "first_cached_metrics", {}):
             data = dict(_utils.first_cached_metrics)
-            # one-shot: clear after first serve
             try:
                 _utils.first_cached_metrics = {}
             except Exception:
                 pass
+            # Enrich and return early for the one-shot
+            try:
+                from .metrics_cpu import get_cpu_freq_info
+                f = get_cpu_freq_info() or {}
+                data["cpu_freq_current_mhz"] = f.get("current_mhz") or 0
+                data["cpu_freq_max_mhz"] = f.get("max_mhz") or 0
+                data["cpu_per_core_mhz"] = f.get("per_core") or []
+            except Exception:
+                pass
+            return jsonify(data)
     except Exception:
         pass
 
-    if not data:
-        try:
-            if getattr(_utils, "latest_metrics", {}):
-                data = dict(_utils.latest_metrics)
-        except Exception:
-            data = {}
-
-    if not data:
-        data = collect_metrics()
+    # Always compute fresh metrics for ongoing requests
+    data = collect_metrics()
 
     # Enrich with frequency details when available
     try:

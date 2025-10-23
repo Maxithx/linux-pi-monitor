@@ -199,7 +199,7 @@ function updateTextValues(data) {
   }
   document.getElementById('cpuInfo').innerHTML = `
     <div class="title">CPU:</div>
-    <div class="value">${safeNum(data.cpu, 0)}%</div>
+    <div class="value">${safeNum(data.cpu, 0).toFixed(1)}%</div>
     <div>${data.cpu_name || 'Unknown CPU'}</div>
     <div>${(data.cpu_cores ?? '?')} kerner${freqLine?`, ${freqLine}`:''}</div>
     ${perLine?`<div class="details" style="margin-top:4px">${perLine}</div>`:''}
