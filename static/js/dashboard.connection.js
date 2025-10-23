@@ -49,20 +49,24 @@
     }
 
     // ---- Get active profile (id, name, host, user) ----
-    async function getActiveProfile() {
-        const data = await fetchJSON(API.listProfiles);
-        const act = data && data.active_profile_id;
-        const profiles = (data && data.profiles) || [];
-        const p = profiles.find(x => x.id === act) || null;
-        return p
-            ? {
-                id: p.id,
-                name: p.name || 'Profile',
-                host: p.pi_host || p.host || '',
-                user: p.pi_user || p.user || ''
-            }
-            : null;
+  async function getActiveProfile() {
+    try {
+      const data = await fetchJSON(API.listProfiles);
+      const act = data && data.active_profile_id;
+      const profiles = (data && data.profiles) || [];
+      const p = profiles.find(x => x.id === act) || null;
+      return p
+        ? {
+            id: p.id,
+            name: p.name || 'Profile',
+            host: p.pi_host || p.host || '',
+            user: p.pi_user || p.user || ''
+          }
+        : null;
+    } catch (e) {
+      return null; // tolerate missing profiles API
     }
+  }
 
     // ---- Fetch OS name from backend ----
     async function getOsName() {
@@ -85,10 +89,7 @@
         try {
             const offline = typeof navigator !== 'undefined' && navigator && navigator.onLine === false;
 
-            const p = await getActiveProfile().catch(err => {
-                setState({ color: 'red', text: 'No connection', hint: `(profiles error: ${err.message})` });
-                throw err;
-            });
+            const p = await getActiveProfile();
 
             if (!p || !p.host) {
                 setState({ color: 'red', text: 'No connection', hint: '(no active profile/host)' });
@@ -96,7 +97,7 @@
                 return;
             }
 
-            const subtitle = p.user && p.host ? `${p.user}@${p.host}` : (p.host || '');
+            const subtitle = p && p.user && p.host ? `${p.user}@${p.host}` : (p && p.host ? p.host : '');
             setState({
                 color: offline ? 'red' : 'yellow',
                 text: offline ? 'Offline' : `Checking ${p.name}`,
