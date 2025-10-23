@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="terminal-title">Terminal to Linux</h1>
+
+<!-- Terminal block -->
+<section class="card term-card">
+    <div id="terminal"></div>
+    <div class="term-toolbar">
+        <button id="stop-process-btn">🛑 Stop active process (Ctrl + C)</button>
+        <span class="terminal-hint">
+            Use <strong>Ctrl + C</strong> to stop. Use <strong>Ctrl + Shift + V</strong> to paste.
+        </span>
+    </div>
+</section>
+
+<!-- Commands block (full width under terminal) -->
+<section class="card cmds-card">
+    <header class="cmds-header">
+        <div class="title-wrap">
+            <h2>Your Command Over

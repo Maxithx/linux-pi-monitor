@@ -1,0 +1,14 @@
+g.vdf'
+[2025-10-14 00:38:53] Roaming config - local (potentially out of sync) copy of roaming config loaded - 230 bytes.
+[2025-10-14 00:38:54] Loaded store 'machineuser' from 'C:\Users\Tronb\AppData\Local\Steam\local.vdf' successfully
+[2025-10-14 00:38:54] Flushed store 'install' to 'G:\Steam\config\config.vdf'
+[2025-10-14 00:38:55] Flushed store 'userlocal' to 'G:\Steam\userdata\12126870\config\localconfig.vdf'
+[2025-10-14 00:38:55] Roaming config - read via RemoteStorage().FileRead
+[2025-10-14 00:38:55] Roaming config - integrating write-aside store into cloud store
+[2025-10-14 00:38:55] Flushed store 'userlocal' to 'G:\Steam\userdata\12126870\config\localconfig.vdf'
+[2025-10-14 00:38:56] Flushed store 'userlocal' to 'G:\Steam\userdata\12126870\config\localconfig.vdf'
+[2025-10-14 00:38:57] Flushed store 'userlocal' to 'G:\Steam\userdata\12126870\config\localconfig.vdf'
+[2025-10-14 00:39:00] Flushed store 'install' to 'G:\Steam\config\config.vdf'
+[2025-10-14 00:39:00] Roaming store 'userroaming' saved successfully
+[2025-10-14 00:39:04] Flushed store 'userlocal' to 'G:\Steam\userdata\12126870\config\localconfig.vdf'
+[20

@@ -20,6 +20,7 @@ import uuid
 import pathlib
 import traceback
 from typing import List
+from werkzeug.exceptions import HTTPException
 
 # --- Glances proxy blueprints (fail-soft if file not present) ---
 try:
@@ -194,6 +195,9 @@ def _no_cache_for_api(resp):
 # ── Forbedret error handler: vis traceback i browseren ────────────────────────
 @app.errorhandler(Exception)
 def _unhandled(e: Exception):
+    # Let Flask handle HTTP errors (e.g., 404) with the correct status code
+    if isinstance(e, HTTPException):
+        return e
     tb = traceback.format_exc()
     try:
         app.logger.error("Unhandled error: %s\n%s", e, tb)

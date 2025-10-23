@@ -1,0 +1,12 @@
+h
+[2025-10-14 00:38:54] SteamUI: INFO: OnLoginStateChange eaxman 5 1 0 0
+[2025-10-14 00:38:54] SteamUI: INFO: OnLoginStateChange eaxman 6 1 0 0
+[2025-10-14 00:38:54] SteamUI: INFO: SteamApp Init - Before Login - 280,2ms
+[2025-10-14 00:38:54] SteamUI: INFO: VirtualMenuStore - 0ms
+[2025-10-14 00:38:54] SteamUI: INFO: NotificationStore - 0,1ms
+[2025-10-14 00:38:54] SteamUI: INFO: FriendsChatStore - 0,8ms
+[2025-10-14 00:38:54] SteamUI: INFO: SuspendResumeStore - 0,2ms
+[2025-10-14 00:38:54] SteamUI: INFO: SteamingStore - 0,2ms
+[2025-10-14 00:38:54] SteamUI: INFO: ConsoleStore - 0ms
+[2025-10-14 00:38:54] SteamUI: INFO: FocusedAppWindowStore - 0,2ms
+[2025-10-14 00:38:54] SteamUI: INFO: VRStore - 0,2ms

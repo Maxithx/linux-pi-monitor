@@ -1,0 +1,29 @@
+# === routes/__init__.py ===
+# Registers all blueprints
+
+def register_routes(app):
+    """
+    Central place to import + register all app blueprints.
+
+    - routes/glances.py        => glances_bp   (proxy namespace, e.g. /glances-proxy/*, /api/3/*)
+    - routes/settings.py       => settings_bp  (settings UI, SSH checks, glances iframe)
+    - routes/glances_manage.py => glances_admin_bp (install/uninstall/status/log/service/diag at /glances/*)
+    - routes/updates.py        => updates_bp   (/updates pages + actions)
+
+    Notes for updates:
+    - The /updates endpoints use OS-specific drivers located in:
+        routes/drivers/
+            os_base.py
+            os_debian.py
+            os_mint.py
+            os_detect.py
+    """
+
+    # --- GLOBAL context for ALL templates (fix 500 on /dashboard etc.) ---
+    @app.context_processor
+    def inject_connection_status_global():
+        try:
+            from .settings import test_ssh_connection
+            status = "connected" if test_ssh_connection() else "disconnected"
+        except Exception:
+            statu

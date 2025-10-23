@@ -2,6 +2,7 @@
 import json
 import os
 from flask import Blueprint, render_template, jsonify, current_app, redirect
+import importlib
 
 # Utils: all parsing and SSH helpers live here
 from utils import (
@@ -55,3 +56,60 @@ def _load_active_profile() -> dict:
         pass
     return {}
 
+
+# ---------- Routes ----------
+
+@dashboard_bp.route("/dashboard", endpoint="dashboard")
+def dashboard():
+    """Render the dashboard if an active SSH profile looks valid, else bounce to settings."""
+    s = _load_active_profile()
+    if not s:
+        return redirect("/settings")
+    host = (s.get("pi_host") or "").strip()
+    user = (s.get("pi_user") or "").strip()
+    auth = (s.get("auth_method") or "key").strip()
+    keyp = (s.get("ssh_key_path") or "").strip()
+    pw = s.get("password") or ""
+    if not host or not user:
+        return redirect("/settings")
+    if auth == "key" and not keyp:
+        return redirect("/settings")
+    if auth == "password" and not pw:
+        return redirect("/settings")
+    return render_template("dashboard.html")
+
+
+@dashboard_bp.route("/metrics")
+def metrics():
+    """Return latest metrics collected by the background updater, with fast first-sample.
+
+    Falls back to on-demand collection if background thread hasn't populated yet.
+    Adds enriched CPU frequency fields expected by the frontend.
+    """
+    # Import utils as a module to allow getattr on lazily-created attributes
+    utils = importlib.import_module("utils")
+
+    # Serve the very first cached sample once, if available
+    first = getattr(utils, "first_cached_metrics", {})
+    if first:
+        try:
+            utils.first_cached_metrics = {}
+        except Exception:
+            pass
+        data = dict(first)
+    else:
+        lm = getattr(utils, "latest_metrics", {})
+        data = dict(lm) if lm else utils.collect_metrics()
+
+    # Attach detailed frequency info if helper exists
+    try:
+        if hasattr(utils, "get_cpu_freq_info"):
+            f = utils.get_cpu_freq_info() or {}
+            # Map keys for the frontend expectations
+            data["cpu_freq_current_mhz"] = f.get("current_mhz") or 0
+            data["cpu_freq_max_mhz"] = f.get("max_mhz") or 0
+            data["cpu_per_core_mhz"] = f.get("per_core") or []
+    except Exception:
+        pass
+
+    return jsonify(data)

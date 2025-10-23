@@ -1,0 +1,8 @@
+ent" --user-data-dir="C:\Users\Tronb\AppData\Local\Steam\htmlcache" --buildid=1759461205 --steamid=0
+[2025-10-14 00:38:54] SP Shared JS Context-'SharedJSCo': CreatingPopup name:SP DesktopLoginWindow_uid0 browser:65536 parent:0 pid:38164 type:4 flags:4194: (-2147483648.00, -2147483648.00) 705.00x440.00: url:about:blank?createflags=4098&pid=0&browser=-1&useragent=Valve%20Steam%20Client
+[2025-10-14 00:38:54] CBrowserComposerSystem::CreateOutputWindow: Creating browser window at: 805240832,805240832 size: 705x440
+[2025-10-14 00:38:54] SP DesktopLoginWindow_uid0: Created window: size: 705,440 pos: 805240832,805240832 mode: System window: 0000000000060B24
+[2025-10-14 00:38:54] SP DesktopLoginWindow_uid0: AfterCreated handle:131073 type:4: (0, 0) 705x440
+[2025-10-14 00:38:54] SP DesktopLoginWindow_uid0: WasHidden 1: (0, 0) 705x440
+[2025-10-14 00:38:54] SP DesktopLoginWindow_uid0-'Log på St': WasHidden 0: (0, 0) 705x440
+[2025

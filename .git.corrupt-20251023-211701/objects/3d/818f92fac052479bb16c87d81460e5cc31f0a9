@@ -1,0 +1,16 @@
+// static/js/glances.install.js
+// Installerer Glances på fjern Linux og streamer log til UI uden at hænge.
+// Tilføjet: valgfri engangs sudo-password prompt (sendes KUN i denne POST og gemmes ikke).
+
+(() => {
+    const btnInstall = document.getElementById('install-glances-btn');
+    const btnStartSvc = document.getElementById('start-glances-service-btn');
+    const btnViewLog = document.getElementById('view-glances-log-btn');
+    const btnClearLog = document.getElementById('clear-glances-log-btn');
+
+    const statusText = document.getElementById('glances-status-text');
+    const installingText = document.getElementById('installing-text');
+    const installingTimer = document.getElementById('install-timer');
+
+    const outInstall = document.getElementById('glances-output');         // live install shell
+    const outService = document.getElementById('glances-service-output'); // service-k

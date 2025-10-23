@@ -1,0 +1,36 @@
+// static/js/glances.uninstall.js
+// Uninstall with optional one-time sudo password, supports JSON or stream replies.
+
+(function () {
+    'use strict';
+
+    const uninstallBtn =
+        document.getElementById('uninstall-glances-btn') ||
+        document.getElementById('uninstall-glances');
+
+    const outBox =
+        document.getElementById('glances-output') ||
+        document.getElementById('glances-log-output');
+
+    const statusText = document.getElementById('glances-status-text');
+
+    const hasUI = typeof window.GlancesUI === 'object' && window.GlancesUI !== null;
+    const setButtons = hasUI && typeof window.GlancesUI.setButtons === 'function'
+        ? window.GlancesUI.setButtons
+        : (disabled) => { if (uninstallBtn) uninstallBtn.disabled = !!disabled; };
+
+    async function refreshStatus() {
+        if (hasUI && typeof window.GlancesUI.updateStatus === 'function') {
+            try { await window.GlancesUI.updateStatus(); return; } catch { }
+        }
+        try {
+            const res = await fetch('/glances/status', { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const st = await res.json();
+            if (statusText) {
+                const parts = [];
+                parts.push(st.installed ? 'Glances: installed' : 'Glances: not installed');
+                parts.push(st.running ? 'Service: running' : 'Service: not running');
+                statusText.style.color = st.running ? 'lightgreen' : (st.installed ? 'orange' : 'salmon');
+                statusText.textContent = parts.join(' — ');
+            }

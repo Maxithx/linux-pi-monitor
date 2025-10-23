@@ -1,0 +1,11 @@
+ase/empty.vdf
+[2025-10-14 00:42:01] GameAction [AppID 3354750, ActionID 1] : LaunchApp changed task to SynchronizingStats with ""
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp changed task to ShowInterstitials with ""
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp waiting for user response to ShowInterstitials ""
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp continues with user response "ShowInterstitials"
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp changed task to SynchronizingControllerConfig with ""
+[2025-10-14 00:42:02] Loaded Config for Local Override Path for App ID 413080, Controller 0: G:\Steam/controller_base/empty.vdf
+[2025-10-14 00:42:02] Loaded Config for Local Override Path for App ID 3354750, Controller 0: G:\Steam/controller_base/empty.vdf
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp changed task to SiteLicenseSeatCheckout with ""
+[2025-10-14 00:42:02] GameAction [AppID 3354750, ActionID 1] : LaunchApp changed task to WaitForStreamingEncoderConfig with ""
+[2025-10-14 00:42:02] GameAction 

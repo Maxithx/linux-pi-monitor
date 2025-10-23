@@ -1,0 +1,36 @@
+import re
+from shlex import quote
+
+from routes.common.ssh_utils import ssh_connect, ssh_exec
+from routes.settings import _get_active_ssh_settings, _is_configured
+
+
+# ---- Intern helpers ---------------------------------------------------------
+
+def _active():
+    s = _get_active_ssh_settings()
+    if not _is_configured(s):
+        raise RuntimeError("SSH not configured")
+    return s
+
+
+def _ssh():
+    s = _active()
+    return ssh_connect(
+        host=s["pi_host"],
+        user=s["pi_user"],
+        auth=s.get("auth_method", "key"),
+        key_path=s.get("ssh_key_path", ""),
+        password=s.get("password", ""),
+        timeout=20,
+    )
+
+
+def _has_nmcli(ssh) -> bool:
+    rc, _, _ = ssh_exec(ssh, "command -v nmcli >/dev/null 2>&1", timeout=3)
+    return rc == 0
+
+
+def _iface_detect(ssh) -> str:
+    """
+    Find første Wi-Fi interface ved at tjekke `iw dev` (bedst) eller `ls /sys/c

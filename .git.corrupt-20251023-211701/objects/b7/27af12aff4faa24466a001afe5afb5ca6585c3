@@ -1,0 +1,30 @@
+.459:WARNING:browser_info.cc(348)] Returning a speculative frame for [12,8]
+[1014/004203.459:WARNING:browser_info.cc(348)] Returning a speculative frame for [12,8]
+[1014/004203.459:WARNING:browser_info.cc(348)] Returning a speculative frame for [12,8]
+[1014/004229.856:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004236.834:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004236.852:WARNING:browser_info.cc(348)] Returning a speculative frame for [15,8]
+[1014/004238.401:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004238.419:WARNING:browser_info.cc(348)] Returning a speculative frame for [16,8]
+[1014/004322.393:ERROR:network_service_instance_impl.cc(600)] Network service crashed, restarting service.
+[1014/004322.469:ERROR:network_service_instance_impl.cc(600)] Network service crashed, restarting service.
+[1014/004549.666:WARNING:alloy_main_delegate.cc(588)] Alloy bootstrap is deprecated and will be removed in ~M127. See https://github.com/chromiumembedded/cef/issues/3685
+[1014/004549.694:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: browser
+[1014/004549.925:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: gpu-process
+[1014/004550.866:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: utility
+[1014/004551.727:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: utility
+[1014/004551.966:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004555.211:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004555.928:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004557.567:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/004600.833:ERROR:ffmpeg_common.cc(959)] Unsupported pixel format: -1
+[1014/004600.834:ERROR:ffmpeg_common.cc(959)] Unsupported pixel format: -1
+[1014/004601.517:ERROR:ffmpeg_common.cc(959)] Unsupported pixel format: -1
+[1014/004750.713:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: gpu-process
+[1014/004951.702:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: utility
+[1014/005003.011:INFO:crash_reporting.cc(238)] Crash reporting enabled for process: renderer
+[1014/005003.038:WARNING:frame_impl.cc(638)] virtual CefFrameImpl::SendProcessMessage sent to detached frame 8-1601A496A9035C949B34479CAF139C12 will be ignored
+[1014/005003.334:WARNING:angle_platform_impl.cc(49)] HLSLCompiler.cpp:250 (rx::HLSLCompiler::compileToBinary): 
+C:\fakepath(130,3-70): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
+
+[1014/005003.366:WARNING:angle_plat

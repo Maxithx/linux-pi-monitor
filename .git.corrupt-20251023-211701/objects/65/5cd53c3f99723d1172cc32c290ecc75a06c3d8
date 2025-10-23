@@ -1,0 +1,15 @@
+]     Watching file G:\Steam\steamapps\common\Steam Controller Configs\12126870\config\preferences_45e-2ff-b90a96.vdf
+[2025-10-14 00:42:02] [AppID 241100]     Watching file G:\Steam\steamapps\common\Steam Controller Configs\12126870\config\configset_controller_xboxone.vdf
+[2025-10-14 00:42:02] [AppID 241100]     Watching file G:\Steam\steamapps\common\Steam Controller Configs\12126870\config\configset_controller_generic.vdf
+[2025-10-14 00:42:02] [AppID 241100]     Watching file G:\Steam\steamapps\common\Steam Controller Configs\12126870\config\configset_46d-c219-b90a96.vdf
+[2025-10-14 00:42:02] [AppID 241100]     Watching file G:\Steam\steamapps\common\Steam Controller Configs\12126870\config\configset_45e-2ff-b90a96.vdf
+[2025-10-14 00:42:02] [AppID 241100] AutoCloud done. Watching 6 files
+[2025-10-14 00:42:02] [AppID 241100] YldWriteCacheDirectoryToFile - saved to 'G:\Steam/userdata/12126870/241100/remotecache.vdf'
+[2025-10-14 00:42:07] [AppID 2371090] Starting sync (down,)
+[2025-10-14 00:42:07] [AppID 2371090] Attempting to sync from local change number '0' to global change number '0' (full)
+[2025-10-14 00:42:07] [AppID 2371090] Download complete in build list
+[2025-10-14 00:42:07] [AppID 2371090] Successfully synced to ChangeNumber 0
+[2025-10-14 00:42:07] [AppID 2371090] YldWriteCacheDirectoryToFile - empty vector, deleting 'G:\Steam/userdata/12126870/2371090/remotecache.vdf'
+[2025-10-14 00:43:10] [AppID 241100] Starting sync (up,AC Exit,)
+[2025-10-14 00:43:10] [AppID 241100] Running AutoCloud on exit. Looking for new and updated files
+[2025-10-14 

@@ -1,0 +1,108 @@
+import webview
+import webbrowser
+from flask import Flask, render_template, jsonify, request, redirect
+import paramiko
+import re
+import time
+import threading
+import os
+import logging
+import sys
+import json
+
+app = Flask(__name__)
+
+# Stier til konfiguration og logs
+appdata_dir = os.path.join(os.getenv("APPDATA"), "raspberry_pi_monitor")
+os.makedirs(appdata_dir, exist_ok=True)
+settings_path = os.path.join(appdata_dir, "settings.json")
+log_file_path = os.path.join(appdata_dir, "server_logs.txt")
+
+# Logging
+logging.basicConfig(
+    filename=log_file_path,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logging.info("Programmet blev startet.")
+
+handler = logging.FileHandler(log_file_path)
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(message)s')
+handler.setFormatter(formatter)
+app.logger.addHandler(handler)
+
+# Udskrift til logfil
+sys.stdout = open(log_file_path, 'a')
+sys.stderr = sys.stdout
+
+# Standard SSH-data (overskrives af settings.json)
+PI_HOST = ""
+PI_USER = ""
+SSH_KEY_PATH = ""
+SSH_PASSWORD = ""
+AUTH_METHOD = "key"
+
+def load_user_settings():
+    global PI_HOST, PI_USER, SSH_KEY_PATH, SSH_PASSWORD, AUTH_METHOD
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r") as f:
+                data = json.load(f)
+                PI_HOST = data.get("pi_host", "")
+                PI_USER = data.get("pi_user", "")
+                SSH_KEY_PATH = data.get("ssh_key_path", "")
+                SSH_PASSWORD = data.get("ssh_password", "")
+                AUTH_METHOD = data.get("auth_method", "key")
+        except Exception as e:
+            print("Fejl ved indlæsning af settings:", e)
+
+load_user_settings()
+
+# Caching og netværksstatus
+last_stats = {"rx": None, "tx": None, "time": None}
+latest_metrics = {}
+first_cached_metrics = {}
+
+def ssh_run(command):
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if AUTH_METHOD == "key":
+            key = paramiko.RSAKey.from_private_key_file(SSH_KEY_PATH)
+            ssh.connect(PI_HOST, username=PI_USER, pkey=key)
+        elif AUTH_METHOD == "password":
+            ssh.connect(PI_HOST, username=PI_USER, password=SSH_PASSWORD)
+        else:
+            print("Ugyldig auth_method:", AUTH_METHOD)
+            return ""
+
+        stdin, stdout, stderr = ssh.exec_command(command)
+        output = stdout.read().decode().strip()
+        ssh.close()
+        return output
+    except Exception as e:
+        print("SSH error:", e)
+        return ""
+
+def parse_cpu_info():
+    name = ssh_run("lscpu | grep 'Model name' | awk -F: '{print $2}'").strip() or "Unknown CPU"
+    cores = ssh_run("nproc").strip() or "Unknown"
+    freq_line = ssh_run("lscpu | grep MHz | tail -1").strip()
+    freq_match = re.search(r'(\d+\.?\d*)', freq_line)
+    freq_ghz = f"{round(float(freq_match.group(1)) / 1000, 2)}" if freq_match else "?"
+    max_freq_line = ssh_run("lscpu | grep 'CPU max MHz'").strip()
+    max_match = re.search(r'(\d+\.?\d*)', max_freq_line)
+    max_ghz = f"{round(float(max_match.group(1)) / 1000, 2)}" if max_match else "?"
+    return name, cores, f"{freq_ghz} / {max_ghz} GHz"
+
+def parse_cpu_usage(output):
+    match = re.search(r'(\d+\.\d+)\s+id', output)
+    return round(100 - float(match.group(1)), 1) if match else 0
+
+def parse_mem(output):
+    for line in output.splitlines():
+        if line.lower().startswith("mem:"):
+            parts = line.split()
+            if len(parts)

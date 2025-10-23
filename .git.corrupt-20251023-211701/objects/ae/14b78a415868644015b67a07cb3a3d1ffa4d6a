@@ -1,0 +1,14 @@
+14 00:45:52]     [ command_line ]: "G:\Steam\bin\cef\cef.win7x64\steamwebhelper.exe" -nocrashdialog -lang=da_DK -cachedir="C:\Users\Tronb\AppData\Local\Steam\htmlcache" -steampid=22896 -buildid=1759461205 -steamid=0 -logdir="G:\Steam\logs" -uimode=7 -startcount=0 -steamuniverse=Public -real <truncated>
+[2025-10-14 00:45:52]     [ graphics_backend ]: Skia/126 be621ea04206d8fae23952783d1d588d6ce0d9b3
+[2025-10-14 00:45:52]     [ operating_system ]: Windows NT 10.0.26100
+[2025-10-14 00:45:52]     [ revision_identifier ]: 2e81dea53f5ecdc1c057e4c70ecd66151987296a
+[2025-10-14 00:45:52]     [ version ]: Chrome/126.0.6478.183
+[2025-10-14 00:45:52]  
+[2025-10-14 00:45:52] *** Report Section: GPU Info ***
+[2025-10-14 00:45:52]  
+[2025-10-14 00:45:52]  [ gpu_info ]:
+[2025-10-14 00:45:52]         [ ANGLEFeatures ]:
+[2025-10-14 00:45:52]                 [ ANGLEFeatures[0] ]: allowCompressedFormats: enabled
+[2025-10-14 00:45:52]                 [ ANGLEFeatures[1] ]: alwaysRunLinkSubJobsThreaded: disabled
+[2025-10-14 00:45:52]                 [ ANGLEFeatures[2] ]: cacheCompiledShader: disabled
+[2025-10-14 0
