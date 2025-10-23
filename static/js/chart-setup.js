@@ -285,5 +285,5 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   fetchData();
-  setInterval(fetchData, 2000);
+  setInterval(fetchData, 500);
 });

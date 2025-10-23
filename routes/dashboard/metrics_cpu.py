@@ -5,6 +5,9 @@ import json
 
 from .ssh_client import ssh_run
 
+# Sticky last-good CPU value to avoid 0% spikes on transient sampling errors
+_LAST_GOOD_CPU = 0.1
+
 
 # ---- CPU model / freq -------------------------------------------------------
 
@@ -121,9 +124,21 @@ def _cpu_usage_via_top() -> Optional[float]:
 
 
 def get_cpu_usage() -> float:
-    for fn in (_cpu_usage_via_mpstat, _cpu_usage_via_procstat, _cpu_usage_via_top):
-        v = fn()
+    global _LAST_GOOD_CPU
+    # Prefer mpstat (1s) for accuracy; then faster /proc/stat (~0.25s); then top
+    for fn, arg in ((
+        (_cpu_usage_via_mpstat, 1.0),
+        (_cpu_usage_via_procstat, 0.25),
+        (_cpu_usage_via_top, None),
+    )):
+        try:
+            v = fn(arg) if arg is not None else fn()  # type: ignore[arg-type]
+        except TypeError:
+            v = fn()  # type: ignore[misc]
         if v is not None:
+            # store and floor to avoid showing an exact 0% during idle
+            v = max(0.1, min(100.0, float(v)))
+            _LAST_GOOD_CPU = v
             return v
-    return 0.0
-
+    # All failed: return last good (or small floor)
+    return max(0.1, float(_LAST_GOOD_CPU or 0.1))
