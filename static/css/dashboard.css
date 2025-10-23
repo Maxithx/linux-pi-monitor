@@ -63,7 +63,7 @@ body { background-color: var(--bg); color: var(--text); }
 .chart-box {
     background-color: var(--surface);
     padding: 20px;
-    border-radius: 10px;
+    border-radius: 12px;
     /* Remove heavy drop shadows for cleaner look */
     box-shadow: none;
     border: 1px solid var(--card-border);
@@ -72,10 +72,49 @@ body { background-color: var(--bg); color: var(--text); }
     justify-content: space-between;
 }
 
+/* Lift cards slightly on hover without heavy shadows */
+.box:hover, .chart-box:hover {
+    border-color: rgba(148,163,184,.35);
+}
+
+/* Titles and values inside metric boxes */
+.box .title {
+    font-size: 12px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: #8fa3b8;
+    font-weight: 600;
+}
+.box .value {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+}
+.box .details { color: #aab8c5; }
+
+/* Progress bars (CPU/RAM/Disk/Net) */
+.progress-bar { 
+    position: relative; height: 6px; width: 100%;
+    background: rgba(148,163,184,.15); border-radius: 999px; overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #2d7be1, #22c55e);
+    border-radius: 999px; transition: width .25s ease;
+}
+
+/* Chart headers */
+.chart-box h3 {
+    font-size: 13px; font-weight: 700; color:#8fa3b8; margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing:.02em;
+}
+
 /* === CHART CANVAS HEIGHT FIX === */
 .chart-box canvas {
     width: 100% !important;
     height: 200px !important;
+    border-radius: 8px;
 }
 
 /* === RESPONSIVE DESIGN === */
