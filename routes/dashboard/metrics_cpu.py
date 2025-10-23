@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict
 import json
 import time
+import requests
+from flask import current_app
 
 from .ssh_client import ssh_run
 
@@ -156,6 +158,7 @@ def get_cpu_usage() -> float:
         return max(0.1, float(_LAST_GOOD_CPU))
 
     for fn, arg in ((
+        (_cpu_usage_via_glances, None),
         (_cpu_usage_via_mpstat, 1.0),
         (_cpu_usage_via_procstat, 0.25),
         (_cpu_usage_via_top, None),
@@ -172,3 +175,39 @@ def get_cpu_usage() -> float:
 
     # All failed: return last good (or small floor) and do not move the timestamp
     return max(0.1, float(_LAST_GOOD_CPU or 0.1))
+
+
+def _glances_base_url() -> Optional[str]:
+    try:
+        s = (current_app.config.get("SSH_SETTINGS") or {}).copy()
+        host = (s.get("pi_host") or "").strip()
+        if not host:
+            return None
+        return f"http://{host}:61208/"
+    except Exception:
+        return None
+
+
+def _cpu_usage_via_glances() -> Optional[float]:
+    """Use Glances REST API (psutil-backed) if running.
+
+    GET http://<host>:61208/api/3/cpu → {"total": x, "idle": y, ...}
+    Returns None if Glances not reachable.
+    """
+    base = _glances_base_url()
+    if not base:
+        return None
+    url = base.rstrip('/') + '/api/3/cpu'
+    try:
+        r = requests.get(url, timeout=1.2)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        if isinstance(j, dict):
+            if 'total' in j:
+                return round(float(j['total']), 1)
+            if 'idle' in j:
+                return round(max(0.0, min(100.0, 100.0 - float(j['idle']))), 1)
+    except Exception:
+        return None
+    return None
