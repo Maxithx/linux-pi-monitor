@@ -12,6 +12,32 @@ def page():
     return render_template("network.html")
 
 
+@network_bp.get("/system/os")
+def system_os():
+    """Return OS info from /etc/os-release (JSON).
+
+    Payload example: {"ok": true, "os_name": "Linux Mint", "pretty_name": "Linux Mint 22.2"}
+    """
+    try:
+        ssh = _ssh()
+        rc, out, _ = ssh_exec(ssh, 'sh -lc "cat /etc/os-release 2>/dev/null"', timeout=6)
+        try:
+            ssh.close()
+        except Exception:
+            pass
+        name = pretty = ""
+        if out:
+            for ln in out.splitlines():
+                ln = ln.strip()
+                if ln.startswith("PRETTY_NAME="):
+                    pretty = ln.split("=", 1)[1].strip().strip('"')
+                elif ln.startswith("NAME="):
+                    name = ln.split("=", 1)[1].strip().strip('"')
+        return jsonify({"ok": True, "os_name": pretty or name or "Linux", "pretty_name": pretty or name})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @network_bp.get("/network/summary")
 def summary():
     try:
