@@ -121,17 +121,28 @@ def _to_ghz(val: str) -> str:
         return ""
 
 def _fmt_freq(cur_mhz: str, min_mhz: str, max_mhz: str) -> str:
-    # Prefer min/max if they exist and differ; otherwise show max; otherwise show current.
+    """Format CPU frequency favoring dynamic current MHz.
+
+    Prefer current MHz (scaled) when available; fallback to max MHz; if not
+    available, display min/max in GHz. Avoid question marks to keep UI clean.
+    """
+    try:
+        cur = float(str(cur_mhz).strip())
+        if cur > 0:
+            return f"{int(round(cur))} MHz"
+    except Exception:
+        pass
+    try:
+        mx = float(str(max_mhz).strip())
+        if mx > 0:
+            return f"{int(round(mx))} MHz"
+    except Exception:
+        pass
     ghz_min = _to_ghz(min_mhz)
     ghz_max = _to_ghz(max_mhz)
-    ghz_cur = _to_ghz(cur_mhz)
-    if ghz_min and ghz_max and ghz_min != ghz_max:
+    if ghz_min and ghz_max:
         return f"{ghz_min} / {ghz_max} GHz"
-    if ghz_max:
-        return f"{ghz_max} GHz"
-    if ghz_cur:
-        return f"{ghz_cur} GHz"
-    return ""  # <- no question marks
+    return ""
 
 def parse_cpu_info():
     # Try lscpu JSON first (fast, structured)
