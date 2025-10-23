@@ -41,7 +41,7 @@ def register_routes(app):
     from .settings.glances_manage import glances_bp as glances_admin_bp   # /glances/*
     from .settings.glances import glances_bp as glances_compat_bp        # /glances-proxy/*
     from .updates import updates_bp                              # /updates/*
-    from .dashboard import dashboard_bp
+    from .dashboard.dashboard import dashboard_bp
     from .logs import logs_bp
     from .terminal import terminal_bp
     from .settings.software import software_bp
@@ -67,4 +67,3 @@ def register_routes(app):
     app.register_blueprint(glances_compat_bp)  # /glances-proxy/* and /api/3/*
     app.register_blueprint(network_bp)         # /network, /network/*
     app.register_blueprint(drivers_bp)           # /drivers
-
