@@ -11,6 +11,7 @@ from .ssh_client import ssh_run
 # Sticky last-good CPU value to avoid 0% spikes on transient sampling errors
 _LAST_GOOD_CPU = 0.1
 _LAST_CPU_TS = 0.0  # seconds
+_LAST_SOURCE = "unknown"  # glances|mpstat|procstat|top|unknown
 
 # Cache for CPU frequency (update every 2s as requested)
 _FREQ_CACHE: Dict[str, object] = {"data": {"current_mhz": 0, "max_mhz": 0, "per_core": []}, "ts": 0.0}
@@ -171,10 +172,23 @@ def get_cpu_usage() -> float:
             v = max(0.1, min(100.0, float(v)))
             _LAST_GOOD_CPU = v
             _LAST_CPU_TS = now
+            # Track source label
+            global _LAST_SOURCE
+            _LAST_SOURCE = (
+                "glances" if fn is _cpu_usage_via_glances else
+                "mpstat"  if fn is _cpu_usage_via_mpstat  else
+                "procstat" if fn is _cpu_usage_via_procstat else
+                "top"
+            )
             return v
 
     # All failed: return last good (or small floor) and do not move the timestamp
     return max(0.1, float(_LAST_GOOD_CPU or 0.1))
+
+
+def get_cpu_source() -> str:
+    """Return the name of the last method used to compute CPU usage."""
+    return _LAST_SOURCE
 
 
 def _glances_base_url() -> Optional[str]:

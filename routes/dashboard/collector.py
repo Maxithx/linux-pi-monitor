@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .metrics_cpu import parse_cpu_info, get_cpu_usage
+from .metrics_cpu import parse_cpu_info, get_cpu_usage, get_cpu_source
 from .metrics_mem import parse_mem_free
 from .metrics_disk import parse_disk_df, get_disk_hardware_info
 from .metrics_net import parse_net_speed
@@ -35,6 +35,7 @@ def collect_metrics() -> Dict:
 
     return {
         "cpu": cpu_usage,
+        "cpu_source": get_cpu_source(),
         "cpu_name": cpu_name,
         "cpu_cores": cpu_cores,
         "cpu_freq": cpu_freq,
@@ -55,4 +56,3 @@ def collect_metrics() -> Dict:
         "net_iface": net_iface,
         "uptime": uptime,
     }
-
