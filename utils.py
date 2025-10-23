@@ -177,21 +177,34 @@ def parse_cpu_info():
 
 # --------- CPU usage: /proc/stat (awk) â†’ mpstat â†’ top ---------
 def _cpu_usage_via_procstat() -> float | None:
-    """Compute CPU usage on remote host purely in awk with ~200ms interval."""
+    """Compute CPU usage using /proc/stat across two samples (~200ms).
+
+    Previous version sometimes read different lines (cpu vs cpu0) and relied on
+    awk NF, which led to incorrect 100% results. This version explicitly reads
+    the aggregated 'cpu ' line twice and sums known fields.
+    """
     cmd = (
-        "awk 'BEGIN{"
-        "getline l1 < \"/proc/stat\";"
-        "split(l1,a); t0=0; for(i=2;i<=NF;i++) t0+=a[i]; i0=a[5]+a[6];"
-        "system(\"sleep 0.2\");"
-        "getline l2 < \"/proc/stat\";"
-        "split(l2,b); t1=0; for(i=2;i<=NF;i++) t1+=b[i]; i1=b[5]+b[6];"
-        "u = (1- (i1-i0)/(t1-t0))*100;"
-        "if(u<0)u=0; if(u>100)u=100; printf(\"%.1f\\n\", u);"
+        "awk '"
+        "function readcpu(arr){"
+        "  while ((getline line < \"/proc/stat\") > 0) {"
+        "    if (substr(line,1,4) == \"cpu \") { split(line, arr); close(\"/proc/stat\"); return 1 }"
+        "  }"
+        "  close(\"/proc/stat\"); return 0"
+        "}"
+        "BEGIN{" 
+        "  if (!readcpu(a)) { print \"\"; exit }"
+        "  t0=a[2]+a[3]+a[4]+a[5]+a[6]+a[7]+a[8]+a[9]; i0=a[5]+a[6];"
+        "  system(\"sleep 0.2\");"
+        "  if (!readcpu(b)) { print \"\"; exit }"
+        "  t1=b[2]+b[3]+b[4]+b[5]+b[6]+b[7]+b[8]+b[9]; i1=b[5]+b[6];"
+        "  u = (1 - (i1 - i0)/(t1 - t0)) * 100;"
+        "  if (u < 0) u = 0; if (u > 100) u = 100;"
+        "  printf(\"%.1f\\n\", u);"
         "}'"
     )
     out = ssh_run(cmd)
     try:
-        return round(float(out.replace(",", ".")), 1)
+        return round(float((out or "").strip().replace(",", ".")), 1)
     except Exception:
         return None
 
