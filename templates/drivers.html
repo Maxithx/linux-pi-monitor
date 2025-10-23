@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Drivers & Firmware{% endblock %}
 {% block page_title %}Drivers & Hardware{% endblock %}
 
@@ -8,8 +8,7 @@
 
 <!-- Top controls -->
 <div class="hstack" style="justify-content:flex-end; margin:-6px 0 10px 0;">
-    <button id="btn-expand-all" class="btn">Expand all</button>
-    <button id="btn-collapse-all" class="btn">Collapse all</button>
+    <!-- Expand/Collapse buttons removed to avoid overlap with global indicator -->
 </div>
 
 <style>
@@ -95,7 +94,7 @@
         <details open>
             <summary>
                 <span id="wifi-title">{{ drivers.wifi.title }}</span>
-                <span id="wifi-badge" class="badge">checking…</span>
+                <span id="wifi-badge" class="badge">checkingâ€¦</span>
                 <button type="button" class="icon-btn" aria-label="Toggle section"></button>
             </summary>
             <div class="driver-body">
@@ -128,7 +127,7 @@
 
                 <h4 style="margin-top:12px;">Driver logs</h4>
                 <pre id="wifi-out" class="mono"
-                    style="max-height:320px;overflow:auto;background:#0e0f13;border:1px solid #2a2d36;border-radius:8px;padding:10px;">(click “Scan status”)</pre>
+                    style="max-height:320px;overflow:auto;background:#0e0f13;border:1px solid #2a2d36;border-radius:8px;padding:10px;">(click â€œScan statusâ€)</pre>
             </div>
         </details>
     </div>
@@ -165,7 +164,7 @@
     }
 
     async function scan() {
-        out.textContent = 'Scanning…';
+        out.textContent = 'Scanningâ€¦';
         const r = await fetch('{{ url_for("drivers.status") }}', { cache: 'no-store' });
         const j = await r.json();
         if (j.error) { out.textContent = j.error; setBadge(false, 'error'); return; }
@@ -176,7 +175,7 @@
     }
 
     async function runFix(target) {
-        out.textContent = 'Running ' + target + ' …';
+        out.textContent = 'Running ' + target + ' â€¦';
         const r = await fetch('{{ url_for("drivers.run_fix", target="X") }}'.replace('X', target), { method: 'POST' });
         const j = await r.json();
         out.textContent = (j.log || '') + (j.wifi ? '\n\nNew status:\n' + JSON.stringify(j.wifi, null, 2) : '');
@@ -218,3 +217,4 @@
     scan();
 </script>
 {% endblock %}
+

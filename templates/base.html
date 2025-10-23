@@ -26,6 +26,23 @@
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}" defer></script>
+
+  <style>
+    .global-conn{
+      position:fixed; top:12px; right:16px; z-index:1000;
+      display:flex; align-items:center; gap:6px;
+      font-size:12px; color:#cbd5e1; background:#111; border:1px solid #333;
+      padding:4px 10px; border-radius:12px; opacity:.92; backdrop-filter: blur(2px);
+    }
+    .gc-dot{width:8px; height:8px; border-radius:50%; background:#6b7280; display:inline-block}
+    .gc-dot.gc-green{background:#22c55e}
+    .gc-dot.gc-red{background:#ef4444}
+    .gc-spin{
+      width:12px; height:12px; border:2px solid #94a3b8; border-top-color:transparent;
+      border-radius:50%; animation:gcspin 1s linear infinite; margin-left:2px;
+    }
+    @keyframes gcspin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 
 <body class="sidebar-{{ sidebar_state }}">
@@ -129,6 +146,15 @@
 
   <!-- Page-specific scripts -->
   {% block scripts %}{% endblock %}
+
+  <!-- Global connection indicator -->
+  <div id="global-conn" class="global-conn" aria-live="polite" aria-atomic="true">
+    <span id="gc-dot" class="gc-dot" aria-hidden="true"></span>
+    <span id="gc-text">Checking connection…</span>
+    <span id="gc-spin" class="gc-spin" style="display:none;" aria-hidden="true"></span>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/conn.status.js') }}?v=1"></script>
 </body>
 
 </html>
