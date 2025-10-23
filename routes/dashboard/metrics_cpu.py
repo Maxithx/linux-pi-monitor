@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from typing import Optional, Tuple, Dict
 import json
+import time
 
 from .ssh_client import ssh_run
 
 # Sticky last-good CPU value to avoid 0% spikes on transient sampling errors
 _LAST_GOOD_CPU = 0.1
+_LAST_CPU_TS = 0.0  # seconds
+
+# Cache for CPU frequency (update every 2s as requested)
+_FREQ_CACHE: Dict[str, object] = {"data": {"current_mhz": 0, "max_mhz": 0, "per_core": []}, "ts": 0.0}
 
 
 # ---- CPU model / freq -------------------------------------------------------
@@ -57,12 +62,25 @@ def parse_cpu_info() -> Tuple[str, str, str]:
 
 
 def get_cpu_freq_info() -> Dict:
-    """Return dynamic CPU frequency info: current MHz, max MHz, per-core list."""
+    """Return dynamic CPU frequency info with a 2s cache window.
+
+    Data shape: {"current_mhz": int, "max_mhz": int, "per_core": list[int]}.
+    """
+    now = time.time()
+    try:
+        ts = float(_FREQ_CACHE.get("ts", 0.0))
+        if now - ts < 2.0:
+            return dict(_FREQ_CACHE.get("data", {}))  # type: ignore[return-value]
+    except Exception:
+        pass
     try:
         from utils import get_cpu_freq_info as _g
-        return _g()
+        data = _g() or {"current_mhz": 0, "max_mhz": 0, "per_core": []}
     except Exception:
-        return {"current_mhz": 0, "max_mhz": 0, "per_core": []}
+        data = {"current_mhz": 0, "max_mhz": 0, "per_core": []}
+    _FREQ_CACHE["data"] = data
+    _FREQ_CACHE["ts"] = now
+    return data
 
 
 # ---- CPU usage (Glances parity) --------------------------------------------
@@ -124,8 +142,19 @@ def _cpu_usage_via_top() -> Optional[float]:
 
 
 def get_cpu_usage() -> float:
-    global _LAST_GOOD_CPU
-    # Prefer mpstat (1s) for accuracy; then faster /proc/stat (~0.25s); then top
+    """Return CPU usage, updating at most once per 1s.
+
+    - Primary: mpstat 1 1 (accurate 1s average)
+    - Fallback: /proc/stat (~0.25s sample)
+    - Fallback: top -bn1 (100 - idle)
+
+    If polled faster than 1s, return the last good value (no new sampling).
+    """
+    global _LAST_GOOD_CPU, _LAST_CPU_TS
+    now = time.time()
+    if now - _LAST_CPU_TS < 1.0:
+        return max(0.1, float(_LAST_GOOD_CPU))
+
     for fn, arg in ((
         (_cpu_usage_via_mpstat, 1.0),
         (_cpu_usage_via_procstat, 0.25),
@@ -136,9 +165,10 @@ def get_cpu_usage() -> float:
         except TypeError:
             v = fn()  # type: ignore[misc]
         if v is not None:
-            # store and floor to avoid showing an exact 0% during idle
             v = max(0.1, min(100.0, float(v)))
             _LAST_GOOD_CPU = v
+            _LAST_CPU_TS = now
             return v
-    # All failed: return last good (or small floor)
+
+    # All failed: return last good (or small floor) and do not move the timestamp
     return max(0.1, float(_LAST_GOOD_CPU or 0.1))
