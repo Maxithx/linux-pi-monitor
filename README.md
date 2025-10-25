@@ -18,7 +18,7 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 | :--- | :--- | :--- |
 | Dashboard | CPU, RAM, disk, temperatures, and mini charts. | [View Dashboard](#dashboard) |
 | Settings | Manage SSH profiles, keys, and Glances service. | [View Settings](#settings) |
-| Network | Interface overview, Wi-Fi scanning, and live DNS control. | [View Network](#network) |
+| Network and firewall| Interface overview, Wi-Fi scanning, and live DNS control. | [View Network](#network) |
 | Logs | View service and application logs directly in the browser. | [View Logs](#logs) |
 | Live Monitor | Embedded Glances Web UI for detailed system monitoring. | [View Live Monitor](#live-system-glances) |
 | KeePass Vault | Phased Samba share setup for KeePass vaults + Windows helper. | [View KeePass Vault](#keepass) |
@@ -30,49 +30,45 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 
 ## Highlights
 
-- Multi-profile SSH: Save multiple hosts (Pi, Linux server), switch instantly.
-- Secure Authentication: Generate ed25519 keys and install the public key on the host with one click.
-- Glances Integration: Install, start, stop, and view logs for the Glances service remotely. The Live view auto-detects the active profile host for Direct (61208).
-- KeePass Vault Setup: Guided, phased setup to host a local-only SMB share for your KeePassXC vault (deps, share, firewall, verify) with logs and rollback.
-- Windows Mapping Helper: One-click copy of the proper `net use` command and visible share path (e.g. `\\<pi-ip>\keepass`).
-- Network & DNS Manager:
-  - View active interfaces, IPv4, MAC, and SSID.
-  - Change DNS servers live (Google, Cloudflare, Quad9, or Custom).
-  - Automatic detection of active connection and systemd-resolved method.
-- Driver Detection:
-  - Detect and manage OS-specific drivers (Debian, Mint).
-  - Future support for automatic driver install/uninstall.
-- Update Center:
-  - Displays available APT updates with severity and details.
-  - Buttons are locked while loading or installing, to prevent conflicts.
-- Theme + Navigation: Neutral dark palette, cyan accents, cleaner cards; new sidebar item for KeePass Vault; Terminal focused strictly on shell.
-- Windows Host: The app runs locally on your Windows machine (Python 3.10+ required).
+- Multi-profile SSH & secure auth  
+  Save multiple hosts (Pi, Mint, Debian) and switch instantly. Generate ed25519 keys and push the public key to the target with one click.
+- Update Center with live progress  
+  Overall + per-package progress bars, sequential “Full/Noob” workflows, detailed install logs, and buttons that lock/unlock automatically so parallel installs never collide.
+- Network, DNS & Firewall hub  
+  Interface overview with Wi-Fi scanning, live DNS presets/custom servers, plus a full firewall view (UFW/firewalld) for enabling profiles or toggling rules without leaving the browser.
+- Glances + Live Dashboard  
+  Install, start, stop, and inspect logs for Glances; the embedded live view auto-targets the selected SSH profile. The dashboard tiles show CPU, RAM, disk, temps, and sparkline history.
+- KeePass Vault & Windows helper  
+  Phased Samba share setup (deps → share → firewall → verify) with rollback logs and a ready-to-copy `net use` command for mapping the vault from Windows.
+- Terminal, Logs & Drivers  
+  Full-width xterm.js console with saved commands, searchable log viewer, and driver detection for Debian/Mint derivatives.
+- Windows-first hosting  
+  Runs locally on Windows 10/11 (Python 3.10+) but works equally well on Linux/Mint/Raspbian for headless deployments.
 
 ---
 
-## Theme Palette (UI Recolor)
+## Theme Palette (Light UI)
 
-The UI uses a neutral dark theme with a subtle cyan accent. Core tokens are defined as CSS variables in `static/css/dashboard.css` and reused across pages:
+The UI now uses a light, desaturated palette with navy accents. Core tokens are defined in `static/css/dashboard.css` and shared across every page:
 
 ```
 :root {
-  --bg: #0f172a;       /* page background */
-  --surface: #111827;  /* cards and panels */
-  --text: #e5e7eb;     /* primary text */
-  --muted: #9ca3af;    /* secondary text */
-  --primary: #2196F3;  /* actions/links */
-  --card-border: rgba(255,255,255,0.06);
+  --bg: #f4f6fb;        /* page background */
+  --surface: #ffffff;   /* cards and panels */
+  --text: #0f172a;      /* primary text */
+  --muted: #64748b;     /* secondary text */
+  --primary: #2d7be1;   /* actions/links */
+  --card-border: rgba(15,23,42,0.08);
 }
 ```
 
-Updates in this recolor:
-- Sidebar background: `#1A1A1A` with cyan hover accents.
-- Dashboard cards: shadows removed; subtle 1px borders.
-- Charts: RAM color changed to cyan; other series keep Google‑like colors.
-- Network/Settings/Updates/Terminal pages: removed purple/indigo tints and aligned cards, tables, and inputs to the neutral palette.
-- Terminal (xterm.js): background `#0b0f1f`, cursor cyan `#00BCD4`.
+Highlights:
+- Sidebar + cards inherit light surfaces with soft borders to match the rest of the Windows app ecosystem.
+- Charts keep Google-like colors while RAM adopts the primary accent.
+- Updates, Network, Firewall, Settings, and Terminal pages now share the same light layout and spacing for consistency.
+- Terminal (xterm.js) uses a deep navy background with cyan cursor so it stands out against the rest of the light UI.
 
-Guideline: when adding new views, use `var(--surface)` for panels and `var(--card-border)` for borders to keep the look consistent.
+Guideline: when adding new views, stick to `var(--surface)` and `var(--card-border)` to stay aligned with the light design.
 
 ---
 
@@ -115,6 +111,26 @@ Open: http://127.0.0.1:8080
 
 To stop the app: `Ctrl+C`  
 To deactivate the venv: `deactivate`
+
+#### Multi-worker servers (recommended)
+
+- Windows (development): Waitress with threads
+
+  ```bat
+  pip install waitress
+  waitress-serve --threads=4 app:app
+  ```
+
+- Linux (Mint / Pi, dev or prod): Gunicorn with workers + threads
+
+  ```bash
+  pip install gunicorn
+  gunicorn -w 2 --threads 4 -b 0.0.0.0:8080 app:app
+  ```
+
+Notes
+- The built-in Flask dev server is fine for local development, but use a multi-worker server for responsiveness under load (updates run in background threads).
+- If you use Flask-SocketIO features, keep eventlet installed; Gunicorn works well with threads for the HTTP routes used by Updates.
 ### Dev quick tip: restart after backend edits
 
 If you edit backend Python files (routes, helpers, or templates used by Flask) while the server is running, restart the process to ensure changes load cleanly. In development you can also enable Flask's reloader, but a manual restart avoids stale compiled state.
@@ -157,46 +173,54 @@ Open: http://127.0.0.1:8080
 
 <a id="dashboard"></a>
 ### Dashboard
-![Dashboard – Linux Pi Monitor](docs/screenshots/image-1.png)
+![Dashboard - Linux Pi Monitor](docs/screenshots/dashboard-1.png)
 
 <a id="settings"></a>
 ### Settings
-![Settings – SSH/Glances](docs/screenshots/image-2.png)
+![Settings - SSH/Glances](docs/screenshots/settings-2.png)
 
 <a id="network"></a>
 ### Network
-![Network – Interfaces & Wi-Fi + DNS](docs/screenshots/image-7.png)
+![Network - Interfaces & Wi-Fi + DNS](docs/screenshots/network-3.png)
+![Firewall & DNS Controls](docs/screenshots/netwotk-firewall-3.png)
 
 <a id="logs"></a>
 ### Logs
-![Logs](docs/screenshots/image-3.png)
+![Logs](docs/screenshots/system-log-4.png)
 
 <a id="live-system-glances"></a>
 ### Live System Monitor (Glances)
-![Live System Monitor (Glances)](docs/screenshots/image-4.png)
+![Live System Monitor (Glances)](docs/screenshots/glances-5.png)
 
 <a id="terminal"></a>
 ### Terminal
-![Terminal](docs/screenshots/image-5.png)
+![Terminal](docs/screenshots/terminal-6.png)
 
 <a id="drivers"></a>
 ### Drivers
-![Drivers](docs/screenshots/image-8.png)
+![Drivers](docs/screenshots/drivers-8.png)
 
 <a id="update-center"></a>
 ### Update Center
-![Update Center](docs/screenshots/image-6.png)
+![Update Center](docs/screenshots/update-9.png)
 
 <a id="keepass"></a>
 ### KeePass Vault
-Screenshot coming soon. This page provides a guided, phased setup to host a local‑only Samba share for your KeePass vault, plus a Windows mapping helper.
+![KeePass Vault](docs/screenshots/keepass-vault-7.png)
+This page provides a guided, phased setup to host a local-only Samba share for your KeePass vault, plus a Windows mapping helper.
 
 
 ---
 
 ## Recent changes
 
-- Wi‑Fi scan: improve first‑scan results and connected detection (Oct 2025)
+- Update Center UX (v0.5.4)
+  - Added light overall progress meter + per-package bars that stay in sync with apt output.
+  - “Full/Noob” workflows now run every action sequentially and show completion states in the table (“Installation done” + Installed buttons).
+  - Manual installs no longer disappear; rows stay visible so you can see what was just applied.
+- Light UI refresh
+  - Cards, tables, and buttons now share the same light palette; README screenshots updated accordingly.
+  - Firewall view was pulled forward into the Network section with its own screenshot.
+- Wi-Fi scan reliability
   - Avoid needing two clicks: after triggering nmcli rescan, the backend briefly retries the list while NetworkManager warms up its cache.
-  - Connected marking is more robust: considers nmcli IN‑USE, active BSSID/SSID (case-insensitive), and the active nmcli connection name.
-
+  - Connected marking is more robust: considers nmcli IN-USE, active BSSID/SSID (case-insensitive), and the active nmcli connection name.

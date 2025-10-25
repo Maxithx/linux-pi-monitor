@@ -73,6 +73,53 @@ button.is-disabled[disabled],
     color: #fff2c2;
 }
 
+.overall-progress {
+    margin-top: 12px;
+    padding: 14px 16px;
+    border: 1px solid rgba(15, 23, 42, .1);
+    border-radius: 12px;
+    background: #f6f8fc;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+
+.overall-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: .95rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.overall-progress-track {
+    position: relative;
+    height: 14px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    border: 1px solid rgba(15, 23, 42, .15);
+    overflow: hidden;
+}
+
+.overall-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w, 0%);
+    background: linear-gradient(90deg, #6ea3ff, #8ed7ff);
+    transition: width .35s ease;
+    box-shadow: 0 0 10px rgba(110, 163, 255, .45);
+}
+
+.overall-progress.is-done .overall-progress-fill {
+    background: linear-gradient(90deg, #34d399, #a7f3d0);
+    box-shadow: 0 0 10px rgba(52, 211, 153, .45);
+}
+
+.overall-progress.is-error .overall-progress-fill {
+    background: linear-gradient(90deg, #fb7185, #fde68a);
+    box-shadow: 0 0 10px rgba(251, 113, 133, .45);
+}
+
 /* Cards */
 .card { box-shadow: none; border:1px solid var(--card-border, rgba(255,255,255,.06)); background: var(--surface, #111827); }
 
@@ -148,6 +195,18 @@ button.is-disabled[disabled],
     background: rgba(255, 255, 255, .03);
 }
 
+#updates-body tr.pkg.is-installed {
+    background: rgba(34, 197, 94, .08);
+}
+#updates-body tr.pkg.is-installed [data-install] {
+    background: rgba(34, 197, 94, .15);
+    border-color: rgba(34, 197, 94, .4);
+    color: #052d15;
+}
+#updates-body tr.pkg.is-installed [data-install]:hover {
+    filter: none;
+}
+
 #updates-body tr:nth-child(4n+1).pkg,
 #updates-body tr:nth-child(4n+2).pkg {
     background: rgba(255, 255, 255, .01);
@@ -155,6 +214,83 @@ button.is-disabled[disabled],
 
 #updates-body tr.detail td {
     font-size: .95rem;
+    color: #e5e9ff;
+    background: #0f111b;
+}
+#updates-body tr.detail td strong { color: #fff; }
+#updates-body tr.pkg.is-installed + tr.detail td {
+    background: rgba(34, 197, 94, .12);
+    color: #052d15;
+}
+#updates-body tr.pkg.is-installed + tr.detail td strong { color: #052d15; }
+
+/* Per-package progress inside Installing Update column */
+td[data-prog] { vertical-align: middle; }
+td[data-prog] .statusline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .9rem;
+    opacity: .9;
+    margin-bottom: 6px;
+    gap: 12px;
+}
+td[data-prog] .statusline .pct {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #e0edff;
+}
+td[data-prog].is-complete .statusline .pct {
+    color: #4ade80;
+}
+td[data-prog] .pkg-progress {
+    --w: 0%;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(45, 123, 225, .35);
+    position: relative;
+    overflow: hidden;
+}
+td[data-prog] .pkg-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w);
+    background: linear-gradient(90deg, #2d7be1, #5edbff);
+    box-shadow: 0 0 8px rgba(45, 123, 225, .4);
+    transition: width .3s ease;
+}
+td[data-prog].is-complete .pkg-progress-fill {
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    box-shadow: 0 0 8px rgba(34, 197, 94, .5);
+}
+
+.install-note {
+    font-size: .88rem;
+    font-weight: 600;
+    color: #bef6cd;
+    margin-bottom: 6px;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+.install-note::before {
+    content: '✔';
+    font-size: .8rem;
+}
+
+/* Screen-reader only text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* Severity pills */

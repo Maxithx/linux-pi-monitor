@@ -9,7 +9,7 @@ import re
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, List
 from flask import render_template, request, jsonify, Response, stream_with_context, send_file, make_response
 
 from routes.settings import _get_active_ssh_settings, _is_configured, test_ssh_connection
@@ -83,6 +83,8 @@ def _inject_sudo_flags(cmd: str) -> str:
     Tilføj ' -S -p ''' til alle 'sudo ' forekomster, så sudo læser fra stdin
     uden prompt-tekst. Simpelt string-replace er tilstrækkeligt til vores kommandoer.
     """
+    if "sudo -S -p ''" in cmd:
+        return cmd
     return cmd.replace("sudo ", "sudo -S -p '' ")
 
 
@@ -93,11 +95,11 @@ def _wrap_with_password(cmd: str, sudo_password: str) -> str:
     populater sudo-timestamp for de næste.
     """
     # Sørg for engelske tekster og sudo -S på alle kald
-    cmd = _force_english(_inject_sudo_flags(cmd))
+    cmd = _inject_sudo_flags(cmd)
     # /bin/sh -c '...': stdin for hele kæden er pipet fra printf
     # printf -- '%s\n' 'password'
-    wrapper = f"/bin/sh -c {shlex.quote(cmd)}"
-    return f"printf -- %s\\\\n {shlex.quote(sudo_password)} | {wrapper}"
+    prefix = "export LANG=C LC_ALL=C; "
+    return f"{prefix}printf '%s\\n' {shlex.quote(sudo_password)} | {cmd}"
 
 
 @updates_bp.post("/updates/run_sync")
@@ -227,6 +229,7 @@ def updates_pkg_detail(name: str):
 # Update runs: state, progress, logs (async)
 # ---------------------------------------------------------------------
 _RUNS: Dict[str, Dict[str, Any]] = {}
+_RUNS_LOCK = threading.Lock()
 
 _RX_DOWNLOAD = re.compile(r"^Get:\d+\s+.*\s([a-z0-9\-\+\.]+)\s.*\[(\d+(?:\.\d+)?\s*(?:kB|MB))\]", re.IGNORECASE)
 _RX_UNPACK = re.compile(r"^Unpacking\s+([a-z0-9\-\+\.]+)\s", re.IGNORECASE)
@@ -245,18 +248,20 @@ def _new_run() -> str:
     ts = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H-%M-%SZ')
     short = hex(int(time.time()*1000))[-6:]
     run_id = f"{ts}_{short}"
-    _RUNS[run_id] = {
-        'started_ts': time.time(),
-        'ended_ts': None,
-        'overall': {'percent': 0, 'phase': 'Starting'},
-        'packages': {},
-        'active_iface': '',
-        'requires_reboot': False,
-        'done': False,
-        'exit_code': None,
-        'error': None,
-        'action': None,
-    }
+    with _RUNS_LOCK:
+        _RUNS[run_id] = {
+            'started_ts': time.time(),
+            'updated_ts': None,
+            'ended_ts': None,
+            'overall': {'percent': 0, 'phase': 'Starting'},
+            'packages': {},
+            'active_iface': '',
+            'requires_reboot': False,
+            'done': False,
+            'exit_code': None,
+            'error': None,
+            'action': None,
+        }
     append_log(run_id, f"=== Update run {run_id} started {datetime.utcnow().isoformat()}Z ===\n")
     return run_id
 
@@ -279,6 +284,8 @@ def _apply_line_to_state(state: Dict[str, Any], line: str) -> None:
     line = (line or '').rstrip('\n')
     if not line:
         return
+    # Mark state as updated on every processed line
+    state['updated_ts'] = time.time()
     m = _RX_DOWNLOAD.search(line)
     if m:
         name = m.group(1)
@@ -327,6 +334,7 @@ def _finish_state(state: Dict[str, Any], exit_code: int) -> None:
     state['done'] = True
     state['exit_code'] = int(exit_code or 0)
     state['ended_ts'] = time.time()
+    state['updated_ts'] = state.get('ended_ts')
 
 
 def _run_streaming(ssh, cmd: str, run_id: str, state: Dict[str, Any]) -> int:
@@ -397,10 +405,12 @@ def updates_run_async():
             return jsonify({"ok": True, "rc": rc, "stdout": out, "stderr": err})
 
         run_id = _new_run()
-        _RUNS[run_id]['action'] = action
+        with _RUNS_LOCK:
+            _RUNS[run_id]['action'] = action
 
         def _bg():
-            state = _RUNS.get(run_id) or {}
+            with _RUNS_LOCK:
+                state = _RUNS.get(run_id) or {}
             append_log(run_id, f"Action: {action}\n")
             try:
                 ssh = ssh_connect(
@@ -417,9 +427,22 @@ def updates_run_async():
 
             try:
                 if action == 'full_noob_update':
+                    # First, refresh package index (non-streaming to avoid skewing package progress)
+                    update_cmd = "sudo apt-get update"
+                    if sudo_password:
+                        update_cmd = _wrap_with_password(update_cmd, sudo_password)
+                    else:
+                        update_cmd = _force_english(update_cmd)
+                    rcu, outu, erru = ssh_exec(ssh, update_cmd, timeout=240, shell=True)
+                    if outu:
+                        append_log(run_id, outu if not sudo_password else outu.replace(sudo_password, '******'))
+                    if erru:
+                        append_log(run_id, erru if not sudo_password else erru.replace(sudo_password, '******'))
+
+                    # Then, stream the full-upgrade for progress parsing
                     apt_cmd = (
-                        "sudo -S -p '' DEBIAN_FRONTEND=noninteractive apt-get -y "
-                        "-o Dpkg::Use-Pty=0 -o Dpkg::Progress-Fancy=0 --with-new-pkgs full-upgrade"
+                        "sudo DEBIAN_FRONTEND=noninteractive apt-get -y "
+                        "-o Dpkg::Use-Pty=0 -o Dpkg::Progress-Fancy=0 full-upgrade"
                     )
                     if sudo_password:
                         apt_cmd = _wrap_with_password(apt_cmd, sudo_password)
@@ -428,8 +451,8 @@ def updates_run_async():
                     _run_streaming(ssh, apt_cmd, run_id, state)
 
                     chain = (
-                        "sudo apt autoremove --purge -y && "
-                        "sudo apt autoclean && "
+                        "sudo apt-get autoremove --purge -y && "
+                        "sudo apt-get autoclean && "
                         "( command -v flatpak >/dev/null 2>&1 && flatpak update -y || true ) && "
                         "( command -v snap >/dev/null 2>&1 && sudo snap refresh || true )"
                     )
@@ -462,13 +485,31 @@ def updates_run_async():
                     pass
 
         threading.Thread(target=_bg, name=f"upd-{run_id}", daemon=True).start()
-        return jsonify({"ok": True, "run_id": run_id})
+        return jsonify({"ok": True, "run_id": run_id, "action": action})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @updates_bp.get('/updates/progress/<run_id>')
 def updates_progress(run_id: str):
+    def _tail_lines(path: str, max_lines: int = 50) -> List[str]:
+        try:
+            with open(path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                block = 4096
+                data = b""
+                while size > 0 and data.count(b"\n") <= max_lines:
+                    read_size = block if size >= block else size
+                    size -= read_size
+                    f.seek(size)
+                    data = f.read(read_size) + data
+                text = data.decode("utf-8", errors="replace")
+                lines = text.splitlines()[-max_lines:]
+                return lines
+        except Exception:
+            return []
+
     state = _RUNS.get(run_id)
     if not state:
         items = list_logs()
@@ -481,21 +522,47 @@ def updates_progress(run_id: str):
                 'requires_reboot': False,
                 'done': True,
                 'size': len(txt),
+                # New compact fields for async UI consumers
+                'percent': 100,
+                'phase': 'Done',
+                'status': 'done',
+                'rc': 0,
+                'run_id': run_id,
+                'started_at': None,
+                'updated_at': None,
+                'last_lines': _tail_lines(make_log_path(run_id), 50),
             })
         return jsonify({'error': 'unknown run_id'}), 404
     pkgs = [
         {'name': k, 'version': v.get('version', ''), 'phase': v.get('phase', ''), 'percent': int(v.get('percent', 0))}
         for k, v in state.get('packages', {}).items()
     ]
-    return jsonify({
-        'overall': state.get('overall', {'percent': 0, 'phase': 'Idle'}),
+    overall = state.get('overall', {'percent': 0, 'phase': 'Idle'})
+    started_ts = state.get('started_ts')
+    updated_ts = state.get('updated_ts') or started_ts
+    ended_ts = state.get('ended_ts')
+    rc = state.get('exit_code')
+    status = 'done' if state.get('done') else ('error' if (rc not in (None, 0)) else 'running')
+    # Provide both legacy structure and compact fields
+    payload = {
+        'overall': overall,
         'packages': pkgs,
         'active_iface': state.get('active_iface', ''),
         'requires_reboot': bool(state.get('requires_reboot')),
         'done': bool(state.get('done')),
-        'exit_code': state.get('exit_code'),
+        'exit_code': rc,
         'error': state.get('error'),
-    })
+        # New compact snapshot fields
+        'percent': int(overall.get('percent', 0) or 0),
+        'phase': overall.get('phase', 'Idle'),
+        'status': status,
+        'rc': 0 if rc in (None, 0) and not state.get('error') else int(rc or 1),
+        'run_id': run_id,
+        'started_at': started_ts,
+        'updated_at': ended_ts or updated_ts,
+        'last_lines': _tail_lines(make_log_path(run_id), 50),
+    }
+    return jsonify(payload)
 
 
 @updates_bp.get('/updates/logs')

@@ -23,6 +23,17 @@
                 <button id="btn-reboot" class="btn warn small" disabled>Reboot now</button>
             </div>
 
+            <div id="overall-progress" class="overall-progress" aria-live="polite">
+                <div class="overall-progress-head">
+                    <span id="overall-progress-phase">Idle</span>
+                    <span id="overall-progress-value">0%</span>
+                </div>
+                <div class="overall-progress-track" role="progressbar" aria-label="Overall update progress"
+                    aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div id="overall-progress-fill" class="overall-progress-fill" style="--w:0%;"></div>
+                </div>
+            </div>
+
             <div style="margin-top:8px; opacity:.8; font-size:.95rem;">
                 Run the checks below to see available updates.
             </div>

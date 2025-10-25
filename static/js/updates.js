@@ -34,6 +34,10 @@ const searchTimer = document.getElementById('search-timer');
 const updatesCount = document.getElementById('updates-count');
 const connUserHost = document.getElementById('conn-userhost');
 const connOS = document.getElementById('conn-os');
+const overallBox = document.getElementById('overall-progress');
+const overallPhase = document.getElementById('overall-progress-phase');
+const overallValue = document.getElementById('overall-progress-value');
+const overallFill = document.getElementById('overall-progress-fill');
 
 // Hvilke UI-handlinger kræver sudo (på Mint m.fl.)
 // Hvilke UI-handlinger kræver sudo (på Mint m.fl.)
@@ -49,6 +53,10 @@ const ACTIONS_REQUIRE_SUDO = new Set([
 let SUDO_PW_CACHE = null;
 // Remember packages installed this session (to grey out buttons after rescan)
 let INSTALLED_SET = new Set();
+const ACTIVE_RUNS = new Set();
+const RUN_WAITERS = new Map();
+let workflowLock = false;
+let overallResetTimer = null;
 // Ensure a progress bar exists inside indicator
 let prog = searchBox.querySelector('.progress');
 if (!prog) {
@@ -59,6 +67,16 @@ if (!prog) {
 
 const APT_WARNING = 'apt does not have a stable CLI interface';
 const PHASING_MARKER = 'deferred due to phasing';
+const FULL_UPDATE_STEPS = [
+    { action: 'apt_update', label: 'APT index refresh' },
+    { action: 'apt_full_upgrade', label: 'APT full-upgrade' },
+    { action: 'flatpak_apply', label: 'Flatpak updates' },
+    { action: 'snap_refresh', label: 'Snap refresh' }
+];
+const SECURITY_UPDATE_STEPS = [
+    { action: 'apt_update', label: 'APT index refresh' },
+    { action: 'apt_full_upgrade', label: 'Security upgrade' }
+];
 
 let tickTimer = null;
 let tickProgress = null;
@@ -83,6 +101,72 @@ function setBusy(busy) {
     });
 }
 
+function beginRun(runId) {
+    if (!runId) return;
+    ACTIVE_RUNS.add(runId);
+    setBusy(true);
+    updateOverallProgress({ percent: 0, phase: 'Starting', status: 'running' });
+    clearTimeout(overallResetTimer);
+}
+
+function completeRun(runId, snapshot) {
+    if (!runId) return;
+    if (RUN_WAITERS.has(runId)) {
+        const queue = RUN_WAITERS.get(runId) || [];
+        RUN_WAITERS.delete(runId);
+        queue.forEach(fn => { try { fn(snapshot); } catch (e) {} });
+    }
+    ACTIVE_RUNS.delete(runId);
+    if (snapshot) updateOverallProgress(snapshot);
+    if (ACTIVE_RUNS.size === 0 && !workflowLock) {
+        scheduleOverallReset();
+        setBusy(false);
+    }
+}
+
+function waitForRunCompletion(runId) {
+    if (!runId) return Promise.resolve(null);
+    return new Promise(resolve => {
+        const queue = RUN_WAITERS.get(runId) || [];
+        queue.push(resolve);
+        RUN_WAITERS.set(runId, queue);
+    });
+}
+
+function scheduleOverallReset() {
+    clearTimeout(overallResetTimer);
+    overallResetTimer = setTimeout(() => {
+        updateOverallProgress({ percent: 0, phase: 'Idle', status: 'idle' });
+    }, 2200);
+}
+
+function updateOverallProgress(snapshot) {
+    if (!overallBox || !overallPhase || !overallValue || !overallFill) return;
+    const snap = snapshot || {};
+    const rawPct = snap.percent;
+    const pct = Math.max(0, Math.min(100, parseInt(rawPct != null ? rawPct : 0, 10) || 0));
+    const phase = snap.phase || 'Idle';
+    const status = snap.status || (pct > 0 ? 'running' : 'idle');
+    overallPhase.textContent = phase;
+    overallValue.textContent = pct + '%';
+    overallFill.style.setProperty('--w', pct + '%');
+    overallFill.setAttribute('aria-valuenow', pct);
+    overallFill.setAttribute('aria-valuetext', pct + '% ' + phase);
+    const track = overallFill.parentElement;
+    if (track) {
+        track.setAttribute('aria-valuenow', pct);
+        track.setAttribute('aria-valuetext', pct + '% ' + phase);
+    }
+    overallBox.classList.toggle('is-running', status === 'running');
+    overallBox.classList.toggle('is-done', status === 'done');
+    overallBox.classList.toggle('is-error', status === 'error');
+    if (status === 'running') {
+        clearTimeout(overallResetTimer);
+    }
+}
+
+updateOverallProgress({ percent: 0, phase: 'Idle', status: 'idle' });
+
 function ts() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
@@ -99,8 +183,10 @@ function append(text) {
     if (phase) phase.style.display = low.includes(PHASING_MARKER) ? 'block' : 'none';
 }
 
-async function run(action) {
-    append('Running: ' + action + ' ...');
+async function run(action, options = {}) {
+    if (!action) return null;
+    const label = options.label || action;
+    append('Running: ' + label + ' ...');
     setBusy(true);
 
     // Evt. sudo password prompt (kun for bestemte handlinger)
@@ -108,11 +194,12 @@ async function run(action) {
     if (ACTIONS_REQUIRE_SUDO.has(action)) {
         if (SUDO_PW_CACHE == null) {
             const typed = window.prompt('Enter sudo password (will not be stored):', '');
-            if (typed === null) { append('Cancelled.'); setBusy(false); return; }
+            if (typed === null) { append('Cancelled.'); if (ACTIVE_RUNS.size === 0 && !workflowLock) setBusy(false); return null; }
             SUDO_PW_CACHE = typed;
         }
         sudo_password = SUDO_PW_CACHE;
     }
+    let runId = null;
     try {
         const r = await fetch('/updates/run', {
             method: 'POST',
@@ -122,24 +209,35 @@ async function run(action) {
         const j = await r.json();
         if (!j.ok) {
             append('Error: ' + (j.error || 'unknown'));
-            return;
+            return j;
         }
         if (j.run_id) {
-            currentRunId = j.run_id;
+            runId = j.run_id;
+            currentRunId = runId;
             window.localStorage.setItem('upd.run_id', currentRunId);
             lastLogTextLen = 0;
-            startProgressPolling(currentRunId);
-            startLogPolling(currentRunId);
+            beginRun(runId);
+            startProgressPolling(runId);
+            startLogPolling(runId);
+            if (options.waitForCompletion) {
+                const snapshot = await waitForRunCompletion(runId);
+                return snapshot || j;
+            }
         } else {
             const text = `${(j.stdout || '').trim()}\n${(j.stderr ? '\n[stderr]\n' + j.stderr : '')}\n\n[exit ${j.rc}]`;
             append(text);
         }
+        return j;
     } catch (e) {
         append('Network error: ' + e);
+        return null;
     } finally {
         // slet password reference i JS (ikke strengt nødvendigt, men pænt)
         sudo_password = '';
-        setBusy(false);
+        if (!runId && ACTIVE_RUNS.size === 0 && !workflowLock) {
+            setBusy(false);
+            scheduleOverallReset();
+        }
     }
 }
 
@@ -187,6 +285,43 @@ function stripAnsi(s) {
     return s.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
 }
 
+function buildPkgProgressMarkup(percent, phase) {
+    const pct = Math.max(0, Math.min(100, parseInt(percent != null ? percent : 0, 10) || 0));
+    const safePhase = phase || 'Idle';
+    const safePhaseText = escapeHTML(safePhase);
+    return `
+      <div class="statusline">
+        <span>${safePhaseText}</span>
+        <span class="pct">${pct}%</span>
+      </div>
+      <div class="pkg-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"
+           aria-label="${safePhaseText}" style="--w:${pct}%">
+        <div class="pkg-progress-fill"></div>
+      </div>
+      <span class="sr-only">${pct}% - ${safePhaseText}</span>`;
+}
+
+function markRowInstalled(tr, note = 'Installation done', btnLabel = 'Installed') {
+    if (!tr) return;
+    tr.classList.add('is-installed');
+    tr.setAttribute('data-installed', 'true');
+    const btn = tr.querySelector('[data-install]');
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('is-disabled', 'is-installed');
+        btn.textContent = btnLabel;
+    }
+    const td = tr.querySelector('td[data-prog]');
+    if (td) {
+        const safe = escapeHTML(note || 'Installation done');
+        td.classList.add('is-complete');
+        td.innerHTML = `
+          <div class="install-note" role="status">${safe}</div>
+          ${buildPkgProgressMarkup(100, note || 'Installation done')}
+        `;
+    }
+}
+
 // Detail row template
 function rowDetail(pkg) {
     const cves = (pkg.cves || []).map(c =>
@@ -216,14 +351,17 @@ function rowDetail(pkg) {
 function pkgRowSkeleton(name, candidate, arch, i) {
     const clean = stripAnsi(name);
     const version = candidate || "-";
-    const sum = "Loading details…";
+    const sum = "Loading details.";
     return `
   <tr class="pkg" data-idx="${i}" data-name="${escapeAttr(clean)}" style="cursor:pointer;">
     <td>${escapeHTML(clean)}</td>
     <td>${escapeHTML(version)}</td>
-    <td><span class="pill muted">…</span></td>
+    <td><span class="pill muted">.</span></td>
     <td title="${escapeAttr(sum)}">${escapeHTML(sum)}</td>
     <td><button class="btn small" data-install data-name="${escapeAttr(clean)}" disabled>Install</button></td>
+    <td data-prog>
+      ${buildPkgProgressMarkup(0, 'Queued')}
+    </td>
   </tr>`;
 }
 
@@ -387,6 +525,12 @@ function startSSEScan() {
                 // Enrich row in background
                 enrichAsync(name, tr);
 
+                // Refresh placeholder progress cell so it starts at 0%/Queued
+                try {
+                    const td = tr.querySelector('td[data-prog]');
+                    if (td) td.innerHTML = buildPkgProgressMarkup(0, 'Queued');
+                } catch (e) { /* ignore */ }
+
                 // If this package was installed earlier in this session, grey out its button
                 try {
                     if (INSTALLED_SET.has(name.toLowerCase())) {
@@ -459,6 +603,11 @@ document.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
         if (btn.disabled) return; // ignore clicks while disabled
         const action = btn.getAttribute('data-action');
+        if (action === 'full_noob_update') {
+            e.preventDefault();
+            await runFullWorkflow();
+            return;
+        }
         await run(action);
     });
 });
@@ -468,11 +617,7 @@ document.getElementById('btn-refresh')?.addEventListener('click', () => {
     startSSEScan();
 });
 
-btnInstallAll?.addEventListener('click', () => run('full_noob_update'));
-btnInstallSec?.addEventListener('click', async () => {
-    await run('apt_update');
-    await run('apt_full_upgrade');
-});
+btnInstallSec?.addEventListener('click', () => runSequence(SECURITY_UPDATE_STEPS, 'Security updates'));
 btnReboot?.addEventListener('click', rebootNow);
 
 btnToggleAdvanced?.addEventListener('click', () => {
@@ -493,6 +638,39 @@ function toggleOutputCollapse() {
         if (outCard) outCard.classList.remove('is-open');
         localStorage.setItem(key, 'true');
     }
+}
+
+async function runSequence(steps, label) {
+    if (!Array.isArray(steps) || steps.length === 0) return false;
+    workflowLock = true;
+    setBusy(true);
+    try {
+        for (const step of steps) {
+            const stepLabel = step.label || step.action;
+            const snapshot = await run(step.action, { waitForCompletion: true, label: stepLabel });
+            if (!snapshot || snapshot.error || (typeof snapshot.rc === 'number' && snapshot.rc !== 0)) {
+                append(`[${ts()}] ${label || 'Workflow'} stopped during ${stepLabel}.`);
+                return false;
+            }
+        }
+        append(`[${ts()}] ${label || 'Workflow'} completed at ${ts()}.`);
+        return true;
+    } finally {
+        workflowLock = false;
+        if (ACTIVE_RUNS.size === 0) {
+            setBusy(false);
+            scheduleOverallReset();
+        }
+    }
+}
+
+async function runFullWorkflow() {
+    const ok = await runSequence(FULL_UPDATE_STEPS, 'Full update');
+    if (ok) {
+        checkReboot();
+        startSSEScan();
+    }
+    return ok;
 }
 
 // Output collapse toggle and restore (icon chevron + header click)
@@ -598,17 +776,22 @@ function renderProgressCell(tr, pkg) {
     const pct = Math.max(0, Math.min(100, parseInt(pkg.percent || 0)));
     const phase = pkg.phase || '';
     const done = pct >= 100;
-    const cls = ['progress'];
-    if (done) cls.push('is-done');
-    td.innerHTML = `
-      <div class="progress ${cls.join(' ')}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" title="${phase}">
-        <div class="bar" style="width:${pct}%"></div>
-        <span class="label">${pct}% — ${phase || (done ? 'Done' : 'Installing')}</span>
-      </div>`;
-    if (done && tr) {
-        const btn = tr.querySelector('[data-install]');
-        if (btn) { btn.disabled = true; btn.textContent = 'Installed'; btn.classList.add('is-disabled'); }
+    const btn = tr.querySelector('[data-install]');
+    const key = String(pkg.name || '').toLowerCase();
+
+    if (done) {
+        const note = phase && phase !== 'Done' ? phase : 'Installation done';
+        markRowInstalled(tr, note, 'Installed');
+        return;
     }
+
+    // Disable the install button for the active row while in progress
+    if (btn) { btn.disabled = true; btn.classList.add('is-disabled'); btn.textContent = 'Installing.'; }
+
+    const safePhase = phase || 'Installing';
+    td.classList.remove('is-complete');
+    tr.classList.remove('is-installed');
+    td.innerHTML = buildPkgProgressMarkup(pct, safePhase);
 }
 
 async function pollProgressOnce(run_id) {
@@ -656,6 +839,45 @@ function startLogPolling(run_id) {
             clearInterval(pollLogTimer); pollLogTimer = null;
         }
     }, 1000);
+}
+
+// Render a full snapshot from /updates/progress/<run_id>
+function renderProgressSnapshot(j) {
+    try {
+        updateOverallProgress(j);
+        const pkgs = Array.isArray(j.packages) ? j.packages : [];
+        // Update per-package cells when rows exist
+        pkgs.forEach(pkg => {
+            const targetName = String(pkg.name || '').toLowerCase();
+            if (!targetName) return;
+            let tr = null;
+            // Prefer matching by data-name if present
+            const rows = bodyEl ? bodyEl.querySelectorAll('tr.pkg') : [];
+            rows.forEach(r => {
+                if (tr) return;
+                const dn = String(r.getAttribute('data-name') || '').toLowerCase();
+                const textName = String(r.querySelector('td')?.textContent || '').toLowerCase();
+                if (dn === targetName || textName === targetName) tr = r;
+            });
+            if (tr) renderProgressCell(tr, pkg);
+        });
+
+        // If run is done or errored, hide bars and restore buttons
+        if (j.done) {
+            if (bodyEl) {
+                bodyEl.querySelectorAll('tr.pkg').forEach(r => {
+                    const td = r.querySelector('td[data-prog]');
+                    if (td) td.innerHTML = '';
+                    const btn = r.querySelector('[data-install]');
+                    if (btn) { btn.disabled = false; btn.classList.remove('is-disabled'); btn.textContent = 'Install'; }
+                });
+            }
+            const rid = j.run_id || currentRunId;
+            completeRun(rid, j);
+        }
+    } catch (e) {
+        // no-op
+    }
 }
 
 // Connection/OS line
@@ -707,6 +929,7 @@ startSSEScan();
     const rid = localStorage.getItem('upd.run_id');
     if (rid) {
         currentRunId = rid;
+        beginRun(rid);
         startProgressPolling(rid);
         startLogPolling(rid);
         setBusy(true);
@@ -716,10 +939,20 @@ startSSEScan();
 
 // Per-package install action (event delegation)
 async function installPackage(name, btnEl) {
+  if (!name) return;
+  let runId = null;
+  let sudo_password = '';
   try {
     setBusy(true);
-    let sudo_password = window.prompt("Enter sudo password (if required):", "");
-    if (sudo_password === null) { setBusy(false); return; }
+    if (SUDO_PW_CACHE == null) {
+      const typed = window.prompt("Enter sudo password (if required):", "");
+      if (typed === null) {
+        if (ACTIVE_RUNS.size === 0 && !workflowLock) setBusy(false);
+        return;
+      }
+      SUDO_PW_CACHE = typed;
+    }
+    sudo_password = SUDO_PW_CACHE;
 
     const r = await fetch('/updates/install_package', {
       method: 'POST',
@@ -730,44 +963,33 @@ async function installPackage(name, btnEl) {
 
     if (!j || j.ok !== true) {
       append('Error: ' + (j && j.error ? j.error : 'failed'));
-      setBusy(false);
       return;
     }
 
-    // Hook into logs/progress if provided
     if (j.run_id) {
-      currentRunId = j.run_id;
+      runId = j.run_id;
+      currentRunId = runId;
       window.localStorage.setItem('upd.run_id', currentRunId);
       lastLogTextLen = 0;
+      beginRun(runId);
       startProgressPolling(currentRunId);
       startLogPolling(currentRunId);
     }
-
-    // Remove the just-installed row from the available-updates table (Plan A)
+    INSTALLED_SET.add(String(name || '').toLowerCase());
     if (btnEl) {
-      const tr = btnEl.closest('tr.pkg');
-      if (tr) {
-        const detail = tr.nextElementSibling && tr.nextElementSibling.classList.contains('detail')
-          ? tr.nextElementSibling : null;
-
-        tr.style.transition = 'opacity .25s ease, height .25s ease';
-        tr.style.opacity = '0.35';
-        // Delay actual removal a tick to show visual feedback
-        setTimeout(() => {
-          if (detail) detail.remove();
-          tr.remove();
-          // If table is empty, show the empty-state
-          const anyRows = document.querySelectorAll('#updates-body tr.pkg').length;
-          const emptyEl = document.getElementById('updates-empty');
-          if (!anyRows && emptyEl) emptyEl.style.display = '';
-        }, 220);
-      }
+      btnEl.disabled = true;
+      btnEl.classList.add('is-disabled');
+      btnEl.textContent = 'Installing.';
     }
 
   } catch (e) {
     append('Network error: ' + e);
   } finally {
-    setBusy(false);
+    sudo_password = '';
+    if (!runId && ACTIVE_RUNS.size === 0 && !workflowLock) {
+      setBusy(false);
+      scheduleOverallReset();
+    }
   }
 }
  
@@ -790,10 +1012,3 @@ bodyEl.addEventListener('click', (e) => {
     }
   });
 });
-
-
-
-
-
-
-
