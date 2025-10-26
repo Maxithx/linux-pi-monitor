@@ -8,7 +8,10 @@
     font-family: 'Segoe UI', sans-serif;
 }
 
-body { background-color: var(--bg); color: var(--text); }
+body {
+    background-color: var(--bg);
+    color: var(--text);
+}
 
 /* === MAIN CONTAINER === */
 .container {
@@ -73,8 +76,9 @@ body { background-color: var(--bg); color: var(--text); }
 }
 
 /* Lift cards slightly on hover without heavy shadows */
-.box:hover, .chart-box:hover {
-    border-color: rgba(148,163,184,.35);
+.box:hover,
+.chart-box:hover {
+    border-color: rgba(148, 163, 184, .35);
 }
 
 /* Titles and values inside metric boxes */
@@ -85,30 +89,59 @@ body { background-color: var(--bg); color: var(--text); }
     color: #8fa3b8;
     font-weight: 600;
 }
+
 .box .value {
     margin-top: 6px;
     font-size: 22px;
     font-weight: 700;
     color: var(--text);
 }
-.box .details { color: #aab8c5; }
+
+.telemetry-row .box .value.telemetry-value {
+    font-size: 18px;
+    font-weight: 600;
+    min-height: 28px;
+}
+
+.telemetry-value.telemetry-ok {
+    color: #047857;
+}
+
+.telemetry-value.telemetry-warn {
+    color: #c2410c;
+}
+
+.box .details {
+    color: #aab8c5;
+}
 
 /* Progress bars (CPU/RAM/Disk/Net) */
-.progress-bar { 
-    position: relative; height: 6px; width: 100%;
-    background: rgba(148,163,184,.15); border-radius: 999px; overflow: hidden;
+.progress-bar {
+    position: relative;
+    height: 6px;
+    width: 100%;
+    background: rgba(148, 163, 184, .15);
+    border-radius: 999px;
+    overflow: hidden;
     margin-top: 10px;
 }
+
 .progress-bar-fill {
-    height: 100%; width: 0%;
+    height: 100%;
+    width: 0%;
     background: linear-gradient(90deg, #2d7be1, #22c55e);
-    border-radius: 999px; transition: width .25s ease;
+    border-radius: 999px;
+    transition: width .25s ease;
 }
 
 /* Chart headers */
 .chart-box h3 {
-    font-size: 13px; font-weight: 700; color:#8fa3b8; margin-bottom: 8px;
-    text-transform: uppercase; letter-spacing:.02em;
+    font-size: 13px;
+    font-weight: 700;
+    color: #8fa3b8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: .02em;
 }
 
 /* === CHART CANVAS HEIGHT FIX === */
@@ -154,7 +187,11 @@ body { background-color: var(--bg); color: var(--text); }
 }
 
 /* === FIX: Dark background line gap at bottom of sidebar === */
-html, body { height: 100%; background-color: var(--bg); }
+html,
+body {
+    height: 100%;
+    background-color: var(--bg);
+}
 
 /* === Ensures correct background and layout depending on sidebar state === */
 .sidebar~.home-section {
@@ -222,8 +259,6 @@ html, body { height: 100%; background-color: var(--bg); }
    not under the dot itself. */
 #dash-conn-os {
     display: block;
-    margin: 0 0 14px 18px;
-    /* 10px dot + ~8px gap */
     line-height: 1.25;
     opacity: .9;
     white-space: normal;

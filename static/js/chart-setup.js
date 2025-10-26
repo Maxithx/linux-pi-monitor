@@ -182,7 +182,26 @@ function updateProgressBar(id, percent) {
   if (bar) bar.style.width = `${clamp01(safeNum(percent, 0))}%`;
 }
 
+function updateTelemetrySource(data) {
+  const txt = document.getElementById('glances-text');
+  if (!txt) return;
+  if (!data || typeof data.telemetry_source === 'undefined') return;
+  const source = String(data.telemetry_source || data.cpu_source || '').toLowerCase();
+  if (source === 'glances') {
+    txt.textContent = 'Glances (live)';
+    txt.classList.remove('telemetry-warn');
+    txt.classList.add('telemetry-ok');
+  } else {
+    const hint = (data.telemetry_hint || '').trim();
+    txt.textContent = hint ? `SSH sampling (${hint})` : 'SSH sampling';
+    txt.classList.remove('telemetry-ok');
+    txt.classList.add('telemetry-warn');
+  }
+}
+
 function updateTextValues(data) {
+  updateTelemetrySource(data);
+
   // CPU
   const curMHz = safeNum(data.cpu_freq_current_mhz, 0);
   const maxMHz = safeNum(data.cpu_freq_max_mhz, 0);
@@ -285,5 +304,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   fetchData();
-  setInterval(fetchData, 500);
+  setInterval(fetchData, 2000);
 });
+

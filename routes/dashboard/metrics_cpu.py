@@ -3,10 +3,8 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict
 import json
 import time
-import requests
-from flask import current_app
-
 from .ssh_client import ssh_run
+from .glances_client import fetch_glances_json
 
 # Sticky last-good CPU value to avoid 0% spikes on transient sampling errors
 _LAST_GOOD_CPU = 0.1
@@ -191,37 +189,20 @@ def get_cpu_source() -> str:
     return _LAST_SOURCE
 
 
-def _glances_base_url() -> Optional[str]:
-    try:
-        s = (current_app.config.get("SSH_SETTINGS") or {}).copy()
-        host = (s.get("pi_host") or "").strip()
-        if not host:
-            return None
-        return f"http://{host}:61208/"
-    except Exception:
-        return None
-
-
 def _cpu_usage_via_glances() -> Optional[float]:
     """Use Glances REST API (psutil-backed) if running.
 
     GET http://<host>:61208/api/3/cpu → {"total": x, "idle": y, ...}
     Returns None if Glances not reachable.
     """
-    base = _glances_base_url()
-    if not base:
-        return None
-    url = base.rstrip('/') + '/api/3/cpu'
-    try:
-        r = requests.get(url, timeout=1.2)
-        if r.status_code != 200:
+    payload = fetch_glances_json('cpu')
+    if isinstance(payload, dict):
+        try:
+            if 'total' in payload:
+                return round(float(payload['total']), 1)
+            if 'idle' in payload:
+                idle = max(0.0, min(100.0, float(payload['idle'])))
+                return round(100.0 - idle, 1)
+        except Exception:
             return None
-        j = r.json()
-        if isinstance(j, dict):
-            if 'total' in j:
-                return round(float(j['total']), 1)
-            if 'idle' in j:
-                return round(max(0.0, min(100.0, 100.0 - float(j['idle']))), 1)
-    except Exception:
-        return None
     return None

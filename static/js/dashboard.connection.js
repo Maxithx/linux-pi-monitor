@@ -4,13 +4,6 @@
 (() => {
     // ---- DOM refs (safe even if elements are missing) ----
     const sel = {
-        dot: document.getElementById('dash-conn-dot'),
-        text: document.getElementById('dash-conn-text'),
-        hint: document.getElementById('dash-conn-hint'),
-        // If you add this element in your HTML, OS will be written here on its own line.
-        // Example in HTML near your connection row:
-        //   <div id="dash-conn-hint"></div>
-        //   <div id="dash-conn-os" class="muted"></div>
         os: document.getElementById('dash-conn-os'),
     };
 
@@ -22,15 +15,8 @@
     };
 
     // ---- UI state helper ----
-    function setState({ color = 'red', text = 'No connection', hint = '' }) {
-        if (sel.dot) {
-            sel.dot.classList.remove('green', 'red', 'yellow');
-            sel.dot.classList.add(color);
-            sel.dot.setAttribute('aria-label', text);
-            sel.dot.setAttribute('title', hint || text);
-        }
-        if (sel.text) sel.text.textContent = text;
-        if (sel.hint) sel.hint.textContent = hint;
+    function setState({ text = '', hint = '' }) {
+        if (sel.os && text) sel.os.textContent = text;
     }
 
     // ---- Fetch helper with timeout + strict JSON parsing ----
@@ -98,25 +84,13 @@
             }
 
             const subtitle = p && p.user && p.host ? `${p.user}@${p.host}` : (p && p.host ? p.host : '');
-            setState({
-                color: offline ? 'red' : 'yellow',
-                text: offline ? 'Offline' : `Checking ${p.name}`,
-                hint: offline ? 'Browser is offline' : subtitle
-            });
-            if (sel.os) sel.os.textContent = '';
-
             if (offline) return;
 
-            const j = await fetchJSON(API.checkStatus(p.id)).catch(err => {
-                setState({ color: 'red', text: 'No connection', hint: `${subtitle} (${err.message})` });
-                return null;
-            });
+            const j = await fetchJSON(API.checkStatus(p.id)).catch(() => null);
             if (!j) return;
 
             const connected = Boolean(j.connected) || Boolean(j.ok);
             if (connected) {
-                setState({ color: 'green', text: 'Connected', hint: subtitle });
-
                 // --- Now fetch and display OS name just below the connection line ---
                 const osName = await getOsName();
                 if (osName) {
@@ -128,13 +102,9 @@
                     }
                 }
             } else {
-                setState({ color: 'red', text: 'No connection', hint: subtitle });
                 if (sel.os) sel.os.textContent = '';
             }
         } catch {
-            if (sel.text && sel.text.textContent === '') {
-                setState({ color: 'red', text: 'No connection', hint: '(unexpected error)' });
-            }
             if (sel.os) sel.os.textContent = '';
         } finally {
             inFlight = false;
@@ -176,11 +146,5 @@
 
     // ---- Listen to your custom events to refresh immediately ----
     window.addEventListener('profile:changed', checkOnce);
-    window.addEventListener('profile:saved', checkOnce);
-
-    // ---- Pause/resume polling when tab visibility changes ----
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    // ---- Optional: refresh when coming back online ----
-    window.addEventListener('online', checkOnce);
 })();
+

@@ -9,13 +9,16 @@
 
 <section class="home-section">
 
-    <!-- Connection status (filled by dashboard.connection.js) -->
-    <div id="dash-conn" class="dash-status-line" aria-live="polite">
-        <span id="dash-conn-dot" class="dash-dot red" aria-hidden="true"></span>
-        <span id="dash-conn-text">No connection</span>
-        <span id="dash-conn-hint" class="dash-muted"></span>
+    <div class="dashboard-grid telemetry-row">
+        <div class="box" id="osInfo">
+            <div class="title"><i class="fas fa-desktop"></i> Host OS:</div>
+            <div class="value telemetry-value" id="dash-conn-os">Detecting…</div>
+        </div>
+        <div class="box" id="telemetryInfo">
+            <div class="title"><i class="fas fa-satellite"></i> Telemetry:</div>
+            <div class="value telemetry-value" id="glances-text">Detecting Glances…</div>
+        </div>
     </div>
-    <div id="dash-conn-os"></div>
 
     <div class="dashboard-grid">
         <div class="box" id="uptimeInfo">
@@ -101,9 +104,7 @@
     </div>
 </section>
 
-<!-- Connection status logic for dashboard -->
 <script src="{{ url_for('static', filename='js/dashboard.connection.js') }}?v=1"></script>
-
 <!-- Charts -->
 <script src="{{ url_for('static', filename='js/chart-setup.js') }}"></script>
 {% endblock %}
