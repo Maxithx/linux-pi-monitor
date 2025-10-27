@@ -1,4 +1,4 @@
-Ôªø![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/Flask-2.x-black)
 ![Version](https://img.shields.io/badge/version-v0.5.1-blue)
@@ -6,7 +6,7 @@
 
 # Linux Pi Monitor
 
-Linux Pi Monitor is a fast, modern web application (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines over SSH ‚Äî directly from your Windows PC.
+Linux Pi Monitor is a fast, modern web application (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines over SSH ó directly from your Windows PC.
 
 It features a live dashboard with charts, a built-in web terminal, one-click Glances installation, a System Update Center, a Network & DNS Manager, and multi-profile SSH management (keys or passwords).
 
@@ -33,13 +33,13 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 - Multi-profile SSH & secure auth  
   Save multiple hosts (Pi, Mint, Debian) and switch instantly. Generate ed25519 keys and push the public key to the target with one click.
 - Update Center with live progress  
-  Overall + per-package progress bars, sequential ‚ÄúFull/Noob‚Äù workflows, detailed install logs, and buttons that lock/unlock automatically so parallel installs never collide.
+  Overall + per-package progress bars, sequential ìFull/Noobî workflows, detailed install logs, and buttons that lock/unlock automatically so parallel installs never collide.
 - Network, DNS & Firewall hub  
   Interface overview with Wi-Fi scanning, live DNS presets/custom servers, plus a full firewall view (UFW/firewalld) for enabling profiles or toggling rules without leaving the browser.
 - Glances + Live Dashboard  
   Install, start, stop, and inspect logs for Glances; the embedded live view auto-targets the selected SSH profile. The dashboard tiles show CPU, RAM, disk, temps, and sparkline history.
 - KeePass Vault & Windows helper  
-  Phased Samba share setup (deps ‚Üí share ‚Üí firewall ‚Üí verify) with rollback logs and a ready-to-copy `net use` command for mapping the vault from Windows.
+  Phased Samba share setup (deps ? share ? firewall ? verify) with rollback logs and a ready-to-copy `net use` command for mapping the vault from Windows.
 - Terminal, Logs & Drivers  
   Full-width xterm.js console with saved commands, searchable log viewer, and driver detection for Debian/Mint derivatives.
 - Windows-first hosting  
@@ -72,12 +72,46 @@ Guideline: when adding new views, stick to `var(--surface)` and `var(--card-bord
 
 ---
 
+## Command Collections (Terminal)
+
+The terminal page now keeps saved commands in per-profile collections so you can group recurring tasks (System, Network, Disk, etc.) without losing the quick ìRun / Insertî workflow.
+
+![Command Collections](docs/screenshots/terminal-collections.png)
+
+### Adding / Editing Commands
+- Use **+ Command** to open the modal (title + command are required, description optional).
+- Pick the target collection, toggle **Requires sudo** if the command needs elevation, and hit **Save**.  
+- Click any rowís **Edit** button to reopen the modal with the existing values. ìRunî still sends the command with Enter; ìInsertî only types it into the terminal buffer.
+
+-### Organising Collections
+ - Tabs show **All** plus your custom collections; use **+ Collection** to create more or rename/delete the active one via the inline actions.
+ - Drag tabs to reorder groups, drag rows (when a specific collection is active) to persist command order, and use the edit modal's **Collection** selector to move a command elsewhere.
+ - Each SSH profile keeps its own collections. On first launch we seed System/Network/Disk/Security/UFW/Docker/Glances/Uncategorized, and any legacy browser commands are auto-imported into **Uncategorized**.
+ - Use the filter box to search inside the current view; the **All** tab searches every collection and shows the source badge directly under each title.
+
+### Import / Export & Safety
+- Export downloads a JSON snapshot for the active profile; Import accepts that file and merges by collection name (no duplicates). Example payload:
+
+```json
+{
+  "version": 1,
+  "collections": [{ "name": "System" }, { "name": "Uncategorized" }],
+  "commands": [
+    { "title": "Reboot host", "command": "sudo reboot", "description": "Restart machine", "collection_name": "System" }
+  ]
+}
+```
+
+- Server-side validation trims titles (1ñ64 chars) and commands (= 2048 chars, reasonable newline count). Nothing auto-runsóRun/Insert still behave exactly like before.
+
+---
+
 ## Install & Run
 
 This project supports two simple ways to run:
 
-- **A. No Conda (works everywhere)** ‚Äî Recommended for portability (Windows / Linux / Raspbian).
-- **B. With Conda (Windows 10/11)** ‚Äî Great if you prefer Conda-managed Python on Windows.
+- **A. No Conda (works everywhere)** ó Recommended for portability (Windows / Linux / Raspbian).
+- **B. With Conda (Windows 10/11)** ó Great if you prefer Conda-managed Python on Windows.
 
 ### A. Run without Conda (universal)
 
@@ -216,7 +250,7 @@ This page provides a guided, phased setup to host a local-only Samba share for y
 
 - Update Center UX (v0.5.4)
   - Added light overall progress meter + per-package bars that stay in sync with apt output.
-  - ‚ÄúFull/Noob‚Äù workflows now run every action sequentially and show completion states in the table (‚ÄúInstallation done‚Äù + Installed buttons).
+  - ìFull/Noobî workflows now run every action sequentially and show completion states in the table (ìInstallation doneî + Installed buttons).
   - Manual installs no longer disappear; rows stay visible so you can see what was just applied.
 - Light UI refresh
   - Cards, tables, and buttons now share the same light palette; README screenshots updated accordingly.
@@ -224,3 +258,4 @@ This page provides a guided, phased setup to host a local-only Samba share for y
 - Wi-Fi scan reliability
   - Avoid needing two clicks: after triggering nmcli rescan, the backend briefly retries the list while NetworkManager warms up its cache.
   - Connected marking is more robust: considers nmcli IN-USE, active BSSID/SSID (case-insensitive), and the active nmcli connection name.
+

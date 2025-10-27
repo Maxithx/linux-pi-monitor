@@ -3,4 +3,4 @@ from flask import Blueprint
 terminal_bp = Blueprint("terminal", __name__)
 
 from . import views_terminal  # noqa: F401
-
+from . import commands_api  # noqa: F401

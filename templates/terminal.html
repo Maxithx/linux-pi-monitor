@@ -7,7 +7,7 @@
 <section class="card term-card">
   <div id="terminal" tabindex="0"></div>
   <div class="term-toolbar">
-    <button id="stop-process-btn">🛑 Stop active process (Ctrl + C)</button>
+    <button id="stop-process-btn">Stop active process (Ctrl + C)</button>
     <button id="paste-btn" class="btn small ghost" type="button" title="Paste from clipboard">Paste</button>
     <span class="terminal-hint">
       Use <strong>Ctrl + C</strong> to stop. Use <strong>Ctrl + Shift + V</strong> to paste.
@@ -24,32 +24,105 @@
       <h2>Your Command Overview</h2>
       <span id="cmd-count" class="muted"></span>
     </div>
-    <input type="text" id="search-box" placeholder="Filter…">
+    <div class="cmds-header-tools">
+      <input type="text" id="search-box" placeholder="Filter commands">
+      <div class="cmds-header-buttons">
+        <button id="add-command-btn" type="button" class="cmd-btn primary">+ Command</button>
+        <button id="export-btn" type="button" class="cmd-btn ghost">Export</button>
+        <label class="cmd-btn ghost import-label" for="import-file">
+          Import
+          <input id="import-file" type="file" accept="application/json">
+        </label>
+      </div>
+    </div>
   </header>
+
+  <div class="collections-bar" id="collections-bar" role="tablist">
+    <button class="collection-tab active" data-id="all">All</button>
+    <div id="collections-tabs"></div>
+    <button id="add-collection-btn" type="button" class="collection-tab ghost">+ Collection</button>
+  </div>
+  <div class="collection-actions" id="collection-actions" hidden>
+    <button id="rename-collection-btn" type="button" class="cmd-btn ghost small-text">Rename</button>
+    <button id="delete-collection-btn" type="button" class="cmd-btn ghost small-text danger">Delete</button>
+  </div>
 
   <div class="cmds-table">
     <div class="cmds-head">
+      <div class="drag-col"></div>
       <div>Title</div>
       <div>Command</div>
-      <div>Description</div>
-      <div class="actions-col">Action</div>
+      <div class="desc-col">Description</div>
+      <div class="actions-col">Actions</div>
     </div>
-    <div id="command-list" class="cmds-body"></div>
+    <div id="command-list" class="cmds-body" aria-live="polite"></div>
   </div>
 
-  <form id="add-command-form" class="cmds-form">
-    <input type="text" id="cmd-title" placeholder="Name (e.g. Reboot)" required>
-    <input type="text" id="cmd-command" placeholder="Command (e.g. sudo reboot)" required>
-    <input type="text" id="cmd-desc" placeholder="Description (optional)">
-    <button type="submit">Add</button>
-  </form>
+  <div id="cmd-feedback" class="cmd-feedback" role="status" aria-live="polite"></div>
 
   <p class="muted hint">
     Tip: Click a command cell to <strong>Insert</strong> into the prompt. Use <strong>Run</strong> to send with
-    Enter.
-    First load includes examples: Reboot, Show memory, Show disk usage.
+    Enter. Organize commands into collections, drag to reorder, and use Import/Export to share sets across profiles.
   </p>
 </section>
+
+<!-- Command modal -->
+<div id="command-modal" class="cmd-modal" role="dialog" aria-modal="true" aria-labelledby="commandModalTitle" hidden>
+  <div class="cmd-modal-card">
+    <header>
+      <h3 id="commandModalTitle">Add command</h3>
+      <button type="button" class="cmd-btn ghost small" data-close-command>&times;</button>
+    </header>
+    <form id="command-form">
+      <input type="hidden" id="cmd-id">
+      <label>
+        Title
+        <input type="text" id="modal-title" maxlength="64" required>
+      </label>
+      <label>
+        Command
+        <textarea id="modal-command" maxlength="2048" required rows="4" spellcheck="false"></textarea>
+      </label>
+      <label>
+        Description
+        <textarea id="modal-desc" maxlength="512" rows="2"></textarea>
+      </label>
+      <label>
+        Collection
+        <select id="modal-collection"></select>
+      </label>
+      <label class="sudo-toggle">
+        <input type="checkbox" id="modal-sudo">
+        Requires sudo
+      </label>
+      <footer>
+        <button type="button" class="cmd-btn ghost" data-close-command>Cancel</button>
+        <button type="submit" class="cmd-btn primary" id="modal-save-btn">Save command</button>
+      </footer>
+    </form>
+  </div>
+</div>
+
+<!-- Collection modal -->
+<div id="collection-modal" class="cmd-modal" role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle" hidden>
+  <div class="cmd-modal-card small">
+    <header>
+      <h3 id="collectionModalTitle">New collection</h3>
+      <button type="button" class="cmd-btn ghost small" data-close-collection>&times;</button>
+    </header>
+    <form id="collection-form">
+      <input type="hidden" id="collection-id">
+      <label>
+        Name
+        <input type="text" id="collection-name" maxlength="64" required>
+      </label>
+      <footer>
+        <button type="button" class="cmd-btn ghost" data-close-collection>Cancel</button>
+        <button type="submit" class="cmd-btn primary" id="collection-save-btn">Save</button>
+      </footer>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -63,6 +136,3 @@
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 
 {% endblock %}
-
-
-

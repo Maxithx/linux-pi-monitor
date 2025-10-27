@@ -112,10 +112,12 @@ os.makedirs(appdata_dir, exist_ok=True)
 settings_path = os.path.join(appdata_dir, "settings.json")
 log_file_path  = os.path.join(appdata_dir, "server_logs.txt")
 profiles_path  = os.path.join(appdata_dir, "ssh_profiles.json")
+terminal_cmds_path = os.path.join(appdata_dir, "terminal_commands.json")
 
 app.config["SETTINGS_PATH"] = settings_path
 app.config["LOG_FILE_PATH"] = log_file_path
 app.config["PROFILES_PATH"] = profiles_path
+app.config["TERMINAL_COMMANDS_PATH"] = terminal_cmds_path
 os.environ["RPI_MONITOR_PROFILES_PATH"] = app.config["PROFILES_PATH"]
 
 # ── Profiles helpers + legacy migration ───────────────────────────────────────
