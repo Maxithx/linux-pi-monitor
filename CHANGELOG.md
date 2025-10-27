@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
-- Planned: more network helpers and minor UI polish.
+- Command Collections for the terminal: per-profile groups, drag/drop reordering, import/export JSON, and a refreshed screenshot.
+- Backend JSON store + API endpoints for saved commands (collections CRUD, reorder, merge-safe import).
 
 ### Changed
-- Pending: docs refresh and small performance cleanups.
+- Terminal UI updated with tabbed collections, modal editors, responsive filter bar, and improved mobile behaviour.
 
 ### Fixed
-- Pending: none.
+- Dashboard network tiles now read Glances metrics correctly (unit-aware parsing, busiest interface selection) so values stay in sync with Glances even at low throughput.
 
 ## [v0.5.3] - 2025-10-23
 
