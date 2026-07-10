@@ -11,8 +11,7 @@
   <div class="card-header flex items-center justify-between" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" data-toggle="collapse" data-target="#kp-setup-body">
     <h3 class="card-title">KeePass Vault Setup</h3>
     <div class="kp-right" style="display:flex;align-items:center;gap:8px;">
-      <button id="kp-expand-toggle" class="btn btn-link" type="button">Expand</button>
-      <span id="kp-status-badge" class="badge badge-secondary">Not started</span>
+      <button id="kp-expand-toggle" class="btn kp-collapse-btn" type="button">Collapse</button>
     </div>
   </div>
   <div id="kp-setup-body" class="collapse" style="display:none;">
@@ -26,10 +25,14 @@
         </h4>
         <div id="kp-phase1" class="accordion-collapse collapse">
           <div class="accordion-body">
-            <div class="grid grid-cols-2 gap-3 mb-2" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div class="kp-phase1-grid">
               <label class="text-sm">LAN_SUBNET
-                <input id="kp-lan-subnet" type="text" class="input" value="192.168.1.0/24">
+                <input id="kp-lan-subnet" type="text" class="input" value="192.168.0.0/24">
                 <div id="kp-lan-hint" class="text-xs text-muted"></div>
+              </label>
+              <label class="text-sm" title="If your Pi user is not configured for passwordless sudo, enter the sudo password so setup can install packages and configure services.">SUDO_PASS (optional)
+                <input id="kp-sudo-pass" type="password" class="input" placeholder="Needed if sudo prompts">
+                <div class="text-xs text-muted">Phases 1, 2, 3 and Rollback may require sudo. Leave empty if your user has passwordless sudo (NOPASSWD). If required, you will be prompted.</div>
               </label>
               <label class="text-sm">SMB_PASS (required for Phase 2)
                 <input id="kp-smb-pass" type="password" class="input" placeholder="Required to run Phase 2">
@@ -54,10 +57,6 @@
               </label>
               <label class="text-sm">Confirm SMB_PASS
                 <input id="kp-smb-pass2" type="password" class="input" placeholder="Re-enter SMB password">
-              </label>
-              <label class="text-sm" title="If your Pi user is not configured for passwordless sudo, enter the sudo password so setup can install packages and configure services.">SUDO_PASS (optional)
-                <input id="kp-sudo-pass" type="password" class="input" placeholder="Needed if sudo prompts">
-                <div class="text-xs text-muted">Phases 1, 2, 3 and Rollback may require sudo. Leave empty if your user has passwordless sudo (NOPASSWD). If required, you will be prompted.</div>
               </label>
             </div>
             <button id="kp-run-phase1" class="btn btn-primary">Run Phase 1</button>
@@ -178,7 +177,7 @@
     }
     try { const v = localStorage.getItem(LS_KEY); if (v==='1') expanded=true; else if (v==='0') expanded=false; } catch {}
     setExpanded(expanded);
-    if (header && body) header.addEventListener('click', (e)=>{ const t=e.target; const isToggle = !!(t && (t.id==='kp-expand-toggle' || (t.closest && t.closest('#kp-expand-toggle')))); if (isToggle) return; setExpanded(!expanded); });
+    if (toggleBtn) toggleBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); });
 
     // Helpers
     const randInt = (n)=>Math.floor(Math.random()*n);
@@ -222,9 +221,6 @@
       const data = await res.json(); const { run_id } = data; let finished=false, exit_code=null, pd=null;
       while(!finished){ const pr=await fetch(`/api/keepass/setup/progress/${run_id}`); pd=await pr.json(); logEl.textContent=pd.log||''; try{ logEl.scrollTop=logEl.scrollHeight; }catch{} finished=!!pd.finished; exit_code=pd.exit_code; if(!finished) await new Promise(r=>setTimeout(r,800)); }
       if(exit_code===0){ resultEl.textContent='OK'; } else { const emsg = (pd&&pd.error)? String(pd.error):''; if(emsg==='sudo_requires_password' && !(body&&body.env&&body.env.SUDO_PASS)){ kpRetry={phase,body,logEl,resultEl}; showSudoPrompt(async (pw)=>{ if(!pw){ resultEl.textContent='Cancelled'; kpRetry=null; return; } try{ const b=JSON.parse(JSON.stringify(kpRetry.body||{})); b.env=Object.assign({}, b.env||{}, { SUDO_PASS: pw }); await runPhase(kpRetry.phase, b, kpRetry.logEl, kpRetry.resultEl); } finally{ kpRetry=null; } }); return; } else { resultEl.textContent = emsg? `Error: ${emsg}` : `Exit ${exit_code}`; } }
-      const badge=document.getElementById('kp-status-badge');
-      if(phase==='phase4' && exit_code===0){ badge.textContent='Ready'; badge.className='badge badge-success'; }
-      else if(exit_code!==0){ badge.textContent='Error'; badge.className='badge badge-danger'; } else { badge.textContent='Not started'; badge.className='badge badge-secondary'; }
     }
 
     const g=(id)=>document.getElementById(id);
@@ -264,7 +260,7 @@
             const guess = net24(host);
             if (guess){
               // Only override the factory default to avoid clobbering a user-entered value
-              if (lanInput.value === '192.168.1.0/24') lanInput.value = guess;
+              if (lanInput.value === '192.168.0.0/24') lanInput.value = guess;
               if (lanHint) lanHint.textContent = `Detected from profile host ${host} → ${guess}`;
             }
           }
@@ -272,17 +268,17 @@
         }
       } catch {}
     })();
-    if(g('kp-run-phase1')) g('kp-run-phase1').onclick=()=> runPhase('phase1', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SMB_PASS: g('kp-smb-pass').value || '', SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase1'), g('kp-phase1-result'));
+    if(g('kp-run-phase1')) g('kp-run-phase1').onclick=()=> runPhase('phase1', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.0.0/24', SMB_PASS: g('kp-smb-pass').value || '', SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase1'), g('kp-phase1-result'));
     if(g('kp-run-phase2')) g('kp-run-phase2').onclick=()=>{
       const pwd=(g('kp-smb-pass').value||'').trim(); const pwd2=(g('kp-smb-pass2')?.value||'').trim(); const resEl=g('kp-phase2-result');
       if(!pwd){ resEl.textContent='SMB_PASS is required for Phase 2'; g('kp-smb-pass').focus(); return; }
       if(pwd2 && pwd!==pwd2){ resEl.textContent='Passwords do not match'; g('kp-smb-pass2').focus(); return; }
       const msg=passwordStrengthMsg(pwd); if(msg.startsWith('Weak')){ resEl.textContent=msg; g('kp-smb-pass').focus(); return; }
-      runPhase('phase2', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SMB_PASS: pwd, SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase2'), resEl);
+      runPhase('phase2', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.0.0/24', SMB_PASS: pwd, SUDO_PASS: g('kp-sudo-pass').value || '' } }, g('kp-log-phase2'), resEl);
     };
     if(g('kp-run-phase3')) g('kp-run-phase3').onclick=()=>{
       const openGl = g('kp-open-glances')?.checked ? '1' : '0';
-      runPhase('phase3', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.1.0/24', SUDO_PASS: g('kp-sudo-pass').value || '', KP_OPEN_GLANCES: openGl } }, g('kp-log-phase3'), g('kp-phase3-result'));
+      runPhase('phase3', { env:{ LAN_SUBNET: g('kp-lan-subnet').value || '192.168.0.0/24', SUDO_PASS: g('kp-sudo-pass').value || '', KP_OPEN_GLANCES: openGl } }, g('kp-log-phase3'), g('kp-phase3-result'));
     };
     if(g('kp-run-phase4')) g('kp-run-phase4').onclick=()=> runPhase('phase4', {}, g('kp-log-phase4'), g('kp-phase4-result'));
     if(g('kp-run-rollback')) g('kp-run-rollback').onclick=()=> runPhase('rollback', {}, g('kp-log-rollback'), g('kp-rollback-result'));

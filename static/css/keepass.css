@@ -42,6 +42,29 @@
 #kp-setup select.input option { background: #1A1A1A; color: #eaeaea; }
 #kp-setup select.input:focus { outline: none; border-color: #384062; box-shadow: 0 0 0 2px rgba(45,123,225,.25); }
 
+/* Phase 1 responsive layout */
+#kp-setup .kp-phase1-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+#kp-setup .kp-phase1-grid > label {
+  min-width: 0;
+}
+#kp-setup .kp-phase1-grid .input {
+  min-width: 0;
+}
+#kp-setup .kp-phase1-grid .text-xs {
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  #kp-setup .kp-phase1-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Buttons */
 #kp-setup .btn {
   padding: 6px 10px;
@@ -60,6 +83,22 @@
 #kp-setup .btn-danger { background: #b32020; color: #fff; }
 #kp-setup .btn-link { background: transparent; color: #2a63e8; border-color: transparent; padding: 0; }
 #kp-setup .btn-outline-danger { background: transparent; color: #ff6b6b; border-color: #b32020; }
+#kp-setup .kp-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1d4ed8;
+  border: 1px solid rgba(29, 78, 216, 0.18);
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  user-select: none;
+}
+#kp-setup .kp-collapse-btn:hover {
+  background: #e0e7ff;
+}
 
 /* Badges */
 #kp-setup .badge {

@@ -6,7 +6,7 @@
 
 # Linux Pi Monitor
 
-Linux Pi Monitor is a fast, modern web application (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines over SSH ó directly from your Windows PC.
+Linux Pi Monitor is a fast, modern web application (Python + Flask) for monitoring and managing Linux and Raspberry Pi machines over SSH ‚Äî directly from your Windows PC.
 
 It features a live dashboard with charts, a built-in web terminal, one-click Glances installation, a System Update Center, a Network & DNS Manager, and multi-profile SSH management (keys or passwords).
 
@@ -33,13 +33,14 @@ It features a live dashboard with charts, a built-in web terminal, one-click Gla
 - Multi-profile SSH & secure auth  
   Save multiple hosts (Pi, Mint, Debian) and switch instantly. Generate ed25519 keys and push the public key to the target with one click.
 - Update Center with live progress  
-  Overall + per-package progress bars, sequential ìFull/Noobî workflows, detailed install logs, and buttons that lock/unlock automatically so parallel installs never collide.
+  Overall + per-package progress bars, sequential ‚ÄúFull/Noob‚Äù workflows, detailed install logs, and buttons that lock/unlock automatically so parallel installs never collide.
 - Network, DNS & Firewall hub  
   Interface overview with Wi-Fi scanning, live DNS presets/custom servers, plus a full firewall view (UFW/firewalld) for enabling profiles or toggling rules without leaving the browser.
 - Glances + Live Dashboard  
   Install, start, stop, and inspect logs for Glances; the embedded live view auto-targets the selected SSH profile. The dashboard tiles show CPU, RAM, disk, temps, and sparkline history.
 - KeePass Vault & Windows helper  
-  Phased Samba share setup (deps ? share ? firewall ? verify) with rollback logs and a ready-to-copy `net use` command for mapping the vault from Windows.
+  Phased Samba share setup (deps -> share -> firewall -> verify) with rollback logs and a ready-to-copy `net use` command for mapping the vault from Windows.
+  See [KeePass Vault Guide](docs/keepass-vault.md) for the phase-by-phase flow and commands.
 - Terminal, Logs & Drivers  
   Full-width xterm.js console with saved commands, searchable log viewer, and driver detection for Debian/Mint derivatives.
 - Windows-first hosting  
@@ -74,14 +75,14 @@ Guideline: when adding new views, stick to `var(--surface)` and `var(--card-bord
 
 ## Command Collections (Terminal)
 
-The terminal page now keeps saved commands in per-profile collections so you can group recurring tasks (System, Network, Disk, etc.) without losing the quick ìRun / Insertî workflow.
+The terminal page now keeps saved commands in per-profile collections so you can group recurring tasks (System, Network, Disk, etc.) without losing the quick ‚ÄúRun / Insert‚Äù workflow.
 
 ![Command Collections](docs/screenshots/terminal-collections.png)
 
 ### Adding / Editing Commands
 - Use **+ Command** to open the modal (title + command are required, description optional).
 - Pick the target collection, toggle **Requires sudo** if the command needs elevation, and hit **Save**.  
-- Click any rowís **Edit** button to reopen the modal with the existing values. ìRunî still sends the command with Enter; ìInsertî only types it into the terminal buffer.
+- Click any row‚Äôs **Edit** button to reopen the modal with the existing values. ‚ÄúRun‚Äù still sends the command with Enter; ‚ÄúInsert‚Äù only types it into the terminal buffer.
 
 -### Organising Collections
  - Tabs show **All** plus your custom collections; use **+ Collection** to create more or rename/delete the active one via the inline actions.
@@ -102,7 +103,7 @@ The terminal page now keeps saved commands in per-profile collections so you can
 }
 ```
 
-- Server-side validation trims titles (1ñ64 chars) and commands (= 2048 chars, reasonable newline count). Nothing auto-runsóRun/Insert still behave exactly like before.
+- Server-side validation trims titles (1‚Äì64 chars) and commands (= 2048 chars, reasonable newline count). Nothing auto-runs‚ÄîRun/Insert still behave exactly like before.
 
 ---
 
@@ -110,8 +111,8 @@ The terminal page now keeps saved commands in per-profile collections so you can
 
 This project supports two simple ways to run:
 
-- **A. No Conda (works everywhere)** ó Recommended for portability (Windows / Linux / Raspbian).
-- **B. With Conda (Windows 10/11)** ó Great if you prefer Conda-managed Python on Windows.
+- **A. No Conda (works everywhere)** ‚Äî Recommended for portability (Windows / Linux / Raspbian).
+- **B. With Conda (Windows 10/11)** ‚Äî Great if you prefer Conda-managed Python on Windows.
 
 ### A. Run without Conda (universal)
 
@@ -243,6 +244,17 @@ Open: http://127.0.0.1:8080
 ![KeePass Vault](docs/screenshots/keepass-vault-7.png)
 This page provides a guided, phased setup to host a local-only Samba share for your KeePass vault, plus a Windows mapping helper.
 
+Documentation:
+- [KeePass Vault Guide](docs/keepass-vault.md)
+
+#### How it works
+
+- Phase 1: installs Samba-related dependencies, creates the `keepass` user, and prepares `/srv/keepass/vault`.
+- Phase 2: writes the Samba share, sets the SMB password, and restarts Samba.
+- Phase 3: opens firewall rules for your LAN subnet only.
+- Phase 4: verifies the share locally and confirms the Windows mapping flow.
+- Rollback: removes the share config and disables the Samba account if needed.
+
 
 ---
 
@@ -250,7 +262,7 @@ This page provides a guided, phased setup to host a local-only Samba share for y
 
 - Update Center UX (v0.5.4)
   - Added light overall progress meter + per-package bars that stay in sync with apt output.
-  - ìFull/Noobî workflows now run every action sequentially and show completion states in the table (ìInstallation doneî + Installed buttons).
+  - ‚ÄúFull/Noob‚Äù workflows now run every action sequentially and show completion states in the table (‚ÄúInstallation done‚Äù + Installed buttons).
   - Manual installs no longer disappear; rows stay visible so you can see what was just applied.
 - Light UI refresh
   - Cards, tables, and buttons now share the same light palette; README screenshots updated accordingly.

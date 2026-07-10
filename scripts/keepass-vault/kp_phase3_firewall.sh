@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-LAN_SUBNET="${LAN_SUBNET:-192.168.1.0/24}"
+LAN_SUBNET="${LAN_SUBNET:-192.168.0.0/24}"
 
 echo "[*] Configure firewall for LAN-only Samba..."
 KP_OPEN_GLANCES="${KP_OPEN_GLANCES:-0}"

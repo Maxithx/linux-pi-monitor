@@ -82,8 +82,9 @@ def _upload_scripts(ssh) -> str:
             local_path = os.path.join(local_dir, name)
             remote_path = f"{remote_dir}/{name}"
             with open(local_path, 'rb') as lf:
+                data = lf.read().replace(b'\r\n', b'\n').replace(b'\r', b'\n')
                 with sftp.file(remote_path, 'wb') as rf:
-                    rf.write(lf.read())
+                    rf.write(data)
             ssh.exec_command(f"chmod +x {shlex.quote(remote_path)}")
         return remote_dir
     finally:
