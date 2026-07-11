@@ -6,6 +6,7 @@
   const dot  = document.getElementById("gc-dot");
   const text = document.getElementById("gc-text");
   const spin = document.getElementById("gc-spin");
+  const tooltip = document.getElementById("gc-tooltip");
 
   if (!box || !dot || !text) return;
 
@@ -21,16 +22,22 @@
     if (state === "ok") {
       dot.classList.add("gc-green");
       text.textContent = "Connected to Linux";
+      box.setAttribute("aria-label", text.textContent);
+      if (tooltip) tooltip.textContent = text.textContent;
       return;
     }
     if (state === "not_configured") {
       dot.classList.add("gc-red");
       text.textContent = "Not configured";
+      box.setAttribute("aria-label", text.textContent);
+      if (tooltip) tooltip.textContent = text.textContent;
       return;
     }
     // default: down
     dot.classList.add("gc-red");
     text.textContent = "Disconnected";
+    box.setAttribute("aria-label", text.textContent);
+    if (tooltip) tooltip.textContent = text.textContent;
   }
 
   async function checkOnce() {

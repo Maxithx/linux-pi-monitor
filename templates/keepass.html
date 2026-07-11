@@ -36,23 +36,27 @@
               </label>
               <label class="text-sm">SMB_PASS (required for Phase 2)
                 <input id="kp-smb-pass" type="password" class="input" placeholder="Required to run Phase 2">
-                <div class="text-xs" style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <button id="kp-smb-gen" type="button" class="btn btn-secondary btn-sm">Generate</button>
-                  <button id="kp-smb-copy" type="button" class="btn btn-link btn-sm">Copy</button>
-                  <button id="kp-smb-toggle" type="button" class="btn btn-link btn-sm">Show</button>
-                  <label class="text-xs" style="display:flex;gap:6px;align-items:center;">
-                    Length
-                    <select id="kp-smb-len" class="input" style="width:84px;padding:2px 6px;">
-                      <option>8</option>
-                      <option>12</option>
-                      <option selected>16</option>
-                      <option>24</option>
-                      <option>32</option>
-                      <option>48</option>
-                      <option>64</option>
-                    </select>
-                  </label>
-                  <span id="kp-smb-hint" class="text-xs text-muted"></span>
+                <div class="kp-password-tools text-xs">
+                  <div class="kp-password-tool-row">
+                    <button id="kp-smb-gen" type="button" class="btn btn-secondary btn-sm">Generate</button>
+                    <label class="kp-length-control text-xs">
+                      Length
+                      <select id="kp-smb-len" class="input">
+                        <option>8</option>
+                        <option>12</option>
+                        <option selected>16</option>
+                        <option>24</option>
+                        <option>32</option>
+                        <option>48</option>
+                        <option>64</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="kp-password-tool-row kp-password-actions">
+                    <button id="kp-smb-copy" type="button" class="btn btn-link btn-sm">Copy</button>
+                    <button id="kp-smb-toggle" type="button" class="btn btn-link btn-sm">Show</button>
+                    <span id="kp-smb-hint" class="text-xs text-muted"></span>
+                  </div>
                 </div>
               </label>
               <label class="text-sm">Confirm SMB_PASS

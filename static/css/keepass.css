@@ -18,6 +18,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 4px 10px 4px;
+  margin-bottom: 10px;
 }
 
 /* Inputs */
@@ -57,6 +58,30 @@
 }
 #kp-setup .kp-phase1-grid .text-xs {
   word-break: break-word;
+}
+
+#kp-setup .kp-password-tools {
+  display: grid;
+  gap: 6px;
+  margin-top: 5px;
+}
+#kp-setup .kp-password-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#kp-setup .kp-length-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#kp-setup .kp-length-control .input {
+  width: 84px;
+  padding: 4px 7px;
+}
+#kp-setup .kp-password-actions {
+  min-height: 24px;
 }
 
 @media (max-width: 900px) {

@@ -269,6 +269,83 @@ html.sidebar-open .sidebar li .tooltip {
     display: none;
 }
 
+/* === GLOBAL CONNECTION STATUS ABOVE PROFILE === */
+.sidebar li.sidebar-connection {
+    position: fixed;
+    left: 14px;
+    bottom: 68px;
+    width: 50px;
+    height: 42px;
+    margin: 0;
+    transition: width 0.5s ease;
+    z-index: 3;
+}
+
+html.sidebar-open .sidebar li.sidebar-connection {
+    width: 222px;
+}
+
+.global-conn {
+    box-sizing: border-box;
+    width: 100%;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 7px 10px;
+    overflow: hidden;
+    color: #cbd5e1;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 12px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+html.sidebar-open .global-conn {
+    justify-content: flex-start;
+}
+
+.gc-dot {
+    width: 11px;
+    height: 11px;
+    flex: 0 0 11px;
+    display: inline-block;
+    border-radius: 50%;
+    background: #6b7280;
+    box-shadow: 0 0 0 3px rgba(107, 114, 128, .14);
+}
+
+.gc-dot.gc-green {
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
+}
+
+.gc-dot.gc-red {
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .16);
+}
+
+html.sidebar-closed .global-conn #gc-text,
+html.sidebar-closed .global-conn .gc-spin {
+    display: none !important;
+}
+
+.gc-spin {
+    width: 12px;
+    height: 12px;
+    margin-left: auto;
+    border: 2px solid #94a3b8;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: gcspin 1s linear infinite;
+}
+
+@keyframes gcspin {
+    to { transform: rotate(360deg); }
+}
+
 /* === PROFILE SECTION AT BOTTOM === */
 .sidebar li.profile {
     position: fixed;
