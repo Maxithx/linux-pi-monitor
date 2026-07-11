@@ -88,11 +88,13 @@ def test_profile():
     auth = (body.get("auth_method") or "key").strip()
     key_path = ssh_utils._expand_user_home((body.get("ssh_key_path") or "").strip())
     pw = body.get("password") or ""
+    strict_auth = bool(body.get("strict_auth"))
 
     if not host or not user:
         return jsonify({"ok": False, "error": "Host and user required"}), 400
     try:
-        ssh = ssh_utils.ssh_connect(host, user, auth, key_path, pw, timeout=6)
+        ssh = ssh_utils.ssh_connect(host, user, auth, key_path, pw, timeout=6,
+                                    allow_fallback=not strict_auth)
         ssh.close()
         return jsonify({"ok": True})
     except Exception as e:
@@ -113,13 +115,46 @@ def suggest_key_path():
         elif base == "id_ecdsa": k = "ecdsa"
         cand_json.append({"path": p, "type": k, "mtime": m})
 
+    requested_path = (request.args.get("path") or (prof or {}).get("ssh_key_path") or "").strip()
+    expanded_path = ssh_utils._expand_user_home(requested_path) if requested_path else ""
+    private_exists = bool(expanded_path and os.path.isfile(expanded_path))
+    private_valid = False
+    private_error = ""
+    expected_public = ""
+    if private_exists:
+        try:
+            key = ssh_utils._load_private_key(expanded_path)
+            private_valid = True
+            expected_public = f"{key.get_name()} {key.get_base64()}"
+        except Exception:
+            private_error = "The file is not a readable private SSH key."
+    public_exists = bool(expanded_path and os.path.isfile(expanded_path + ".pub"))
+    public_valid = False
+    if private_valid and public_exists:
+        try:
+            with open(expanded_path + ".pub", "r", encoding="utf-8") as public_file:
+                parts = public_file.read().strip().split()
+            public_valid = len(parts) >= 2 and " ".join(parts[:2]) == expected_public
+        except (OSError, UnicodeError):
+            public_valid = False
+    key_status = {
+        "path": expanded_path,
+        "private_exists": private_exists,
+        "private_valid": private_valid,
+        "private_error": private_error,
+        "public_exists": public_exists,
+        "public_valid": public_valid,
+        "public_error": "" if (not public_exists or public_valid) else "The public key does not match the private key.",
+    }
+
     default = cand_json[0]["path"] if cand_json else None
     suggest_new = None
-    if not default and prof:
+    if prof:
         stem = profiles_data._safe_stem_from_profile(prof)
         suggest_new = os.path.join(ssh_utils._expand_user_home("~"), ".ssh", f"id_{stem}")
 
-    return jsonify({"ok": True, "default": default, "candidates": cand_json, "suggest_new": suggest_new})
+    return jsonify({"ok": True, "default": default, "candidates": cand_json,
+                    "suggest_new": suggest_new, "key_status": key_status})
 
 @profiles_bp.post("/gen-key")
 def generate_keypair():
@@ -134,9 +169,16 @@ def generate_keypair():
 
     desired = (body.get("key_path") or prof.get("ssh_key_path") or profiles_data._default_key_path_for_profile(prof)).strip()
     overwrite = bool(body.get("overwrite"))
+    algorithm = (body.get("algorithm") or "ed25519").strip().lower()
+
+    desired = ssh_utils._expand_user_home(desired)
+    if not overwrite and (os.path.exists(desired) or os.path.exists(desired + ".pub")):
+        return jsonify({"ok": False, "error": "An SSH key already exists at this path.",
+                        "key_path": desired, "private_exists": os.path.isfile(desired),
+                        "public_exists": os.path.isfile(desired + ".pub")}), 409
 
     try:
-        ssh_utils.generate_ssh_keypair(desired, overwrite)
+        ssh_utils.generate_ssh_keypair(desired, overwrite, algorithm)
         prof["ssh_key_path"] = ssh_utils._expand_user_home(desired)
         profiles_data._write_store(data)
         if data.get("active_profile_id") == pid:
@@ -144,6 +186,90 @@ def generate_keypair():
         return jsonify({"ok": True, "private_key": prof["ssh_key_path"], "public_key": prof["ssh_key_path"] + ".pub"})
     except Exception as e:
         return jsonify({"ok": False, "error": f"Generate failed: {e}"}), 500
+
+
+@profiles_bp.post("/repair-key")
+def repair_public_key():
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    data = profiles_data._ensure_store()
+    prof = profiles_data._find(data, pid) if pid else None
+    if not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    key_path = ssh_utils._expand_user_home(
+        (body.get("key_path") or prof.get("ssh_key_path") or "").strip()
+    )
+    if not os.path.isfile(key_path):
+        return jsonify({"ok": False, "error": "Private key not found"}), 400
+
+    try:
+        key = ssh_utils._load_private_key(key_path)
+        public_path = key_path + ".pub"
+        expected_public = f"{key.get_name()} {key.get_base64()}"
+        if os.path.isfile(public_path):
+            try:
+                with open(public_path, "r", encoding="utf-8") as public_file:
+                    parts = public_file.read().strip().split()
+                if len(parts) >= 2 and " ".join(parts[:2]) == expected_public:
+                    return jsonify({"ok": True, "repaired": False,
+                                    "message": "Repair not needed; the keypair is already valid.",
+                                    "private_key": key_path, "public_key": public_path})
+            except (OSError, UnicodeError):
+                pass
+        with open(public_path, "w", encoding="utf-8") as public_file:
+            public_file.write(expected_public + "\n")
+        prof["ssh_key_path"] = key_path
+        profiles_data._write_store(data)
+        if data.get("active_profile_id") == pid:
+            profiles_data._sync_active_into_legacy_config(prof)
+        return jsonify({"ok": True, "repaired": True,
+                        "message": "Public key rebuilt from the private key.",
+                        "private_key": key_path, "public_key": public_path})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Could not rebuild public key: {e}"}), 400
+
+
+@profiles_bp.post("/delete-key")
+def delete_local_keypair():
+    body = request.get_json(silent=True) or {}
+    pid = (body.get("id") or "").strip()
+    data = profiles_data._ensure_store()
+    prof = profiles_data._find(data, pid) if pid else None
+    if not prof:
+        return jsonify({"ok": False, "error": "Profile not found"}), 404
+
+    key_path = ssh_utils._expand_user_home(
+        (body.get("key_path") or prof.get("ssh_key_path") or "").strip()
+    )
+    if not key_path:
+        return jsonify({"ok": False, "error": "No key path selected"}), 400
+
+    shared_by = []
+    normalized = os.path.normcase(os.path.abspath(key_path))
+    for other in data.get("profiles", []):
+        if other.get("id") == pid:
+            continue
+        other_path = ssh_utils._expand_user_home((other.get("ssh_key_path") or "").strip())
+        if other_path and os.path.normcase(os.path.abspath(other_path)) == normalized:
+            shared_by.append(other.get("name") or other.get("id"))
+    if shared_by:
+        return jsonify({"ok": False, "error": "Key is also used by: " + ", ".join(shared_by)}), 409
+
+    try:
+        removed = []
+        for path in (key_path, key_path + ".pub"):
+            if os.path.isfile(path):
+                os.remove(path)
+                removed.append(path)
+        prof["auth_method"] = "password"
+        prof["ssh_key_path"] = ""
+        profiles_data._write_store(data)
+        if data.get("active_profile_id") == pid:
+            profiles_data._sync_active_into_legacy_config(prof)
+        return jsonify({"ok": True, "removed": removed, "profile": prof})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Could not delete key: {e}"}), 500
 
 @profiles_bp.post("/install-key")
 def install_public_key_on_host():
@@ -156,9 +282,9 @@ def install_public_key_on_host():
     if not prof:
         return jsonify({"ok": False, "error": "Profile not found"}), 404
 
-    host = (prof.get("pi_host") or "").strip()
-    user = (prof.get("pi_user") or "").strip()
-    key_path = ssh_utils._expand_user_home((prof.get("ssh_key_path") or "").strip())
+    host = (body.get("pi_host") or prof.get("pi_host") or "").strip()
+    user = (body.get("pi_user") or prof.get("pi_user") or "").strip()
+    key_path = ssh_utils._expand_user_home((body.get("key_path") or prof.get("ssh_key_path") or "").strip())
     pw = body.get("password") or prof.get("password") or ""
 
     if not host or not user:
@@ -174,7 +300,7 @@ def install_public_key_on_host():
     try:
         ssh = ssh_utils.ssh_connect(host, user, "password" if pw else "key", key_path, pw)
         _, stdout, _ = ssh_utils.ssh_exec(ssh, "echo $HOME")
-        home_dir = stdout.read().decode().strip() or f"/home/{user}"
+        home_dir = (stdout or "").strip() or f"/home/{user}"
         ssh_dir = f"{home_dir}/.ssh"
         auth_keys = f"{ssh_dir}/authorized_keys"
 
@@ -184,11 +310,16 @@ def install_public_key_on_host():
         except IOError:
             pass
         sftp.chmod(ssh_dir, 0o700)
+        existing = ""
         try:
-            with sftp.file(auth_keys, "a", -1) as f:
-                f.write(pub_line)
+            with sftp.file(auth_keys, "r") as f:
+                raw = f.read()
+                existing = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
         except IOError:
-            with sftp.file(auth_keys, "w", -1) as f:
+            pass
+        if pub_line.strip() not in {line.strip() for line in existing.splitlines()}:
+            mode = "a" if existing else "w"
+            with sftp.file(auth_keys, mode, -1) as f:
                 f.write(pub_line)
         sftp.chmod(auth_keys, 0o600)
         sftp.close()

@@ -17,6 +17,12 @@
     const btnDel = byId('btn-delete-profile', 'profile-delete-btn');
     const btnTest = byId('btn-test-profile', 'profile-test-btn');
     const btnSave = byId('btn-save-profile', 'profile-save-btn');
+    const sectionToggles = [
+        { root: byId('ssh-profiles-section'), body: byId('ssh-profiles-body'), btn: byId('ssh-profiles-toggle'), key: 'settings.ssh-profiles.collapsed' },
+        { root: byId('glances-section'), body: byId('glances-body'), btn: byId('glances-toggle'), key: 'settings.glances.collapsed' },
+        { root: byId('firewall-section'), body: byId('firewall-body'), btn: byId('firewall-toggle'), key: 'settings.firewall.collapsed' },
+        { root: byId('terminal-section'), body: byId('terminal-body'), btn: byId('terminal-toggle'), key: 'settings.terminal.collapsed' },
+    ];
 
     const host = byId('pi_host');
     const user = byId('pi_user');
@@ -27,7 +33,10 @@
 
     // key helpers
     const btnGenKey = byId('btn-gen-key');
+    const btnRepairKey = byId('btn-repair-key');
     const btnInstallKey = byId('btn-install-key');
+    const btnDeleteKey = byId('btn-delete-key');
+    const keyStatus = byId('ssh-key-status');
 
     const keyBox = byId('key_fields');
     const passBox = byId('password_field');
@@ -59,8 +68,10 @@
                 ok = !!(data && (data.ok || data.connected));
             }
             renderConnStatus(ok);
+            return ok;
         } catch (_) {
             renderConnStatus(false);
+            return false;
         }
     }
     // ---------------------------------------------------------------------
@@ -68,6 +79,47 @@
     // Dynamisk “Detect”-knap og kandidat-dropdown ved nøglefeltet
     let btnDetectKey = null;
     let selCandidates = null;
+
+    function bindCollapsibleSections() {
+        for (const section of sectionToggles) {
+            if (!section.root || !section.body) continue;
+            let stored = null;
+            try { stored = localStorage.getItem(section.key); } catch { stored = null; }
+            let collapsed = stored === null ? true : stored === '1';
+            const apply = (isCollapsed, persist = true) => {
+                collapsed = !!isCollapsed;
+                section.body.style.display = collapsed ? 'none' : '';
+                if (section.btn) section.btn.textContent = collapsed ? 'Expand' : 'Collapse';
+                if (persist) {
+                    try { localStorage.setItem(section.key, collapsed ? '1' : '0'); } catch {}
+                }
+            };
+            apply(collapsed, stored !== null);
+            if (section.btn) {
+                section.btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    apply(!collapsed);
+                });
+            }
+            section.root.querySelector('.section-toggle')?.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                apply(!collapsed);
+            });
+        }
+    }
+
+    function syncCollapsibleDefaults({ hasProfiles = false, connected = false } = {}) {
+        const sshSection = sectionToggles.find(s => s.key === 'settings.ssh-profiles.collapsed');
+        if (!sshSection || !sshSection.body) return;
+        let stored = null;
+        try { stored = localStorage.getItem(sshSection.key); } catch { stored = null; }
+        if (stored !== null) return;
+        const shouldOpen = !hasProfiles || !connected;
+        sshSection.body.style.display = shouldOpen ? '' : 'none';
+        if (sshSection.btn) sshSection.btn.textContent = shouldOpen ? 'Collapse' : 'Expand';
+        try { localStorage.setItem(sshSection.key, shouldOpen ? '0' : '1'); } catch {}
+    }
     function ensureKeyHelpersUI() {
         if (!keyp || !keyp.parentNode) return;
 
@@ -105,8 +157,8 @@
             el.disabled = true;
             el.classList.add('is-loading');
         } else {
-            if (el.dataset._origText) el.textContent = el.dataset._origText;
-            el.disabled = false;
+            if (el.dataset._origText && el.dataset.locked !== 'true') el.textContent = el.dataset._origText;
+            el.disabled = el.dataset.locked === 'true';
             el.classList.remove('is-loading');
         }
     }
@@ -221,8 +273,45 @@
     // ---------- Key-path suggestion ----------
     async function suggestKeyPathForCurrentProfile() {
         const id = pid?.value || sel?.value || '';
-        const q = id ? `?id=${encodeURIComponent(id)}` : '';
+        const params = new URLSearchParams();
+        if (id) params.set('id', id);
+        const currentPath = (keyp?.value || '').trim();
+        if (currentPath) params.set('path', currentPath);
+        const q = params.toString() ? `?${params.toString()}` : '';
         return await api(`/suggest-key-path${q}`, 'GET');
+    }
+
+    function renderKeyStatus(status) {
+        const st = status || {};
+        const hasPrivate = !!st.private_exists;
+        const validPrivate = !!st.private_valid;
+        const hasPublicFile = !!st.public_exists;
+        const validPublic = !!st.public_valid;
+        if (btnGenKey) {
+            btnGenKey.dataset.locked = validPrivate ? 'true' : 'false';
+            btnGenKey.disabled = validPrivate;
+            btnGenKey.textContent = hasPrivate && !validPrivate ? 'Replace invalid key' : (validPrivate ? 'Key already exists' : 'Generate key');
+        }
+        if (btnInstallKey) btnInstallKey.disabled = !(validPrivate && validPublic);
+        if (btnRepairKey) btnRepairKey.style.display = (validPrivate && !validPublic) ? '' : 'none';
+        if (btnDeleteKey) btnDeleteKey.style.display = (hasPrivate || hasPublicFile) ? '' : 'none';
+        if (!keyStatus) return;
+        if (hasPrivate && !validPrivate) {
+            keyStatus.textContent = `Invalid SSH private-key file: ${st.path}. Delete it or replace it with a new key.`;
+            keyStatus.style.color = '#dc3545';
+        } else if (validPrivate && validPublic) {
+            keyStatus.textContent = `✓ Existing SSH key found: ${st.path}`;
+            keyStatus.style.color = '#35c46a';
+        } else if (validPrivate && hasPublicFile) {
+            keyStatus.textContent = `The public key does not match the private key: ${st.path}.pub`;
+            keyStatus.style.color = '#d99b2b';
+        } else if (validPrivate) {
+            keyStatus.textContent = `SSH private key found, but the public key is missing: ${st.path}.pub`;
+            keyStatus.style.color = '#d99b2b';
+        } else {
+            keyStatus.textContent = st.path ? `No SSH key exists yet at: ${st.path}` : 'No SSH key selected.';
+            keyStatus.style.color = '';
+        }
     }
 
     function populateCandidatesUI(candidates) {
@@ -253,19 +342,19 @@
 
     async function maybeSuggestKeyPath(onlyIfEmpty = true) {
         if (!keyp) return;
-        if (onlyIfEmpty && (keyp.value || '').trim()) {
-            return; // respekter eksisterende værdi
-        }
         try {
-            const res = await suggestKeyPathForCurrentProfile();
-            // sæt default eller suggest_new
-            const chosen = res.default || res.suggest_new || '';
+            let res = await suggestKeyPathForCurrentProfile();
+            const configuredExists = !!res.key_status?.private_valid;
+            const chosen = configuredExists ? res.key_status.path : (res.default || res.suggest_new || '');
             if (chosen && (!onlyIfEmpty || !(keyp.value || '').trim())) {
                 keyp.value = chosen;
+                res = await suggestKeyPathForCurrentProfile();
             }
             populateCandidatesUI(res.candidates || []);
+            renderKeyStatus(res.key_status);
         } catch (e) {
             populateCandidatesUI([]);
+            renderKeyStatus(null);
         }
     }
 
@@ -278,11 +367,12 @@
         };
         await ensureAtLeastOneProfile();
         rebuildSelect(selectId);
+        const activeId = sel?.value || cache.active_profile_id || null;
+        const connected = await refreshConnectionStatus(activeId, 'init');
+        syncCollapsibleDefaults({ hasProfiles: cache.profiles.length > 0, connected });
 
         // Emit + tving status-check (vigtigt ved første load)
-        const activeId = sel?.value || cache.active_profile_id || null;
         window.dispatchEvent(new CustomEvent('profile:changed', { detail: { id: activeId } }));
-        refreshConnectionStatus(activeId, 'init');
     }
 
     // ---------- wire UI ----------
@@ -315,7 +405,10 @@
             await maybeSuggestKeyPath(true);
         }
     });
+    keyp?.addEventListener('change', () => maybeSuggestKeyPath(true));
+    keyp?.addEventListener('blur', () => maybeSuggestKeyPath(true));
     applyAuthVisibility();
+    bindCollapsibleSections();
 
     // ===== Key handling =====
 
@@ -340,6 +433,7 @@
         const id = pid?.value || sel?.value;
         const cur = findProfile(id || '');
         if (!id || !cur) return alert('No profile selected.');
+        const authBeforeGenerate = auth?.value || 'key';
 
         try {
             // Hvis feltet er tomt: hent forslag (så vi får pæn sti som id_<profilnavn>)
@@ -355,6 +449,19 @@
             const body = { id };
             if (desiredPath) body.key_path = desiredPath;
 
+            const discovery = await suggestKeyPathForCurrentProfile();
+            if (discovery.key_status?.private_valid) {
+                renderKeyStatus(discovery.key_status);
+                alert('An SSH key already exists at this path. You can install the existing key on the host.');
+                return;
+            }
+
+            if (discovery.key_status?.private_exists && !discovery.key_status?.private_valid) {
+                const replace = confirm('The selected file is not a valid private SSH key. Replace this invalid file with a newly generated keypair?');
+                if (!replace) return;
+                body.overwrite = true;
+            }
+
             const res = await api('/gen-key', 'POST', body);
             if (!res.ok && !res.private_key) {
                 throw new Error(res.error || 'Failed to generate key');
@@ -368,11 +475,42 @@
             // persist path så det hænger ved
             await api('/save', 'POST', { id, ssh_key_path: path, make_active: true });
             await loadAllAndSelect(id);
+            // Behold det valgte auth-flow i UI, så brugeren kan fortsætte med SSH-key onboarding.
+            if (auth) auth.value = authBeforeGenerate;
+            applyAuthVisibility();
             window.dispatchEvent(new CustomEvent('profile:saved', { detail: { id } }));
             refreshConnectionStatus(id, 'gen-key');
             alert('✔ Key generated and path saved.');
         } catch (e) {
             alert('Generate key failed: ' + e.message);
+        }
+    }));
+
+    btnRepairKey?.addEventListener('click', () => withBusy(btnRepairKey, 'Repairing…', async () => {
+        const id = pid?.value || sel?.value;
+        const selectedKeyPath = (keyp?.value || '').trim();
+        if (!id || !selectedKeyPath) return alert('No SSH key selected.');
+        try {
+            const result = await api('/repair-key', 'POST', { id, key_path: selectedKeyPath });
+            await maybeSuggestKeyPath(true);
+            alert(result.repaired ? '✔ Public key rebuilt from the existing private key.' : 'Repair not needed. The keypair is already valid.');
+        } catch (e) {
+            alert('Repair key failed: ' + e.message);
+        }
+    }));
+
+    btnDeleteKey?.addEventListener('click', () => withBusy(btnDeleteKey, 'Deleting…', async () => {
+        const id = pid?.value || sel?.value;
+        const selectedKeyPath = (keyp?.value || '').trim();
+        if (!id || !selectedKeyPath) return alert('No SSH key selected.');
+        const warning = `Delete this local SSH key?\n\n${selectedKeyPath}\n\nThis cannot be undone. Hosts using this key may require password login again.`;
+        if (!confirm(warning)) return;
+        try {
+            await api('/delete-key', 'POST', { id, key_path: selectedKeyPath });
+            await loadAllAndSelect(id);
+            alert('Local SSH key deleted. The profile has been switched back to Password.');
+        } catch (e) {
+            alert('Delete key failed: ' + e.message);
         }
     }));
 
@@ -394,8 +532,36 @@
         if (pw === null) return; // afbrudt
 
         try {
-            const res = await api('/install-key', 'POST', { id, password: pw });
+            const selectedKeyPath = (keyp?.value || '').trim();
+            const res = await api('/install-key', 'POST', {
+                id,
+                password: pw,
+                key_path: selectedKeyPath,
+                pi_host: h,
+                pi_user: u
+            });
             if (!res.ok && !res.installed_to) throw new Error(res.error || 'Failed to install key');
+            const keyTest = await api('/test', 'POST', {
+                pi_host: h,
+                pi_user: u,
+                auth_method: 'key',
+                ssh_key_path: selectedKeyPath,
+                password: '',
+                strict_auth: true
+            });
+            if (!keyTest.ok) {
+                alert('The public key was copied, but key-only login could not be verified. The profile remains on Password authentication.');
+                return;
+            }
+            await api('/save', 'POST', {
+                id,
+                pi_host: h,
+                pi_user: u,
+                auth_method: 'key',
+                ssh_key_path: selectedKeyPath,
+                make_active: true
+            });
+            await loadAllAndSelect(id);
             alert('✔ Public key installed on host.\n' + (res.installed_to || 'authorized_keys'));
             // efter nøgle-installation kan status ændre sig → trig re-check
             window.dispatchEvent(new CustomEvent('profile:saved', { detail: { id } }));
@@ -507,6 +673,27 @@
         if (!id || id === '__none__') return alert('No profile selected.');
         const cur = findProfile(id) || {};
         try {
+            if (auth?.value === 'key') {
+                const discovery = await suggestKeyPathForCurrentProfile();
+                const ready = discovery.key_status?.private_valid && discovery.key_status?.public_valid;
+                if (!ready) {
+                    renderKeyStatus(discovery.key_status);
+                    alert('SSH Key cannot be saved yet. Repair or generate a complete keypair first.');
+                    return;
+                }
+                const keyTest = await api('/test', 'POST', {
+                    pi_host: (host?.value || '').trim(),
+                    pi_user: (user?.value || '').trim(),
+                    auth_method: 'key',
+                    ssh_key_path: (keyp?.value || '').trim(),
+                    password: '',
+                    strict_auth: true
+                });
+                if (!keyTest.ok) {
+                    alert('SSH Key login is not ready on the Linux host. Click "Install key on host" before saving the profile as SSH Key.');
+                    return;
+                }
+            }
             await api('/save', 'POST', {
                 id,
                 name: cur.name || 'Profile',

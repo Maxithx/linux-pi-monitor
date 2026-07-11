@@ -29,92 +29,112 @@
         <span id="net-status" class="muted right" aria-live="polite"></span>
     </div>
 
-    <h3 style="margin:6px 0 8px;">Interfaces</h3>
-    <div class="scroll-x">
-        <div class="net-grid iface-grid" id="iface-grid">
-            <div class="hdr">
-                <div>Default</div>
-                <div>Ifname</div>
-                <div>Type</div>
-                <div>IPv4</div>
-                <div>MAC</div>
-                <div>Speed</div>
-                <div>SSID</div>
-                <div>Signal</div>
-            </div>
-            <div class="row">
-                <div class="cell-muted" style="grid-column:1 / -1">Loadingâ€¦</div>
-            </div>
+    <section class="card collapsible-section net-section" id="network-interfaces-section">
+        <div class="section-toggle" data-toggle="collapse" data-target="#network-interfaces-body">
+            <h3 style="margin:0">Interfaces</h3>
+            <button id="network-interfaces-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
         </div>
-    </div>
-
-    <h3 style="margin:16px 0 8px;">Wi-Fi</h3>
-    <div class="qc-row">
-        <input id="qc-ssid" placeholder="SSID" type="text">
-        <input id="qc-pass" placeholder="Password (empty = open)" type="password">
-        <label class="check-inline"><input id="qc-hidden" type="checkbox"> Hidden</label>
-        <input id="qc-sudo" placeholder="sudo password (if required)" type="password">
-        <button id="qc-connect" class="primary">Connect</button>
-        <button id="qc-forget" class="danger">Forget</button>
-    </div>
-
-    <div class="scroll-x">
-        <div class="net-grid wifi-grid" id="wifi-grid">
-            <div class="hdr">
-                <div>SSID</div>
-                <div>Signal</div>
-                <div>Security</div>
-                <div>Connected</div>
-                <div>Action</div>
-            </div>
-            <div class="row">
-                <div class="cell-muted" style="grid-column:1 / -1">Here the Scan Wi-Fi list will appear.</div>
+        <div id="network-interfaces-body" class="collapsible-body">
+            <div class="scroll-x">
+                <div class="net-grid iface-grid" id="iface-grid">
+                    <div class="hdr">
+                        <div>Default</div>
+                        <div>Ifname</div>
+                        <div>Type</div>
+                        <div>IPv4</div>
+                        <div>MAC</div>
+                        <div>Speed</div>
+                        <div>SSID</div>
+                        <div>Signal</div>
+                    </div>
+                    <div class="row">
+                        <div class="cell-muted" style="grid-column:1 / -1">Loadingâ€¦</div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- DNS -->
-    <h3 style="margin:16px 0 8px;">DNS</h3>
-    <div class="card" id="dns-card" style="padding:12px;">
-        <div style="display:grid;grid-template-columns:160px 1fr;gap:8px;">
-            <div><strong>Stub (local)</strong></div>
-            <div id="dns-stub">â€”</div>
-            <div><strong>Upstream DNS</strong></div>
-            <div id="dns-upstream">â€”</div>
-            <div><strong>Method</strong></div>
-            <div id="dns-method">â€”</div>
-            <div><strong>Active iface</strong></div>
-            <div id="dns-iface">â€”</div>
-            <div><strong>Active connection</strong></div>
-            <div id="dns-conn">â€”</div>
+    <section class="card collapsible-section net-section" id="network-wifi-section">
+        <div class="section-toggle" data-toggle="collapse" data-target="#network-wifi-body">
+            <h3 style="margin:0">Wi-Fi</h3>
+            <button id="network-wifi-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
         </div>
+        <div id="network-wifi-body" class="collapsible-body">
+            <div class="qc-row">
+                <input id="qc-ssid" placeholder="SSID" type="text">
+                <input id="qc-pass" placeholder="Password (empty = open)" type="password">
+                <label class="check-inline"><input id="qc-hidden" type="checkbox"> Hidden</label>
+                <input id="qc-sudo" placeholder="sudo password (if required)" type="password">
+                <button id="qc-connect" class="primary">Connect</button>
+                <button id="qc-forget" class="danger">Forget</button>
+            </div>
 
-        <hr style="border-color:#2a2d36;margin:12px 0;">
-
-        <div class="qc-row" style="gap:8px;align-items:center;">
-            <label style="min-width:120px;">Preset</label>
-            <select id="dns-preset">
-                <option value="auto">Auto (from DHCP)</option>
-                <option value="google">Google (8.8.8.8, 8.8.4.4)</option>
-                <option value="cloudflare">Cloudflare (1.1.1.1, 1.0.0.1)</option>
-                <option value="quad9">Quad9 (9.9.9.9, 149.112.112.112)</option>
-                <option value="custom">Customâ€¦</option>
-            </select>
-
-            <input id="dns-custom" placeholder="Custom DNS (space/comma separated e.g. 8.8.8.8 1.1.1.1)"
-                style="flex:1;">
-            <input id="dns-sudo" placeholder="sudo password (if required)" type="password">
-            <button id="dns-apply" class="primary">Apply</button>
-            <button id="dns-reset" class="danger" title="Revert to DHCP/auto">Reset</button>
+            <div class="scroll-x">
+                <div class="net-grid wifi-grid" id="wifi-grid">
+                    <div class="hdr">
+                        <div>SSID</div>
+                        <div>Signal</div>
+                        <div>Security</div>
+                        <div>Connected</div>
+                        <div>Action</div>
+                    </div>
+                    <div class="row">
+                        <div class="cell-muted" style="grid-column:1 / -1">Here the Scan Wi-Fi list will appear.</div>
+                    </div>
+                </div>
+            </div>
         </div>
+    </section>
 
-        <small class="muted">
-            Note: On systems using <code>systemd-resolved</code>, <code>127.0.0.53</code> is a local stub. Upstream DNS
-            are shown above.
-        </small>
+    <section class="card collapsible-section net-section" id="network-dns-section">
+        <div class="section-toggle" data-toggle="collapse" data-target="#network-dns-body">
+            <h3 style="margin:0">DNS</h3>
+            <button id="network-dns-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
+        </div>
+        <div id="network-dns-body" class="collapsible-body">
+            <div class="card" id="dns-card" style="padding:12px;">
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:8px;">
+                    <div><strong>Stub (local)</strong></div>
+                    <div id="dns-stub">â€”</div>
+                    <div><strong>Upstream DNS</strong></div>
+                    <div id="dns-upstream">â€”</div>
+                    <div><strong>Method</strong></div>
+                    <div id="dns-method">â€”</div>
+                    <div><strong>Active iface</strong></div>
+                    <div id="dns-iface">â€”</div>
+                    <div><strong>Active connection</strong></div>
+                    <div id="dns-conn">â€”</div>
+                </div>
 
-        <pre id="dns-log" class="logbox" style="margin-top:10px;display:none;"></pre>
-    </div>
+                <hr style="border-color:#2a2d36;margin:12px 0;">
+
+                <div class="qc-row" style="gap:8px;align-items:center;">
+                    <label style="min-width:120px;">Preset</label>
+                    <select id="dns-preset">
+                        <option value="auto">Auto (from DHCP)</option>
+                        <option value="google">Google (8.8.8.8, 8.8.4.4)</option>
+                        <option value="cloudflare">Cloudflare (1.1.1.1, 1.0.0.1)</option>
+                        <option value="quad9">Quad9 (9.9.9.9, 149.112.112.112)</option>
+                        <option value="custom">Customâ€¦</option>
+                    </select>
+
+                    <input id="dns-custom" placeholder="Custom DNS (space/comma separated e.g. 8.8.8.8 1.1.1.1)"
+                        style="flex:1;">
+                    <input id="dns-sudo" placeholder="sudo password (if required)" type="password">
+                    <button id="dns-apply" class="primary">Apply</button>
+                    <button id="dns-reset" class="danger" title="Revert to DHCP/auto">Reset</button>
+                </div>
+
+                <small class="muted">
+                    Note: On systems using <code>systemd-resolved</code>, <code>127.0.0.53</code> is a local stub. Upstream DNS
+                    are shown above.
+                </small>
+
+                <pre id="dns-log" class="logbox" style="margin-top:10px;display:none;"></pre>
+            </div>
+        </div>
+    </section>
 
     <pre id="net-debug" class="logbox" style="display:none; margin-top:14px;"></pre>
 </div>

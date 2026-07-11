@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Settings now detects an existing SSH keypair as soon as SSH Key authentication is selected and shows its readiness before generation.
+- New SSH profiles now start with Password authentication and Settings explains the complete first-time Password-to-SSH-Key setup flow.
+
+### Fixed
+- SSH key generation now reports an existing key cleanly instead of failing after the user clicks Generate.
+- SSH public-key installation now uses the key path shown in the form, handles remote home detection correctly and avoids duplicate authorized-key entries.
+- Settings no longer saves SSH Key authentication until the complete keypair exists and strict key-only login succeeds.
+- Missing public keys can be rebuilt from an existing private key, and unused local keypairs can be deleted safely from Settings.
+
 ## [v0.6.0] - 2026-07-11
 
 ### Added

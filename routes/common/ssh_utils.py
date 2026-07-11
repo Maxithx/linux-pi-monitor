@@ -4,6 +4,8 @@
 import os
 import paramiko
 from typing import List, Tuple, Optional
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
 
 
 # -------------------------
@@ -99,6 +101,7 @@ def ssh_connect(
     password: str,
     prefer_password: bool = False,
     timeout: int = 10,
+    allow_fallback: bool = True,
 ) -> paramiko.SSHClient:
     """
     Opret en SSH-forbindelse. Hvis prefer_password=True forsøges password først
@@ -140,6 +143,8 @@ def ssh_connect(
     try:
         primary()
     except Exception as e1:
+        if not allow_fallback:
+            raise RuntimeError(f"Login failed. {type(e1).__name__}: {e1}")
         try:
             fallback()
         except Exception as e2:
@@ -210,20 +215,35 @@ def generate_ssh_keypair(key_path: str, overwrite: bool = False, algo: str = "rs
 
     os.makedirs(os.path.dirname(priv_path), exist_ok=True)
 
-    key = None
     if algo.lower() == "ed25519":
-        try:
-            key = paramiko.Ed25519Key.generate()
-        except Exception:
-            # fallback hvis miljøet ikke kan generere ed25519
-            key = paramiko.RSAKey.generate(2048)
+        private_key = ed25519.Ed25519PrivateKey.generate()
+        private_format = serialization.PrivateFormat.OpenSSH
     else:
-        key = paramiko.RSAKey.generate(2048)
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+        private_format = serialization.PrivateFormat.TraditionalOpenSSL
 
-    key.write_private_key_file(priv_path)
-    pub_line = f"{key.get_name()} {key.get_base64()}\n"
-    with open(pub_path, "w", encoding="utf-8") as f:
-        f.write(pub_line)
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=private_format,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    public_bytes = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.OpenSSH,
+        format=serialization.PublicFormat.OpenSSH,
+    )
 
-    return {"private_key": priv_path, "public_key": pub_path, "algo": key.get_name()}
+    # Paramiko's writer uses os.fdopen, which eventlet patches into an
+    # unsupported GreenPipe on Windows. Plain file writes avoid that path.
+    with open(priv_path, "wb") as private_file:
+        private_file.write(private_bytes)
+    with open(pub_path, "wb") as public_file:
+        public_file.write(public_bytes + b"\n")
+
+    try:
+        os.chmod(priv_path, 0o600)
+    except OSError:
+        pass
+
+    key_type = public_bytes.split(b" ", 1)[0].decode("ascii")
+    return {"private_key": priv_path, "public_key": pub_path, "algo": key_type}
 

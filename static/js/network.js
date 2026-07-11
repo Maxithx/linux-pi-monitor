@@ -4,6 +4,11 @@
     const wifiGrid = $('#wifi-grid');
     const statusEl = $('#net-status');
     const filterEl = $('#wifi-filter');
+    const sections = [
+        { body: $('#network-interfaces-body'), btn: $('#network-interfaces-toggle'), key: 'network.interfaces.collapsed' },
+        { body: $('#network-wifi-body'), btn: $('#network-wifi-toggle'), key: 'network.wifi.collapsed' },
+        { body: $('#network-dns-body'), btn: $('#network-dns-toggle'), key: 'network.dns.collapsed' },
+    ];
 
     const qc = {
         ssid: $('#qc-ssid'), pass: $('#qc-pass'), hidden: $('#qc-hidden'),
@@ -13,6 +18,52 @@
     const setStatus = (t = '') => statusEl.textContent = t;
 
     // ---------- Helpers ----------
+    function bindCollapsibles() {
+        for (const section of sections) {
+            if (!section.body) continue;
+            let stored = null;
+            try { stored = localStorage.getItem(section.key); } catch { stored = null; }
+            let collapsed = stored === null ? true : stored === '1';
+            const apply = (isCollapsed, persist = true) => {
+                collapsed = !!isCollapsed;
+                section.body.style.display = collapsed ? 'none' : '';
+                if (section.btn) section.btn.textContent = collapsed ? 'Expand' : 'Collapse';
+                if (persist) {
+                    try { localStorage.setItem(section.key, collapsed ? '1' : '0'); } catch {}
+                }
+            };
+            apply(collapsed, stored !== null);
+            if (section.btn) {
+                section.btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    apply(!collapsed);
+                });
+            }
+            section.body.parentElement?.querySelector('.section-toggle')?.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                apply(!collapsed);
+            });
+        }
+    }
+
+    function setSectionCollapsed(key, collapsed, persist = true) {
+        const section = sections.find(s => s.key === key);
+        if (!section || !section.body) return;
+        section.body.style.display = collapsed ? 'none' : '';
+        if (section.btn) section.btn.textContent = collapsed ? 'Expand' : 'Collapse';
+        if (persist) {
+            try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch {}
+        }
+    }
+
+    function expandWifiSectionAfterScan(hasResults) {
+        if (!hasResults) return;
+        const wifiSection = sections.find(s => s.key === 'network.wifi.collapsed');
+        if (!wifiSection || !wifiSection.body) return;
+        setSectionCollapsed(wifiSection.key, false, true);
+    }
+
     const esc = (s) => (s ?? '').toString()
         .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -94,6 +145,7 @@
             const nets = (j.networks || [])
                 .sort((a, b) => (a.in_use === b.in_use ? 0 : (a.in_use ? -1 : 1)) || ((b.signal || 0) - (a.signal || 0)));
             renderWifi(nets);
+            expandWifiSectionAfterScan(nets.length > 0);
             setStatus(`Found ${nets.length} network${nets.length === 1 ? '' : 's'}.`);
         } catch (e) {
             renderWifi([]);
@@ -191,6 +243,7 @@
     });
 
     // Init
+    bindCollapsibles();
     loadSummary();
 })();
 

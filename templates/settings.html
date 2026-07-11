@@ -18,23 +18,45 @@
 <div class="container" id="settings-root" data-active-profile="{{ active_profile_id|default('') }}">
 
     <!-- ====== SSH PROFILES ====== -->
-    <h2 style="margin-bottom:6px">SSH Profiles</h2>
-    <div class="profiles-bar">
-        <select id="ssh_profile_select" class="grow" aria-label="Select SSH profile">
-            <option value="__none__" selected disabled>Loading profiles…</option>
-        </select>
-        <button id="btn-new-profile" class="secondary">New</button>
-        <button id="btn-duplicate-profile" class="secondary">Duplicate</button>
-        <button id="btn-rename-profile" class="secondary">Rename</button>
-        <button id="btn-delete-profile" class="danger">Delete</button>
-        <button id="btn-test-profile" class="secondary">Test</button>
-        <button id="btn-save-profile" class="primary">Save profile</button>
+    <section class="card collapsible-section" id="ssh-profiles-section">
+    <div class="section-toggle" data-toggle="collapse" data-target="#ssh-profiles-body">
+    <h2 style="margin:0">SSH Profiles</h2>
+    <button id="ssh-profiles-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
+    </div>
+    <div id="ssh-profiles-body" class="collapsible-body">
+    <div class="profiles-toolbar">
+        <div class="profiles-bar">
+            <select id="ssh_profile_select" class="grow" aria-label="Select SSH profile">
+                <option value="__none__" selected disabled>Loading profiles…</option>
+            </select>
+        </div>
+        <div class="profiles-actions">
+            <button id="btn-new-profile" class="secondary">New</button>
+            <button id="btn-duplicate-profile" class="secondary">Duplicate</button>
+            <button id="btn-rename-profile" class="secondary">Rename</button>
+            <button id="btn-delete-profile" class="danger">Delete</button>
+            <button id="btn-test-profile" class="secondary">Test</button>
+            <button id="btn-save-profile" class="primary">Save profile</button>
+        </div>
     </div>
 
     <div class="muted" style="margin:-2px 0 16px">
         Tip: Create profiles for your Linux system. When you switch from the dropdown, the fields below
         update.
     </div>
+
+    <section class="ssh-onboarding" aria-labelledby="ssh-onboarding-title">
+        <h3 id="ssh-onboarding-title">First-time SSH setup</h3>
+        <p>First connect with your Linux account password. After that, switch the saved profile over to SSH key login:</p>
+        <ol>
+            <li>Enter the Linux host, username, and select <strong>Password</strong>.</li>
+            <li>Enter the Linux account password, then click <strong>Save profile</strong> and <strong>Test</strong>.</li>
+            <li>When the connection is working, change <strong>Authentication Method</strong> to <strong>SSH Key</strong>.</li>
+            <li>If a valid key already exists, keep it. Otherwise click <strong>Generate key</strong> or <strong>Replace invalid key</strong>.</li>
+            <li>Click <strong>Install key on host</strong> and enter the Linux password one last time. Only after that should the profile be saved as <strong>SSH Key</strong>.</li>
+        </ol>
+        <p class="ssh-onboarding-note"><strong>Note:</strong> This is the password for the Linux account—not a Windows PIN. The password is only used to establish access and install the public key.</p>
+    </section>
 
     <!-- ====== CONNECTION STATUS ====== -->
     <div id="ssh-connection" class="status-line" aria-live="polite" aria-atomic="true">
@@ -88,9 +110,12 @@
                 <input type="text" id="ssh_key_path" name="ssh_key_path" class="grow"
                     value="{{ settings.ssh_key_path }}">
                 <button id="btn-gen-key" class="secondary" type="button">Generate key</button>
+                <button id="btn-repair-key" class="secondary" type="button" style="display:none;">Repair public key</button>
                 <button id="btn-install-key" class="secondary" type="button">Install key on host</button>
-                <button id="btn-ssh-help" class="secondary" type="button" style="margin-left:8px;">SSH setup
-                    help</button>
+                <button id="btn-delete-key" class="danger" type="button" style="display:none;">Delete local key</button>
+            </div>
+            <div id="ssh-key-status" class="muted" role="status" aria-live="polite" style="margin-top:6px;">
+                Checking for an existing SSH key…
             </div>
             <div class="muted" style="margin-top:6px">
                 Tip: Keys are created as <code>~/.ssh/id_&lt;profilename&gt;</code> (ed25519).
@@ -105,12 +130,16 @@
 
         <button id="clear-fields-btn" class="secondary" type="button" style="margin:10px 0;">Clear fields</button>
     </form>
+    </div>
+    </section>
 
-    <hr>
-
-    <!-- ====== GLANCES ====== -->
+    <section class="card collapsible-section" id="glances-section">
+    <div class="section-toggle" data-toggle="collapse" data-target="#glances-body">
+    <h2 style="margin:0">Glances System Monitor</h2>
+    <button id="glances-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
+    </div>
+    <div id="glances-body" class="collapsible-body">
     <div style="margin-top:20px;">
-        <h2>Glances System Monitor</h2>
         <p style="color:#ccc; margin-bottom:10px;">
             <strong>What is Glances?</strong> Glances is an advanced system monitoring tool that provides live stats for
             CPU,
@@ -162,11 +191,14 @@
         <pre id="glances-log-output" class="logbox"
             style="background:#111; color:#0f0; padding:10px; display:none; margin-top:10px;"></pre>
     </div>
+    </section>
 
-    <hr>
-
-    <!-- ====== FIREWALL HELPERS ====== -->
-    <h3 style="margin-top:20px;">Firewall Helpers</h3>
+    <section class="card collapsible-section" id="firewall-section">
+    <div class="section-toggle" data-toggle="collapse" data-target="#firewall-body">
+    <h2 style="margin:0">Firewall Helpers</h2>
+    <button id="firewall-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
+    </div>
+    <div id="firewall-body" class="collapsible-body">
     <div class="card" style="padding:12px;">
         <div class="muted" style="margin-bottom:8px;">
             Enable passwordless read-only UFW status on the remote host (no password prompts for listing rules).
@@ -198,11 +230,14 @@
 
         <pre id="fw-helper-log" class="muted" style="margin-top:10px; white-space:pre-wrap;"></pre>
     </div>
+    </section>
 
-    <hr>
-
-    <!-- ====== TERMINAL SOFTWARE ====== -->
-    <h3 style="margin-top:20px;">Terminal Software</h3>
+    <section class="card collapsible-section" id="terminal-section">
+    <div class="section-toggle" data-toggle="collapse" data-target="#terminal-body">
+    <h2 style="margin:0">Terminal Software</h2>
+    <button id="terminal-toggle" class="secondary collapse-toggle" type="button">Collapse</button>
+    </div>
+    <div id="terminal-body" class="collapsible-body">
     <p>Install or remove optional programs on your Linux system:</p>
 
     <div class="software-grid-box">
@@ -244,6 +279,7 @@
             </tbody>
         </table>
     </div>
+    </section>
 
 </div>
 
@@ -253,27 +289,6 @@
 
 <pre id="terminal-software-output" class="logbox"
     style="display:none; background:#000; color:#0f0; padding:10px; margin-top:10px; font-family:monospace;"></pre>
-
-<!-- SSH help modal -->
-<div id="sshSetupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sshSetupTitle">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h5 class="modal-title" id="sshSetupTitle">Enable SSH on Linux (Debian/Ubuntu/Mint)</h5>
-            <button type="button" class="btn-close" id="sshSetupClose" aria-label="Close">×</button>
-        </div>
-        <div class="modal-body">
-            <p>Run these commands on <code id="sshHelpHost">your-host</code> as <code id="sshHelpUser">your-user</code>:
-            </p>
-            <pre id="sshHelpCommands" class="modal-pre"></pre>
-            <p style="margin-top:8px;">After installation, click <em>Install key on host</em> here in Settings to enable
-                key login.</p>
-        </div>
-        <div class="modal-footer" style="display:flex; gap:8px; justify-content:flex-end;">
-            <button type="button" class="btn btn-outline" id="sshHelpCopy">Copy all</button>
-            <button type="button" class="btn btn-primary" id="sshSetupOk">OK</button>
-        </div>
-    </div>
-</div>
 
 {% endblock %}
 
@@ -287,7 +302,7 @@
 <script src="{{ url_for('static', filename='js/glances.service.js') }}?v=13"></script>
 
 <script src="{{ url_for('static', filename='js/software.js') }}"></script>
-<script src="{{ url_for('static', filename='js/settings.profiles.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/settings.profiles.js') }}?v=9"></script>
 <script src="{{ url_for('static', filename='js/settings.ssh-status.js') }}?v=9"></script>
 
 <!-- VIGTIGT: firewall helper UI/logic -->

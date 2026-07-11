@@ -81,7 +81,13 @@
 
 .chip.sec { background: var(--surface-muted); color: var(--text); border: 1px solid var(--card-border) }
 
-.chip.used { background: #e7f0fe; color: #2d7be1; border: 1px solid #c5dafb }
+.chip.used {
+    background: #16a34a;
+    color: #ffffff;
+    border: 1px solid #15803d;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.18), 0 1px 2px rgba(22, 163, 74, 0.22);
+}
 
 /* --- Signal bar --- */
 .sigwrap {
@@ -140,6 +146,32 @@
     align-items: center;
     gap: 6px;
     margin: 0 4px
+}
+
+.collapsible-section {
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+
+.section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.collapse-toggle {
+    min-width: 96px;
+    flex: 0 0 auto;
+}
+
+.collapsible-body {
+    padding-top: 14px;
+}
+
+.net-section.card {
+    padding: 14px 14px 16px;
 }
 
 

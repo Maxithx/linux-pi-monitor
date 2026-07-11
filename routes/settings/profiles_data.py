@@ -85,7 +85,7 @@ def create_new_profile(name: str) -> dict:
         "name": name,
         "pi_host": "",
         "pi_user": "",
-        "auth_method": "key",
+        "auth_method": "password",
         "ssh_key_path": "",
         "password": ""
     }

@@ -72,6 +72,42 @@ a {
   color: white;
 }
 
+.ssh-onboarding {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent, #2563eb) 38%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #2563eb) 8%, var(--surface, #fff));
+}
+
+.ssh-onboarding h3 { margin: 0 0 6px; }
+.ssh-onboarding p { margin: 6px 0; }
+.ssh-onboarding ol { margin: 10px 0; padding-left: 24px; }
+.ssh-onboarding li { margin: 7px 0; }
+.ssh-onboarding-note { color: var(--muted, #475569); }
+
+.collapsible-section {
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.collapse-toggle {
+  min-width: 96px;
+  flex: 0 0 auto;
+}
+
+.collapsible-body {
+  padding-top: 14px;
+}
+
 /* === CONNECTION STATUS === */
 .status-indicator {
   font-weight: bold;
@@ -207,6 +243,30 @@ pre.logbox {
 
 .profiles-bar .grow {
   flex: 1 1 260px;
+}
+
+.profiles-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  margin: 12px 0 6px;
+}
+
+.profiles-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profiles-actions button {
+  min-width: 92px;
+}
+
+@media (min-width: 860px) {
+  .profiles-actions button#btn-save-profile {
+    min-width: 120px;
+  }
 }
 
 /* Utility text */
