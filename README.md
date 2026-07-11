@@ -1,7 +1,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-informational)
-![Flask](https://img.shields.io/badge/Flask-2.x-black)
-![Version](https://img.shields.io/badge/version-v0.5.1-blue)
+![Flask](https://img.shields.io/badge/Flask-3.x-black)
+![Version](https://img.shields.io/badge/version-v0.6.0-blue)
 ![OS](https://img.shields.io/badge/Supported%20OS-Windows%2010%2F11%20%7C%20Linux%20Mint-green)
 
 # Linux Pi Monitor

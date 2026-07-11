@@ -3,15 +3,32 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [v0.6.0] - 2026-07-11
+
 ### Added
 - Command Collections for the terminal: per-profile groups, drag/drop reordering, import/export JSON, and a refreshed screenshot.
 - Backend JSON store + API endpoints for saved commands (collections CRUD, reorder, merge-safe import).
+- KeePass Vault guided setup for dependencies, Samba share, LAN firewall rules and authenticated verification.
+- KeePass Samba read/write lock with a live read-only/read-write switch.
+- KeePass Windows mapping helper and copyable Phase 4 verification log.
+- Global Linux connection indicator in the sidebar, including a compact collapsed state.
 
 ### Changed
 - Terminal UI updated with tabbed collections, modal editors, responsive filter bar, and improved mobile behaviour.
+- KeePass setup now requires and confirms a strong SMB password before Phase 1 starts.
+- KeePass Phase 2 reports when the Samba password is set and the share is active.
+- KeePass Phase 4 now verifies the Samba service, system user, vault directory, configuration and authenticated access to the hidden share.
+- KeePass frontend JavaScript was extracted from the template and split into password-tools and sudo-modal modules.
+- Update output now appears directly below status instead of below the complete package list.
+- Update workflows skip optional Flatpak/Snap steps when those tools are not installed.
+- Reboot detection now considers both `/run/reboot-required` and an installed kernel newer than the running kernel.
 
 ### Fixed
 - Dashboard network tiles now read Glances metrics correctly (unit-aware parsing, busiest interface selection) so values stay in sync with Glances even at low throughput.
+- Sequential update workflows now reliably complete lightweight steps such as `apt update` and release locked controls.
+- Raspberry Pi update runs no longer fail with `rc=127` solely because Flatpak or Snap is absent.
+- KeePass Phase 4 no longer expects a non-browseable share to appear in `smbclient -L`; it connects directly to the share instead.
 
 ## [v0.5.3] - 2025-10-23
 
@@ -73,7 +90,9 @@ All notable changes to this project will be documented in this file.
 - Helpers to parse link speed/bitrate (ethtool/iw) for future use in the summary.
 - README note about restarting the app after backend edits and hard‑refreshing the browser in development.
 
-[Unreleased]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.4...v0.6.0
+[v0.5.4]: https://github.com/Maxithx/linux-pi-monitor/releases/tag/v0.5.4
 [v0.5.3]: https://github.com/Maxithx/linux-pi-monitor/releases/tag/v0.5.3
 [v0.5.2]: https://github.com/Maxithx/linux-pi-monitor/releases/tag/v0.5.2
 [v0.5.1]: https://github.com/Maxithx/linux-pi-monitor/compare/v0.5.0-keepass-glances...v0.5.1
