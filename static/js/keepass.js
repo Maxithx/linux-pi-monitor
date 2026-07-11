@@ -19,22 +19,10 @@
     passwordTools.init();
     const passwordStrengthMsg = passwordTools.passwordStrengthMsg;
 
-    // Simple sudo modal helpers
+    const sudoModal = window.KeepassSudoModal;
+    if (!sudoModal) throw new Error('KeePass sudo modal failed to load');
+
     let kpRetry = null;
-    function showSudoPrompt(onOk){
-      const m = document.getElementById('kp-sudo-modal');
-      const inp = document.getElementById('kp-sudo-modal-input');
-      const err = document.getElementById('kp-sudo-err');
-      const btnOk = document.getElementById('kp-sudo-ok');
-      const btnCancel = document.getElementById('kp-sudo-cancel');
-      const btnClose = document.getElementById('kp-sudo-close');
-      err.style.display = 'none';
-      m.style.display = 'flex';
-      setTimeout(()=>{ try { inp.focus(); } catch{} }, 10);
-      function cleanup(){ btnOk.onclick = btnCancel.onclick = btnClose.onclick = null; }
-      btnCancel.onclick = btnClose.onclick = ()=>{ cleanup(); m.style.display='none'; onOk(null); };
-      btnOk.onclick = ()=>{ const v=(inp.value||'').trim(); if(!v){ err.style.display='block'; return; } cleanup(); m.style.display='none'; onOk(v); };
-    }
 
     async function runPhase(phase, body, logEl, resultEl){
       resultEl.textContent='Running...'; logEl.textContent='';
@@ -42,7 +30,7 @@
       if(!res.ok){ let msg=`HTTP ${res.status}`; try{ const e=await res.json(); if(e&&e.error) msg=`Error: ${e.error}`;}catch{} resultEl.textContent=msg; return; }
       const data = await res.json(); const { run_id } = data; let finished=false, exit_code=null, pd=null;
       while(!finished){ const pr=await fetch(`/api/keepass/setup/progress/${run_id}`); pd=await pr.json(); logEl.textContent=pd.log||''; try{ logEl.scrollTop=logEl.scrollHeight; }catch{} finished=!!pd.finished; exit_code=pd.exit_code; if(!finished) await new Promise(r=>setTimeout(r,800)); }
-      if(exit_code===0){ resultEl.textContent='OK'; } else { const emsg = (pd&&pd.error)? String(pd.error):''; if(emsg==='sudo_requires_password' && !(body&&body.env&&body.env.SUDO_PASS)){ kpRetry={phase,body,logEl,resultEl}; showSudoPrompt(async (pw)=>{ if(!pw){ resultEl.textContent='Cancelled'; kpRetry=null; return; } try{ const b=JSON.parse(JSON.stringify(kpRetry.body||{})); b.env=Object.assign({}, b.env||{}, { SUDO_PASS: pw }); await runPhase(kpRetry.phase, b, kpRetry.logEl, kpRetry.resultEl); } finally{ kpRetry=null; } }); return; } else { resultEl.textContent = emsg? `Error: ${emsg}` : `Exit ${exit_code}`; } }
+      if(exit_code===0){ resultEl.textContent='OK'; } else { const emsg = (pd&&pd.error)? String(pd.error):''; if(emsg==='sudo_requires_password' && !(body&&body.env&&body.env.SUDO_PASS)){ kpRetry={phase,body,logEl,resultEl}; sudoModal.prompt(async (pw)=>{ if(!pw){ resultEl.textContent='Cancelled'; kpRetry=null; return; } try{ const b=JSON.parse(JSON.stringify(kpRetry.body||{})); b.env=Object.assign({}, b.env||{}, { SUDO_PASS: pw }); await runPhase(kpRetry.phase, b, kpRetry.logEl, kpRetry.resultEl); } finally{ kpRetry=null; } }); return; } else { resultEl.textContent = emsg? `Error: ${emsg}` : `Exit ${exit_code}`; } }
     }
 
     const g=(id)=>document.getElementById(id);
@@ -115,7 +103,7 @@
           return;
         }
         if (pd.error === 'sudo_requires_password' && !sudoPass && !(g('kp-sudo-pass')?.value || '')) {
-          showSudoPrompt(async pw => {
+          sudoModal.prompt(async pw => {
             if (pw) await setAccessMode(writable, pw);
             else { renderAccess(accessWritable, true); if (accessResult) accessResult.textContent='Cancelled'; }
           });
