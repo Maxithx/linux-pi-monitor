@@ -19,8 +19,12 @@
 
             <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <span id="badge-conn" class="badge green">Connected</span>
-                <span id="badge-reboot" class="badge warn" style="display:none;">Reboot now</span>
-                <button id="btn-reboot" class="btn warn small" disabled>Reboot now</button>
+                <span id="badge-reboot" class="badge reboot" style="display:none;">Reboot recommended</span>
+                <button id="btn-reboot" class="btn small reboot-action" disabled>Reboot now</button>
+            </div>
+
+            <div id="reboot-message" class="reboot-message" role="status" style="display:none;">
+                Updates are complete. Reboot the Pi to activate the new kernel and finish applying system updates.
             </div>
 
             <div id="overall-progress" class="overall-progress" aria-live="polite">
@@ -50,6 +54,19 @@
                 Updates run over SSH using your selected profile.
             </div>
         </div>
+    </div>
+
+    <!-- Live output belongs next to status, before actions and the long package list. -->
+    <div id="out-card" class="card expander" style="border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
+        <div class="out-hdr" id="out-hdr" style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+            <span>Output</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="btn-toggle-output" class="btn small ghost icon-only" aria-label="Collapse or expand output">
+                    <span class="icon-chev" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <pre id="out" style="margin:0; padding:14px; max-height:420px; overflow:auto; color:#e0e0e0; font-family:'Cascadia Mono', 'Fira Code', Consolas, monospace; font-size:13px; white-space:pre-wrap;"></pre>
     </div>
 
     <!-- Primary action -->
@@ -146,19 +163,6 @@
         </div>
     </div>
     
-    <!-- Output (below Available updates) -->
-    <div id="out-card" class="card expander" style="border-radius:10px; padding:0; overflow:hidden; margin-bottom:14px;">
-        <div class="out-hdr" id="out-hdr" style="padding:12px 14px; border-bottom:1px solid #22263a; font-weight:600; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-            <span>Output</span>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <button id="btn-toggle-output" class="btn small ghost icon-only" aria-label="Collapse or expand output">
-                    <span class="icon-chev" aria-hidden="true"></span>
-                </button>
-            </div>
-        </div>
-        <pre id="out" style="margin:0; padding:14px; max-height:420px; overflow:auto; color:#e0e0e0; font-family:'Cascadia Mono', 'Fira Code', Consolas, monospace; font-size:13px; white-space:pre-wrap;"></pre>
-    </div>
-
     <!-- Notes -->
     <div id="apt-warning-note" class="card"
         style="display:none; border-radius:10px; padding:12px; margin-bottom:14px;">

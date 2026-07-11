@@ -52,11 +52,15 @@ _ACTIONS = {
     "apt_dry_full":      "sudo apt-get -s dist-upgrade",
     "apt_upgrade":       "sudo apt upgrade -y",
     "apt_full_upgrade":  "sudo apt full-upgrade -y",
-    "reboot_required":   'if [ -f /run/reboot-required ]; then echo "REBOOT_REQUIRED"; else echo "NO_REBOOT"; fi',
-    "flatpak_dry":       "flatpak update --appstream && flatpak update --assumeyes --dry-run",
-    "flatpak_apply":     "flatpak update -y",
-    "snap_list":         "sudo snap refresh --list",
-    "snap_refresh":      "sudo snap refresh",
+    "reboot_required":   (
+        '( test -f /run/reboot-required || '
+        'test $(uname -r) != $(ls -1 /lib/modules 2>/dev/null | sort -V | tail -n 1) ) '
+        '&& echo REBOOT_REQUIRED || echo NO_REBOOT'
+    ),
+    "flatpak_dry":       "if command -v flatpak >/dev/null 2>&1; then flatpak update --appstream && flatpak update --assumeyes --dry-run; else echo '[skip] Flatpak is not installed.'; fi",
+    "flatpak_apply":     "if command -v flatpak >/dev/null 2>&1; then flatpak update -y; else echo '[skip] Flatpak is not installed.'; fi",
+    "snap_list":         "if command -v snap >/dev/null 2>&1; then sudo snap refresh --list; else echo '[skip] Snap is not installed.'; fi",
+    "snap_refresh":      "if command -v snap >/dev/null 2>&1; then sudo snap refresh; else echo '[skip] Snap is not installed.'; fi",
     "docker_ps":         'docker ps --format "{{.Names}}\t{{.Image}}\t{{.Status}}" || true',
     "full_noob_update": (
         "sudo DEBIAN_FRONTEND=noninteractive apt update && "
@@ -471,7 +475,7 @@ def updates_run_async():
                     exit_code = _run_streaming(ssh, cmd, run_id, state)
 
                 try:
-                    rc3, out3, _ = ssh_exec(ssh, 'test -f /run/reboot-required && echo REBOOT_REQUIRED || echo NO_REBOOT', timeout=15, shell=True)
+                    rc3, out3, _ = ssh_exec(ssh, _force_english(_ACTIONS['reboot_required']), timeout=15, shell=True)
                     state['requires_reboot'] = 'REBOOT_REQUIRED' in (out3 or '')
                 except Exception:
                     pass

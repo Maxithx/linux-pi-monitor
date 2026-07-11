@@ -6,6 +6,7 @@
 const out = document.getElementById('out');
 const badgeReboot = document.getElementById('badge-reboot');
 const btnReboot = document.getElementById('btn-reboot');
+const rebootMessage = document.getElementById('reboot-message');
 
 const bodyEl = document.getElementById('updates-body');
 const emptyEl = document.getElementById('updates-empty');
@@ -255,9 +256,15 @@ async function checkReboot() {
         });
         const j = await r.json();
         const need = (j.ok && (j.stdout || '').includes('REBOOT_REQUIRED'));
-        if (badgeReboot) badgeReboot.style.display = need ? 'inline-block' : 'none';
-        if (btnReboot) btnReboot.disabled = !need;
+        setRebootRequired(need);
     } catch (e) { /* noop */ }
+}
+
+function setRebootRequired(required) {
+    const need = !!required;
+    if (badgeReboot) badgeReboot.style.display = need ? 'inline-block' : 'none';
+    if (btnReboot) btnReboot.disabled = !need;
+    if (rebootMessage) rebootMessage.style.display = need ? 'block' : 'none';
 }
 
 function sevPill(security, urgency) {
@@ -800,6 +807,12 @@ async function pollProgressOnce(run_id) {
         if (!r.ok) return null;
         const j = await r.json();
         renderProgressSnapshot(j);
+        // Completion must not depend on package-row rendering succeeding.
+        // This also makes sequential workflows advance after lightweight steps
+        // such as apt update, which have no package progress rows.
+        if (j && j.done) {
+            completeRun(j.run_id || run_id, j);
+        }
         return j;
     } catch (e) { return null; }
 }
@@ -845,6 +858,7 @@ function startLogPolling(run_id) {
 function renderProgressSnapshot(j) {
     try {
         updateOverallProgress(j);
+        if (j.requires_reboot) setRebootRequired(true);
         const pkgs = Array.isArray(j.packages) ? j.packages : [];
         // Update per-package cells when rows exist
         pkgs.forEach(pkg => {
@@ -872,8 +886,6 @@ function renderProgressSnapshot(j) {
                     if (btn) { btn.disabled = false; btn.classList.remove('is-disabled'); btn.textContent = 'Install'; }
                 });
             }
-            const rid = j.run_id || currentRunId;
-            completeRun(rid, j);
         }
     } catch (e) {
         // no-op

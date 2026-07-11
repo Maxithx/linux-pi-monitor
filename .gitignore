@@ -36,3 +36,6 @@ app.py.log
 glances_install.log
 
 patch_min.diff
+
+# Local machine/SSH notes (never commit)
+README.local.md
