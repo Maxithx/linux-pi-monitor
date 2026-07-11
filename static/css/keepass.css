@@ -112,6 +112,67 @@
 #kp-setup .badge-secondary { background: #384062; color: #e6e6e6; }
 #kp-setup .badge-danger { background: #b32020; color: #fff; }
 
+/* Samba read/write lock */
+#kp-setup .kp-access-card {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) max-content;
+  gap: 10px 18px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--card-border, rgba(15,23,42,.1));
+  border-radius: 10px;
+  background: var(--surface, #fff);
+}
+#kp-setup .kp-access-title { font-weight: 700; margin-bottom: 5px; }
+#kp-setup #kp-access-description { max-width: 620px; line-height: 1.45; }
+#kp-setup .kp-access-control {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  min-width:180px;
+}
+#kp-setup .kp-access-status { font-size: 13px; font-weight: 700; white-space: nowrap; }
+#kp-setup .kp-access-status.is-writable { color:#15803d; }
+#kp-setup .kp-access-status.is-readonly { color:#b45309; }
+#kp-setup .kp-access-status.is-unknown { color:#64748b; }
+#kp-setup .kp-access-result { grid-column: 1 / -1; min-height: 1.2em; }
+#kp-setup .kp-access-log { grid-column: 1 / -1; display:none; margin:0; }
+#kp-setup .kp-access-log:not(:empty) { display:block; }
+
+#kp-setup .kp-switch { position:relative; display:inline-flex; cursor:pointer; }
+#kp-setup .kp-switch input { position:absolute; opacity:0; pointer-events:none; }
+#kp-setup .kp-switch-track {
+  position:relative;
+  width:48px;
+  height:26px;
+  border-radius:999px;
+  background:#94a3b8;
+  transition:background .2s ease;
+}
+#kp-setup .kp-switch-track::after {
+  content:"";
+  position:absolute;
+  top:3px;
+  left:3px;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+  transition:transform .2s ease;
+}
+#kp-setup .kp-switch input:checked + .kp-switch-track { background:#22c55e; }
+#kp-setup .kp-switch input:checked + .kp-switch-track::after { transform:translateX(22px); }
+#kp-setup .kp-switch input:focus-visible + .kp-switch-track { outline:3px solid rgba(45,123,225,.3); }
+#kp-setup .kp-switch input:disabled + .kp-switch-track { opacity:.5; cursor:not-allowed; }
+
+@media (max-width: 700px) {
+  #kp-setup .kp-access-card { grid-template-columns:1fr; }
+  #kp-setup .kp-access-control { justify-content:space-between; }
+}
+
 /* Accordion visuals */
 #kp-setup .accordion-item { border: 1px solid var(--card-border, rgba(255,255,255,.06)); border-radius: 8px; margin-bottom: 8px; background: var(--surface, #ffffff); }
 #kp-setup .accordion-header { margin: 0; }

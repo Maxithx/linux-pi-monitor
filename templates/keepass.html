@@ -127,6 +127,25 @@
       </div>
     </div>
 
+    <!-- Vault access mode -->
+    <div class="kp-access-card" id="kp-access-card">
+      <div>
+        <div class="kp-access-title">Vault write access</div>
+        <div id="kp-access-description" class="text-sm text-muted">
+          Checking the Samba share…
+        </div>
+      </div>
+      <div class="kp-access-control">
+        <span id="kp-access-status" class="kp-access-status">Checking…</span>
+        <label class="kp-switch" title="Allow or block changes and deletion through the Samba share">
+          <input id="kp-access-toggle" type="checkbox" disabled aria-label="Allow write access to the KeePass Samba share">
+          <span class="kp-switch-track" aria-hidden="true"></span>
+        </label>
+      </div>
+      <div id="kp-access-result" class="kp-access-result text-sm"></div>
+      <pre id="kp-log-access" class="log kp-access-log"></pre>
+    </div>
+
     <!-- Windows helper -->
     <div class="mt-4" style="margin-top:16px;">
       <button class="btn btn-link p-0" data-bs-toggle="collapse" data-bs-target="#kp-windows-helper">Windows mapping helper</button>
@@ -224,6 +243,97 @@
     }
 
     const g=(id)=>document.getElementById(id);
+
+    // Samba share write lock. OFF keeps files readable but blocks create,
+    // modify, overwrite and delete operations through SMB.
+    const accessToggle = g('kp-access-toggle');
+    const accessStatus = g('kp-access-status');
+    const accessDescription = g('kp-access-description');
+    const accessResult = g('kp-access-result');
+    const accessLog = g('kp-log-access');
+    let accessWritable = null;
+
+    function renderAccess(writable, configured=true){
+      accessWritable = configured ? !!writable : null;
+      if (accessToggle) {
+        accessToggle.checked = !!writable;
+        accessToggle.disabled = !configured;
+      }
+      if (accessStatus) {
+        accessStatus.textContent = configured ? (writable ? 'Read/write ON' : 'Read-only') : 'Not configured';
+        accessStatus.className = `kp-access-status ${configured ? (writable ? 'is-writable' : 'is-readonly') : 'is-unknown'}`;
+      }
+      if (accessDescription) {
+        accessDescription.textContent = !configured
+          ? 'Run Phase 2 first to create the KeePass Samba share.'
+          : writable
+            ? 'Files can be read, created, changed and deleted through the share.'
+            : 'Files can be read, but writing, overwriting and deletion are blocked.';
+      }
+    }
+
+    async function loadAccessStatus(){
+      if (accessToggle) accessToggle.disabled = true;
+      try {
+        const res = await fetch('/api/keepass/access', {cache:'no-store'});
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          renderAccess(false, false);
+          if (accessResult) accessResult.textContent = data.error || `HTTP ${res.status}`;
+          return;
+        }
+        renderAccess(!!data.writable, true);
+        if (accessResult) accessResult.textContent = '';
+      } catch (e) {
+        renderAccess(false, false);
+        if (accessResult) accessResult.textContent = `Unable to read status: ${e}`;
+      }
+    }
+
+    async function setAccessMode(writable, sudoPass=''){
+      if (accessToggle) accessToggle.disabled = true;
+      if (accessResult) accessResult.textContent = writable ? 'Enabling write access…' : 'Enabling read-only mode…';
+      if (accessLog) accessLog.textContent = '';
+      const body = { writable: !!writable, env: { SUDO_PASS: sudoPass || g('kp-sudo-pass')?.value || '' } };
+      try {
+        const res = await fetch('/api/keepass/access', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const data = await res.json();
+        if (!res.ok || !data.run_id) throw new Error(data.error || `HTTP ${res.status}`);
+        let pd = null;
+        do {
+          await new Promise(r=>setTimeout(r, 600));
+          const pr = await fetch(`/api/keepass/setup/progress/${encodeURIComponent(data.run_id)}`, {cache:'no-store'});
+          pd = await pr.json();
+          if (accessLog) { accessLog.textContent = pd.log || ''; accessLog.scrollTop = accessLog.scrollHeight; }
+        } while (!pd.finished);
+        if (pd.exit_code === 0) {
+          renderAccess(writable, true);
+          if (accessResult) accessResult.textContent = writable ? 'Write access enabled.' : 'Read-only protection enabled.';
+          return;
+        }
+        if (pd.error === 'sudo_requires_password' && !sudoPass && !(g('kp-sudo-pass')?.value || '')) {
+          showSudoPrompt(async pw => {
+            if (pw) await setAccessMode(writable, pw);
+            else { renderAccess(accessWritable, true); if (accessResult) accessResult.textContent='Cancelled'; }
+          });
+          return;
+        }
+        throw new Error(pd.error || `Exit ${pd.exit_code}`);
+      } catch (e) {
+        renderAccess(accessWritable, accessWritable !== null);
+        if (accessResult) accessResult.textContent = `Error: ${e.message || e}`;
+      } finally {
+        if (accessToggle && accessWritable !== null) accessToggle.disabled = false;
+      }
+    }
+
+    if (accessToggle) accessToggle.addEventListener('change', ()=>{
+      const requested = accessToggle.checked;
+      accessToggle.checked = accessWritable === true;
+      setAccessMode(requested);
+    });
+    loadAccessStatus();
+
     // Build Windows mapping helper (fetch host from active profile)
     (async () => {
       try {

@@ -61,6 +61,7 @@ _PHASE_TO_SCRIPT = {
     'phase3': 'kp_phase3_firewall.sh',
     'phase4': 'kp_phase4_verify.sh',
     'rollback': 'kp_rollback.sh',
+    'access': 'kp_access_mode.sh',
 }
 
 
@@ -153,7 +154,7 @@ def _run_phase_bg(run_id: str, env: Dict[str, str] | None, settings: Dict[str, A
         # Preflight: if sudo password not provided and phase likely needs sudo, check if passwordless sudo is available.
         # This prevents hanging when remote prompts for a sudo password.
         try:
-            if not sudo_pass and (phase in ('phase1', 'phase2', 'phase3', 'rollback')):
+            if not sudo_pass and (phase in ('phase1', 'phase2', 'phase3', 'rollback', 'access')):
                 _append_log(run_id, "[dbg] preflight: checking 'sudo -n' availability...\n")
                 stdin2, stdout2, stderr2 = ssh.exec_command("bash -lc 'sudo -n true 2>/dev/null || echo NEED_SUDO_PASS'", timeout=10)
                 pre = (stdout2.read() or b'').decode(errors='replace')
@@ -331,6 +332,50 @@ def kp_rollback():
     env = (data.get('env') or {})
     s = _get_active_ssh_settings()
     run_id = _start_phase('rollback', env, s)
+    return jsonify({'run_id': run_id})
+
+
+@keepass_bp.get('/api/keepass/access')
+def kp_access_status():
+    s = _get_active_ssh_settings()
+    if not _is_configured(s):
+        return jsonify({'ok': False, 'error': 'SSH not configured'}), 400
+    try:
+        ssh = ssh_connect(
+            host=s["pi_host"], user=s["pi_user"],
+            auth=s.get("auth_method", "key"),
+            key_path=s.get("ssh_key_path", ""),
+            password=s.get("password", ""), timeout=20
+        )
+        cmd = (
+            "awk 'BEGIN{in_share=0} /^\\[keepass\\]/{in_share=1; next} "
+            "/^\\[/{in_share=0} in_share && /^[[:space:]]*read only[[:space:]]*=/ "
+            "{gsub(/^[^=]*=[[:space:]]*/, \"\"); print tolower($0); exit}' "
+            "/etc/samba/shares.conf 2>/dev/null"
+        )
+        _, stdout, _ = ssh.exec_command(cmd, timeout=15)
+        value = stdout.read().decode(errors='replace').strip()
+        try:
+            ssh.close()
+        except Exception:
+            pass
+        if value not in ('yes', 'no'):
+            return jsonify({'ok': False, 'configured': False, 'error': 'KeePass Samba share not found'}), 404
+        return jsonify({'ok': True, 'configured': True, 'writable': value == 'no'})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@keepass_bp.post('/api/keepass/access')
+def kp_access_set():
+    data = request.get_json(silent=True) or {}
+    writable = data.get('writable')
+    if not isinstance(writable, bool):
+        return jsonify({'error': 'writable must be true or false'}), 400
+    env = data.get('env') or {}
+    env['KP_WRITABLE'] = '1' if writable else '0'
+    s = _get_active_ssh_settings()
+    run_id = _start_phase('access', env, s)
     return jsonify({'run_id': run_id})
 
 
