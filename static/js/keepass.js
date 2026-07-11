@@ -14,23 +14,10 @@
     setExpanded(expanded);
     if (toggleBtn) toggleBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); });
 
-    // Helpers
-    const randInt = (n)=>Math.floor(Math.random()*n);
-    const shuffle = (a)=>{ for(let i=a.length-1;i>0;i--){const j=randInt(i+1); [a[i],a[j]]=[a[j],a[i]];} return a; };
-    function passwordStrengthMsg(p){
-      if(!p||p.length<8) return 'Weak: too short';
-      const cats=[/[a-z]/,/[A-Z]/,/[0-9]/,/[^\w]/]; let c=0; cats.forEach(rx=>{if(rx.test(p))c++;});
-      if(p.length>=16 && c>=3) return 'Strong password';
-      return c>=3? 'Okay password' : 'Weak: use more variety';
-    }
-    function genPassword(len){
-      const pools=['abcdefghjkmnpqrstuvwxyz','ABCDEFGHJKLMNPQRSTUVWXYZ','23456789','!@#$%^&*()_+-='];
-      const out=[]; for(const p of pools) out.push(p[randInt(p.length)]); const all=pools.join(''); while(out.length<len) out.push(all[randInt(all.length)]); return shuffle(out).join('');
-    }
-    const genBtn=document.getElementById('kp-smb-gen'); const pwdCopyBtn=document.getElementById('kp-smb-copy'); const pwdToggleBtn=document.getElementById('kp-smb-toggle'); const lenSel=document.getElementById('kp-smb-len');
-    if(genBtn){ genBtn.onclick=()=>{ let L=parseInt(lenSel?.value||'16',10); if(!Number.isFinite(L))L=16; if(L<8)L=8; if(L>64)L=64; const v=genPassword(L); const p1=document.getElementById('kp-smb-pass'); const p2=document.getElementById('kp-smb-pass2'); if(p1)p1.value=v; if(p2)p2.value=v; const hint=document.getElementById('kp-smb-hint'); if(hint) hint.textContent=passwordStrengthMsg(v); }; }
-    if(pwdCopyBtn){ pwdCopyBtn.onclick=async()=>{ const v=(document.getElementById('kp-smb-pass')?.value||'').trim(); if(!v) return; try{ await navigator.clipboard.writeText(v);}catch{} } }
-    if(pwdToggleBtn){ pwdToggleBtn.onclick=()=>{ const p1=document.getElementById('kp-smb-pass'); const p2=document.getElementById('kp-smb-pass2'); const shown=p1?.type==='text'; if(p1) p1.type=shown?'password':'text'; if(p2) p2.type=shown?'password':'text'; pwdToggleBtn.textContent=shown?'Show':'Hide'; } }
+    const passwordTools = window.KeepassPasswordTools;
+    if (!passwordTools) throw new Error('KeePass password tools failed to load');
+    passwordTools.init();
+    const passwordStrengthMsg = passwordTools.passwordStrengthMsg;
 
     // Simple sudo modal helpers
     let kpRetry = null;
