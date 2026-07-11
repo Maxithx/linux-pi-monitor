@@ -34,8 +34,8 @@
                 <input id="kp-sudo-pass" type="password" class="input" placeholder="Needed if sudo prompts">
                 <div class="text-xs text-muted">Phases 1, 2, 3 and Rollback may require sudo. Leave empty if your user has passwordless sudo (NOPASSWD). If required, you will be prompted.</div>
               </label>
-              <label class="text-sm">SMB_PASS (required for Phase 2)
-                <input id="kp-smb-pass" type="password" class="input" placeholder="Required to run Phase 2">
+              <label class="text-sm">SMB_PASS (required to start setup)
+                <input id="kp-smb-pass" type="password" class="input" placeholder="Required before Phase 1">
                 <div class="kp-password-tools text-xs">
                   <div class="kp-password-tool-row">
                     <button id="kp-smb-gen" type="button" class="btn btn-secondary btn-sm">Generate</button>
@@ -58,6 +58,9 @@
                     <span id="kp-smb-hint" class="text-xs text-muted"></span>
                   </div>
                 </div>
+                <div class="kp-inline-info">
+                  Phase 1 does not set an SMB password. An existing Samba password is unchanged. The password is applied when you run Phase 2.
+                </div>
               </label>
               <label class="text-sm">Confirm SMB_PASS
                 <input id="kp-smb-pass2" type="password" class="input" placeholder="Re-enter SMB password">
@@ -65,6 +68,9 @@
             </div>
             <button id="kp-run-phase1" class="btn btn-primary">Run Phase 1</button>
             <span id="kp-phase1-result" class="ml-2 text-sm"></span>
+            <div id="kp-phase1-password-note" class="kp-inline-warning" role="status" style="display:none;">
+              Enter and confirm SMB_PASS before starting Phase 1.
+            </div>
             <pre id="kp-log-phase1" class="log mt-2"></pre>
           </div>
         </div>
@@ -110,7 +116,11 @@
         <div id="kp-phase4" class="accordion-collapse collapse">
           <div class="accordion-body">
             <button id="kp-run-phase4" class="btn btn-primary">Run Phase 4</button>
+            <button id="kp-copy-phase4-log" class="btn btn-secondary" type="button">Copy log</button>
             <span id="kp-phase4-result" class="ml-2 text-sm"></span>
+            <div class="text-xs text-muted" style="margin-top:8px;">
+              Verifies the Samba service, KeePass user, vault folder, configuration and authenticated access to the hidden share.
+            </div>
             <pre id="kp-log-phase4" class="log mt-2"></pre>
           </div>
         </div>
