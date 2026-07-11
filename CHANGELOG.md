@@ -28,6 +28,8 @@ All notable changes to this project will be documented in this file.
 - Dashboard network tiles now read Glances metrics correctly (unit-aware parsing, busiest interface selection) so values stay in sync with Glances even at low throughput.
 - Sequential update workflows now reliably complete lightweight steps such as `apt update` and release locked controls.
 - Raspberry Pi update runs no longer fail with `rc=127` solely because Flatpak or Snap is absent.
+- Update-page reboot now validates sudo and dispatches the supported reboot action correctly.
+- Reboot recommendations now clear after a successful restart and only treat an actually newer installed kernel as pending.
 - KeePass Phase 4 no longer expects a non-browseable share to appear in `smbclient -L`; it connects directly to the share instead.
 
 ## [v0.5.3] - 2025-10-23

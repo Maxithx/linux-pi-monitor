@@ -47,7 +47,8 @@ const ACTIONS_REQUIRE_SUDO = new Set([
     'apt_upgrade',
     'apt_full_upgrade',
     'full_noob_update',
-    'snap_refresh'
+    'snap_refresh',
+    'reboot_now'
 ]);
 
 // Session sudo cache (memory only; cleared on reload)
@@ -212,7 +213,10 @@ async function run(action, options = {}) {
             append('Error: ' + (j.error || 'unknown'));
             return j;
         }
-        if (j.run_id) {
+        if (j.rebooting) {
+            setRebootRequired(false);
+            append('Reboot command accepted. Waiting for the remote machine to restart.');
+        } else if (j.run_id) {
             runId = j.run_id;
             currentRunId = runId;
             window.localStorage.setItem('upd.run_id', currentRunId);
@@ -858,7 +862,7 @@ function startLogPolling(run_id) {
 function renderProgressSnapshot(j) {
     try {
         updateOverallProgress(j);
-        if (j.requires_reboot) setRebootRequired(true);
+        if (typeof j.requires_reboot === 'boolean') setRebootRequired(j.requires_reboot);
         const pkgs = Array.isArray(j.packages) ? j.packages : [];
         // Update per-package cells when rows exist
         pkgs.forEach(pkg => {
@@ -926,6 +930,13 @@ async function showConnectionInfo() {
 (function restoreOutputText(){
     try {
         const t = localStorage.getItem('upd.output.text');
+        // Remove the obsolete error persisted by builds that exposed the
+        // reboot button before the backend supported the reboot_now action.
+        if (t && t.includes('Unknown action: reboot_now')) {
+            localStorage.removeItem('upd.output.text');
+            if (out) out.textContent = '';
+            return;
+        }
         if (out && t) {
             out.textContent = t;
             out.scrollTop = out.scrollHeight;

@@ -53,10 +53,14 @@ _ACTIONS = {
     "apt_upgrade":       "sudo apt upgrade -y",
     "apt_full_upgrade":  "sudo apt full-upgrade -y",
     "reboot_required":   (
-        '( test -f /run/reboot-required || '
-        'test $(uname -r) != $(ls -1 /lib/modules 2>/dev/null | sort -V | tail -n 1) ) '
+        '( running=$(uname -r); '
+        'latest=$(find /lib/modules -mindepth 1 -maxdepth 1 -type d -printf "%f\\n" 2>/dev/null | sort -V | tail -n 1); '
+        'test -f /run/reboot-required || '
+        '( test -n "$latest" && command -v dpkg >/dev/null 2>&1 && '
+        'dpkg --compare-versions "$latest" gt "$running" ) ) '
         '&& echo REBOOT_REQUIRED || echo NO_REBOOT'
     ),
+    "reboot_now":        "sudo reboot",
     "flatpak_dry":       "if command -v flatpak >/dev/null 2>&1; then flatpak update --appstream && flatpak update --assumeyes --dry-run; else echo '[skip] Flatpak is not installed.'; fi",
     "flatpak_apply":     "if command -v flatpak >/dev/null 2>&1; then flatpak update -y; else echo '[skip] Flatpak is not installed.'; fi",
     "snap_list":         "if command -v snap >/dev/null 2>&1; then sudo snap refresh --list; else echo '[skip] Snap is not installed.'; fi",
@@ -74,7 +78,7 @@ _ACTIONS = {
 }
 
 # Handlinger hvor sudo oftest kræves
-_NEED_SUDO = {"apt_update", "apt_upgrade", "apt_full_upgrade", "snap_refresh", "full_noob_update"}
+_NEED_SUDO = {"apt_update", "apt_upgrade", "apt_full_upgrade", "snap_refresh", "full_noob_update", "reboot_now"}
 
 
 def _force_english(cmd: str) -> str:
@@ -392,6 +396,32 @@ def updates_run_async():
         s = _get_active_ssh_settings()
         if not _is_configured(s):
             return jsonify({"ok": False, "error": "SSH not configured"}), 400
+
+        # Validate sudo before starting the reboot. The reboot command itself is
+        # dispatched without waiting because a successful reboot drops SSH.
+        if action == 'reboot_now':
+            ssh = ssh_connect(
+                host=s["pi_host"], user=s["pi_user"],
+                auth=s.get("auth_method", "key"),
+                key_path=s.get("ssh_key_path", ""),
+                password=s.get("password", ""), timeout=20
+            )
+            validate_cmd = _wrap_with_password("sudo -v", sudo_password) if sudo_password else "sudo -n -v"
+            rc, _, err = ssh_exec(ssh, validate_cmd, timeout=15, shell=True)
+            if rc != 0:
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
+                return jsonify({"ok": False, "error": (err or "Sudo authentication failed").strip()}), 403
+
+            ssh.exec_command("sudo -n reboot", timeout=10)
+            time.sleep(0.25)
+            try:
+                ssh.close()
+            except Exception:
+                pass
+            return jsonify({"ok": True, "rebooting": True})
 
         # Fast-path for lightweight checks to preserve legacy contract
         if action == 'reboot_required':
